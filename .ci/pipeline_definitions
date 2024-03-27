@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+gardener-extension-shoot-falco-service:
+  base_definition:
+    traits:
+      component_descriptor:
+        ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
+        component_labels:
+        - name: 'cloud.gardener.cnudie/responsibles'
+          value:
+          - type: 'codeowners'
+        retention_policy: 'clean-snapshots'
+      version:
+        preprocess: 'inject-commit-hash'
+  jobs:
+    head-update:
+      traits:
+        draft_release: ~
+        component_descriptor:
+          ocm_repository_mappings:
+            - repository: europe-docker.pkg.dev/gardener-project/releases
+        options:
+          public_build_logs: true
+    pull-request:
+      traits:
+        pull-request: ~
+        component_descriptor:
+          ocm_repository_mappings:
+            - repository: europe-docker.pkg.dev/gardener-project/releases
+        options:
+          public_build_logs: true
+    release:
+      traits:
+        version:
+          preprocess: 'finalize'
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases
+        release:
+          nextversion: 'bump_minor'
+          next_version_callback: '.ci/prepare_release'
+          release_callback: '.ci/prepare_release'
+        publish:
+          oci-builder: docker-buildx
+          platforms:
+          - linux/amd64
+          - linux/arm64
+          dockerimages:
+            gardener-extension-shoot-networking-problemdetector:
+              image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/shoot-falco-service
+              tag_as_latest: true

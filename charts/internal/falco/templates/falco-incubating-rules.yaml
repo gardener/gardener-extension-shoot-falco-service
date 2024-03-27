@@ -1,0 +1,777 @@
+{{- if .Values.useFalcoIncubatingRules }}
+apiVersion: v1
+data:
+  falco-incubating_rules.yaml: "#\n# Copyright (C) 2023 The Falco Authors.\n#\n#\n#
+    Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not
+    use this file except in compliance with the License.\n# You may obtain a copy
+    of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless
+    required by applicable law or agreed to in writing, software\n# distributed under
+    the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS
+    OF ANY KIND, either express or implied.\n# See the License for the specific language
+    governing permissions and\n# limitations under the License.\n#\n\n# Information
+    about rules tags and fields can be found here: https://falco.org/docs/rules/#tags-for-current-falco-ruleset\n#
+    The initial item in the `tags` fields reflects the maturity level of the rules
+    introduced upon the proposal https://github.com/falcosecurity/rules/blob/main/proposals/20230605-rules-adoption-management-maturity-framework.md\n#
+    `tags` fields also include information about the type of workload inspection (host
+    and/or container), and Mitre Attack killchain phases and Mitre TTP code(s)\n#
+    Mitre Attack References:\n# [1] https://attack.mitre.org/tactics/enterprise/\n#
+    [2] https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json\n\n#
+    Starting with version 8, the Falco engine supports exceptions.\n# However the
+    Falco rules file does not use them by default.\n- required_engine_version: 26\n\n-
+    macro: open_write\n  condition: (evt.type in (open,openat,openat2) and evt.is_open_write=true
+    and fd.typechar='f' and fd.num>=0)\n\n- macro: open_read\n  condition: (evt.type
+    in (open,openat,openat2) and evt.is_open_read=true and fd.typechar='f' and fd.num>=0)\n\n-
+    macro: open_directory\n  condition: (evt.type in (open,openat,openat2) and evt.is_open_read=true
+    and fd.typechar='d' and fd.num>=0)\n\n# This macro `never_true` is used as placeholder
+    for tuning negative logical sub-expressions, for example\n# - macro: allowed_ssh_hosts\n#
+    \  condition: (never_true)\n# can be used in a rules' expression with double negation
+    `and not allowed_ssh_hosts` which effectively evaluates\n# to true and does nothing,
+    the perfect empty template for `logical` cases as opposed to list templates.\n#
+    When tuning the rule you can override the macro with something useful, e.g.\n#
+    - macro: allowed_ssh_hosts\n#   condition: (evt.hostname contains xyz)\n- macro:
+    never_true\n  condition: (evt.num=0)\n\n# This macro `always_true` is the flip
+    side of the macro `never_true` and currently is commented out as\n# it is not
+    used. You can use it as placeholder for a positive logical sub-expression tuning
+    template\n# macro, e.g. `and custom_procs`, where\n# - macro: custom_procs\n#
+    \  condition: (always_true)\n# later you can customize, override the macros to
+    something like\n# - macro: custom_procs\n#   condition: (proc.name in (custom1,
+    custom2, custom3))\n# - macro: always_true\n#   condition: (evt.num>=0)\n\n# In
+    some cases, such as dropped system call events, information about\n# the process
+    name may be missing. For some rules that really depend\n# on the identity of the
+    process performing an action such as opening\n# a file, etc., we require that
+    the process name be known.\n- macro: proc_name_exists\n  condition: (proc.name!=\"<NA>\")\n\n-
+    macro: rename\n  condition: (evt.type in (rename, renameat, renameat2))\n\n- macro:
+    remove\n  condition: (evt.type in (rmdir, unlink, unlinkat))\n\n- macro: modify\n
+    \ condition: (rename or remove)\n\n- macro: spawned_process\n  condition: (evt.type
+    in (execve, execveat) and evt.dir=<)\n\n- macro: chmod\n  condition: (evt.type
+    in (chmod, fchmod, fchmodat) and evt.dir=<)\n\n- list: shell_binaries\n  items:
+    [ash, bash, csh, ksh, sh, tcsh, zsh, dash]\n\n- list: ssh_binaries\n  items: [\n
+    \   sshd, sftp-server, ssh-agent,\n    ssh, scp, sftp,\n    ssh-keygen, ssh-keysign,
+    ssh-keyscan, ssh-add\n    ]\n\n- list: coreutils_binaries\n  items: [\n    truncate,
+    sha1sum, numfmt, fmt, fold, uniq, cut, who,\n    groups, csplit, sort, expand,
+    printf, printenv, unlink, tee, chcon, stat,\n    basename, split, nice, \"yes\",
+    whoami, sha224sum, hostid, users, stdbuf,\n    base64, unexpand, cksum, od, paste,
+    nproc, pathchk, sha256sum, wc, test,\n    comm, arch, du, factor, sha512sum, md5sum,
+    tr, runcon, env, dirname,\n    tsort, join, shuf, install, logname, pinky, nohup,
+    expr, pr, tty, timeout,\n    tail, \"[\", seq, sha384sum, nl, head, id, mkfifo,
+    sum, dircolors, ptx, shred,\n    tac, link, chroot, vdir, chown, touch, ls, dd,
+    uname, \"true\", pwd, date,\n    chgrp, chmod, mktemp, cat, mknod, sync, ln, \"false\",
+    rm, mv, cp, echo,\n    readlink, sleep, stty, mkdir, df, dir, rmdir, touch\n    ]\n\n#
+    dpkg -L login | grep bin | xargs ls -ld | grep -v '^d' | awk '{print $9}' | xargs
+    -L 1 basename | tr \"\\\\n\" \",\"\n- list: login_binaries\n  items: [\n    login,
+    systemd, '\"(systemd)\"', systemd-logind, su,\n    nologin, faillog, lastlog,
+    newgrp, sg\n    ]\n\n# dpkg -L passwd | grep bin | xargs ls -ld | grep -v '^d'
+    | awk '{print $9}' | xargs -L 1 basename | tr \"\\\\n\" \",\"\n- list: passwd_binaries\n
+    \ items: [\n    shadowconfig, grpck, pwunconv, grpconv, pwck,\n    groupmod, vipw,
+    pwconv, useradd, newusers, cppw, chpasswd, usermod,\n    groupadd, groupdel, grpunconv,
+    chgpasswd, userdel, chage, chsh,\n    gpasswd, chfn, expiry, passwd, vigr, cpgr,
+    adduser, addgroup, deluser, delgroup\n    ]\n\n# repoquery -l shadow-utils | grep
+    bin | xargs ls -ld | grep -v '^d' |\n#     awk '{print $9}' | xargs -L 1 basename
+    | tr \"\\\\n\" \",\"\n- list: shadowutils_binaries\n  items: [\n    chage, gpasswd,
+    lastlog, newgrp, sg, adduser, deluser, chpasswd,\n    groupadd, groupdel, addgroup,
+    delgroup, groupmems, groupmod, grpck, grpconv, grpunconv,\n    newusers, pwck,
+    pwconv, pwunconv, useradd, userdel, usermod, vigr, vipw, unix_chkpwd\n    ]\n\n-
+    list: sysdigcloud_binaries\n  items: [setup-backend, dragent, sdchecks]\n\n- list:
+    k8s_binaries\n  items: [hyperkube, skydns, kube2sky, exechealthz, weave-net, loopback,
+    bridge, openshift-sdn, openshift]\n\n- list: lxd_binaries\n  items: [lxd, lxcfs]\n\n-
+    list: db_server_binaries\n  items: [mysqld, postgres, sqlplus]\n\n# The explicit
+    quotes are needed to avoid the - characters being\n# interpreted by the filter
+    expression.\n- list: rpm_binaries\n  items: [dnf, dnf-automatic, rpm, rpmkey,
+    yum, '\"75-system-updat\"', rhsmcertd-worke, rhsmcertd, subscription-ma,\n          repoquery,
+    rpmkeys, rpmq, yum-cron, yum-config-mana, yum-debug-dump,\n          abrt-action-sav,
+    rpmdb_stat, microdnf, rhn_check, yumdb]\n\n- list: deb_binaries\n  items: [dpkg,
+    dpkg-preconfigu, dpkg-reconfigur, dpkg-divert, apt, apt-get, aptitude,\n    frontend,
+    preinst, add-apt-reposit, apt-auto-remova, apt-key,\n    apt-listchanges, unattended-upgr,
+    apt-add-reposit, apt-cache, apt.systemd.dai\n    ]\n- list: python_package_managers\n
+    \ items: [pip, pip3, conda]\n\n# The truncated dpkg-preconfigu is intentional,
+    process names are\n# truncated at the falcosecurity-libs level.\n- list: package_mgmt_binaries\n
+    \ items: [rpm_binaries, deb_binaries, update-alternat, gem, npm, python_package_managers,
+    sane-utils.post, alternatives, chef-client, apk, snapd]\n\n- macro: package_mgmt_procs\n
+    \ condition: (proc.name in (package_mgmt_binaries))\n\n- macro: package_mgmt_ancestor_procs\n
+    \ condition: (proc.pname in (package_mgmt_binaries) or\n             proc.aname[2]
+    in (package_mgmt_binaries) or\n             proc.aname[3] in (package_mgmt_binaries)
+    or\n             proc.aname[4] in (package_mgmt_binaries))\n\n# A canonical set
+    of processes that run other programs with different\n# privileges or as a different
+    user.\n- list: userexec_binaries\n  items: [sudo, su, suexec, critical-stack,
+    dzdo]\n\n- list: known_setuid_binaries\n  items: [\n    sshd, dbus-daemon-lau,
+    ping, ping6, critical-stack-, pmmcli,\n    filemng, PassengerAgent, bwrap, osdetect,
+    nginxmng, sw-engine-fpm,\n    start-stop-daem\n    ]\n\n- list: user_mgmt_binaries\n
+    \ items: [login_binaries, passwd_binaries, shadowutils_binaries]\n\n- list: dev_creation_binaries\n
+    \ items: [blkid, rename_device, update_engine, sgdisk]\n\n- list: nomachine_binaries\n
+    \ items: [nxexec, nxnode.bin, nxserver.bin, nxclient.bin]\n\n- macro: system_procs\n
+    \ condition: (proc.name in (coreutils_binaries, user_mgmt_binaries))\n\n- list:
+    mail_binaries\n  items: [\n    sendmail, sendmail-msp, postfix, procmail, exim4,\n
+    \   pickup, showq, mailq, dovecot, imap-login, imap,\n    mailmng-core, pop3-login,
+    dovecot-lda, pop3\n    ]\n\n# RFC1918 addresses were assigned for private network
+    usage\n- list: rfc_1918_addresses\n  items: ['\"10.0.0.0/8\"', '\"172.16.0.0/12\"',
+    '\"192.168.0.0/16\"']\n\n- macro: outbound\n  condition: >\n    (((evt.type =
+    connect and evt.dir=<) or\n      (evt.type in (sendto,sendmsg) and evt.dir=< and\n
+    \      fd.l4proto != tcp and fd.connected=false and fd.name_changed=true)) and\n
+    \    (fd.typechar = 4 or fd.typechar = 6) and\n     (fd.ip != \"0.0.0.0\" and
+    fd.net != \"127.0.0.0/8\" and not fd.snet in (rfc_1918_addresses)) and\n     (evt.rawres
+    >= 0 or evt.res = EINPROGRESS))\n\n# Very similar to inbound/outbound, but combines
+    the tests together\n# for efficiency.\n- macro: inbound_outbound\n  condition:
+    >\n    ((((evt.type in (accept,accept4,listen,connect) and evt.dir=<)) and\n     (fd.typechar
+    = 4 or fd.typechar = 6)) and\n     (fd.ip != \"0.0.0.0\" and fd.net != \"127.0.0.0/8\")
+    and\n     (evt.rawres >= 0 or evt.res = EINPROGRESS))\n\n- list: bash_config_filenames\n
+    \ items: [.bashrc, .bash_profile, .bash_history, .bash_login, .bash_logout, .inputrc,
+    .profile]\n\n- list: bash_config_files\n  items: [/etc/profile, /etc/bashrc]\n\n#
+    Covers both csh and tcsh\n- list: csh_config_filenames\n  items: [.cshrc, .login,
+    .logout, .history, .tcshrc, .cshdirs]\n\n- list: csh_config_files\n  items: [/etc/csh.cshrc,
+    /etc/csh.login]\n\n- list: zsh_config_filenames\n  items: [.zshenv, .zprofile,
+    .zshrc, .zlogin, .zlogout]\n\n- list: shell_config_filenames\n  items: [bash_config_filenames,
+    csh_config_filenames, zsh_config_filenames]\n\n- list: shell_config_files\n  items:
+    [bash_config_files, csh_config_files]\n\n- list: shell_config_directories\n  items:
+    [/etc/zsh]\n\n- macro: user_known_shell_config_modifiers\n  condition: (never_true)\n\n-
+    rule: Modify Shell Configuration File\n  desc: > \n    Detect attempts to modify
+    shell configuration files, primarily aimed at establishing persistence by automatically
+    inserting \n    commands into scripts executed by shells. The upstream rule excludes
+    shell processes because they often create unnecessary noise.\n    However, this
+    might lead to missed detections. To customize the rule for your situation, you
+    can fine-tune it using enhanced profiling. \n    For example, you might want to
+    only consider interactive shell processes (where proc.tty != 0).\n  condition:
+    >\n    open_write \n    and (fd.filename in (shell_config_filenames) or\n         fd.name
+    in (shell_config_files) or\n         fd.directory in (shell_config_directories))\n
+    \   and not proc.name in (shell_binaries)\n    and not exe_running_docker_save\n
+    \   and not user_known_shell_config_modifiers\n  output: A shell configuration
+    file has been modified (file=%fd.name pcmdline=%proc.pcmdline evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority:\n    WARNING\n  tags: [maturity_incubating,
+    host, container, filesystem, mitre_persistence, T1546.004]\n\n- macro: user_known_cron_jobs\n
+    \ condition: (never_true)\n\n- rule: Schedule Cron Jobs\n  desc: >\n    Detect
+    scheduled cron jobs; this is a highly generic detection and certainly needs adjustments
+    and profiling in your environment before \n    operationalization. Simultaneously,
+    exploiting the functionality of cron jobs is among one of the oldest TTPs used
+    by adversaries.\n  condition: >\n    ((open_write and fd.name startswith /etc/cron)
+    or\n     (spawned_process and proc.name = \"crontab\")) \n    and not user_known_cron_jobs\n
+    \ output: Cron jobs were scheduled to run (file=%fd.name evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+    %container.info)\n  priority:\n    NOTICE\n  tags: [maturity_incubating, host,
+    container, filesystem, mitre_execution, T1053.003]\n\n# Use this to test whether
+    the event occurred within a container.\n#\n# When displaying container information
+    in the output field, use\n# %container.info, without any leading term (file=%fd.name\n#
+    %container.info user=%user.name user_loginuid=%user.loginuid, and not file=%fd.name\n#
+    container=%container.info user=%user.name user_loginuid=%user.loginuid). The output
+    will change\n# based on the context and whether or not -pk/-pm/-pc was specified
+    on\n# the command line.\n- macro: container\n  condition: (container.id != host)\n\n-
+    macro: container_started\n  condition: >\n    ((evt.type = container or\n     (spawned_process
+    and proc.vpid=1)) and\n     container.image.repository != incomplete)\n\n- list:
+    cron_binaries\n  items: [anacron, cron, crond, crontab]\n\n# Qualys seems to run
+    a variety of shell subprocesses, at various\n# levels. This checks at a few levels
+    without the cost of a full\n# proc.aname, which traverses the full parent hierarchy.\n-
+    macro: run_by_qualys\n  condition: >\n    (proc.pname=qualys-cloud-ag or\n     proc.aname[2]=qualys-cloud-ag
+    or\n     proc.aname[3]=qualys-cloud-ag or\n     proc.aname[4]=qualys-cloud-ag)\n\n-
+    macro: run_by_sumologic_securefiles\n  condition: >\n    ((proc.cmdline=\"usermod
+    -a -G sumologic_collector\" or\n      proc.cmdline=\"groupadd sumologic_collector\")
+    and\n     (proc.pname=secureFiles.sh and proc.aexe[2] endswith java))\n\n- macro:
+    run_by_yum\n  condition: ((proc.pname=sh and proc.aname[2]=yum) or\n              (proc.aname[2]=sh
+    and proc.aname[3]=yum))\n\n- macro: run_by_ms_oms\n  condition: >\n    (proc.aname[3]
+    startswith omsagent- or\n     proc.aname[3] startswith scx-)\n\n- macro: run_by_google_accounts_daemon\n
+    \ condition: >\n    (proc.aname[1] startswith google_accounts or\n     proc.aname[2]
+    startswith google_accounts or\n     proc.aname[3] startswith google_accounts)\n\n-
+    macro: java_running_sdjagent\n  condition: (proc.exe endswith java and proc.cmdline
+    contains sdjagent.jar)\n\n- macro: kubelet_running_loopback\n  condition: (proc.pname=kubelet
+    and proc.name=loopback)\n\n- macro: rancher_agent\n  condition: (proc.name=agent
+    and container.image.repository contains \"rancher/agent\")\n\n- macro: rancher_network_manager\n
+    \ condition: (proc.name=rancher-bridge and container.image.repository contains
+    \"rancher/network-manager\")\n\n- macro: exe_running_docker_save\n  condition:
+    >\n    (proc.name = \"exe\"\n    and (proc.cmdline contains \"/var/lib/docker\"\n
+    \   or proc.cmdline contains \"/var/run/docker\")\n    and proc.pname in (dockerd,
+    docker, dockerd-current, docker-current))\n\n- macro: user_ssh_directory\n  condition:
+    (fd.name contains '/.ssh/' and fd.name glob '/home/*/.ssh/*')\n\n# The rule below
+    is disabled by default as many system management tools\n# like ansible, etc can
+    read these files/paths. Enable it using this macro.\n- macro: user_known_read_ssh_information_activities\n
+    \ condition: (never_true)\n\n- rule: Read ssh information\n  desc: > \n    This
+    rule identifies attempts to read files within ssh directories using programs that
+    are not related to ssh. It's a simple and \n    versatile detection method that
+    works well alongside more specific rules focused on sensitive file access. You
+    have a couple of \n    options for using this rule effectively: you can adjust
+    the specialized rules to cover all the important scenarios and ensure \n    precedence
+    in rule smatching for those, or you can analyze the combined view of ssh-related
+    file access across various rules on \n    your downstream computing platform.
+    Just like with other rules, you can narrow down monitoring to specific processes,
+    or you can \n    limit it to interactive access only.\n  condition: >\n    (open_read
+    or open_directory) \n     and (user_ssh_directory or fd.name startswith /root/.ssh)\n
+    \    and not user_known_read_ssh_information_activities \n     and not proc.name
+    in (ssh_binaries)\n  output: ssh-related file/directory read by non-ssh program
+    (file=%fd.name pcmdline=%proc.pcmdline evt_type=%evt.type user=%user.name user_uid=%user.uid
+    user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname
+    command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n
+    \ priority: ERROR\n  tags: [maturity_incubating, host, container, filesystem,
+    mitre_collection, T1005]\n\n- macro: calico_node\n  condition: (container.image.repository
+    endswith calico/node and proc.name=calico-node)\n\n- macro: postgres_running_wal_e\n
+    \ condition: (proc.pname=postgres and (proc.cmdline startswith \"sh -c envdir
+    /etc/wal-e.d/env /usr/local/bin/wal-e\" or proc.cmdline startswith \"sh -c envdir
+    \\\"/run/etc/wal-e.d/env\\\" wal-g wal-push\"))\n\n- macro: user_known_db_spawned_processes\n
+    \ condition: (never_true)\n\n- rule: DB program spawned process\n  desc: >\n    A
+    program related to the database server creates an unexpected child process (other
+    than itself). \n    This is not supposed to happen and often follows SQL injection
+    attacks. This behavioral detection could \n    indicate potential unauthorized
+    data extraction or tampering with the database.\n  condition: >\n    spawned_process\n
+    \   and proc.pname in (db_server_binaries)\n    and not proc.name in (db_server_binaries)\n
+    \   and not postgres_running_wal_e\n    and not user_known_db_spawned_processes\n
+    \ output: Database-related program spawned process other than itself (evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating,
+    host, container, process, database, mitre_execution, T1190]\n\n# This list allows
+    for easy additions to the set of commands allowed\n# to change thread namespace
+    without having to copy and override the\n# entire change thread namespace rule.\n-
+    list: user_known_change_thread_namespace_binaries\n  items: [crio, multus]\n\n-
+    macro: user_known_change_thread_namespace_activities\n  condition: (never_true)\n\n-
+    list: network_plugin_binaries\n  items: [aws-cni, azure-vnet]\n\n- macro: weaveworks_scope\n
+    \ condition: (container.image.repository endswith weaveworks/scope and proc.name=scope)\n\n-
+    rule: Change thread namespace\n  desc: >\n    An attempt to alter the namespace
+    of a process (often performed while creating a container) through the setns syscall.
+    \n    Conversely, the same syscall setns is triggered when an unauthorized attempt
+    is made to break out from the container \n    to the host, for example, when using
+    commands like `nsenter --target 1` and similar ones. Recommending to profile your
+    \n    environment and refine this rule for effective operationalization.\n  condition:
+    >\n    evt.type=setns and evt.dir=<\n    and proc_name_exists\n    and not (container.id=host
+    and proc.name in (docker_binaries, k8s_binaries, lxd_binaries, nsenter))\n    and
+    not proc.name in (sysdigcloud_binaries, sysdig, calico, oci-umount, cilium-cni,
+    network_plugin_binaries)\n    and not proc.name in (user_known_change_thread_namespace_binaries)\n
+    \   and not proc.name startswith \"runc\"\n    and not proc.cmdline startswith
+    \"containerd\"\n    and not proc.pname in (sysdigcloud_binaries, hyperkube, kubelet,
+    protokube, dockerd, tini, aws)\n    and not java_running_sdjagent\n    and not
+    kubelet_running_loopback\n    and not rancher_agent\n    and not rancher_network_manager\n
+    \   and not calico_node\n    and not weaveworks_scope\n    and not user_known_change_thread_namespace_activities\n
+    \ output: Namespace change (setns) by unexpected program (evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+    %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating, host, container,
+    process, mitre_privilege_escalation, T1611]\n\n- rule: Change namespace privileges
+    via unshare\n  desc: > \n    Unprivileged users in containers may not have CAP_SYS_ADMIN
+    or other elevated privileges. However, they can  \n    use the unshare system
+    call with CLONE_NEWNS or CLONE_NEWUSER to create or clone a namespace or user
+    with the \n    necessary privileges to conduct further attacks. It is best practice
+    to block the unshare system call via \n    seccomp if it is not needed. Misuse
+    of unshare can be related to misconfigured Kubernetes clusters, for example.\n
+    \ condition: >\n    evt.type=unshare and evt.dir=< \n    and container \n    and
+    not thread.cap_permitted contains CAP_SYS_ADMIN\n  output: Change namespace privileges
+    via unshare (res=%evt.res evt_type=%evt.type user=%user.name user_uid=%user.uid
+    user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname
+    command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n
+    \ priority: NOTICE\n  tags: [maturity_incubating, container, mitre_privilege_escalation,
+    T1611]\n\n- macro: allowed_openshift_registry_root\n  condition: >\n    (container.image.repository
+    startswith openshift3/ or\n     container.image.repository startswith registry.redhat.io/openshift3/
+    or\n     container.image.repository startswith registry.access.redhat.com/openshift3/)\n\n#
+    Source: https://docs.openshift.com/enterprise/3.2/install_config/install/disconnected_install.html\n-
+    macro: openshift_image\n  condition: >\n    (allowed_openshift_registry_root and\n
+    \     (container.image.repository endswith /logging-deployment or\n       container.image.repository
+    endswith /logging-elasticsearch or\n       container.image.repository endswith
+    /logging-kibana or\n       container.image.repository endswith /logging-fluentd
+    or\n       container.image.repository endswith /logging-auth-proxy or\n       container.image.repository
+    endswith /metrics-deployer or\n       container.image.repository endswith /metrics-hawkular-metrics
+    or\n       container.image.repository endswith /metrics-cassandra or\n       container.image.repository
+    endswith /metrics-heapster or\n       container.image.repository endswith /ose-haproxy-router
+    or\n       container.image.repository endswith /ose-deployer or\n       container.image.repository
+    endswith /ose-sti-builder or\n       container.image.repository endswith /ose-docker-builder
+    or\n       container.image.repository endswith /ose-pod or\n       container.image.repository
+    endswith /ose-node or\n       container.image.repository endswith /ose-docker-registry
+    or\n       container.image.repository endswith /prometheus-node-exporter or\n
+    \      container.image.repository endswith /image-inspector))\n\n- list: redhat_io_images_privileged\n
+    \ items: [registry.redhat.io/openshift-logging/fluentd-rhel8, registry.redhat.io/openshift4/ose-csi-node-driver-registrar,
+    registry.redhat.io/openshift4/ose-kubernetes-nmstate-handler-rhel8, registry.redhat.io/openshift4/ose-local-storage-diskmaker]\n\n-
+    macro: redhat_image\n  condition: >\n    (container.image.repository in (redhat_io_images_privileged))\n\n#
+    https://docs.aws.amazon.com/eks/latest/userguide/add-ons-images.html\n#  official
+    AWS EKS registry list. AWS has different ECR repo per region\n- macro: allowed_aws_ecr_registry_root_for_eks\n
+    \ condition: >\n    (container.image.repository startswith \"602401143452.dkr.ecr\"
+    or\n     container.image.repository startswith \"877085696533.dkr.ecr\" or\n     container.image.repository
+    startswith \"800184023465.dkr.ecr\" or\n     container.image.repository startswith
+    \"918309763551.dkr.ecr\" or\n     container.image.repository startswith \"961992271922.dkr.ecr\"
+    or\n     container.image.repository startswith \"590381155156.dkr.ecr\" or\n     container.image.repository
+    startswith \"558608220178.dkr.ecr\" or\n     container.image.repository startswith
+    \"151742754352.dkr.ecr\" or\n     container.image.repository startswith \"013241004608.dkr.ecr\")\n\n-
+    macro: aws_eks_core_images\n  condition: >\n    (allowed_aws_ecr_registry_root_for_eks
+    and\n    (container.image.repository endswith \".amazonaws.com/amazon-k8s-cni\"
+    or\n     container.image.repository endswith \".amazonaws.com/eks/kube-proxy\"))\n\n#
+    These images are allowed both to run with --privileged and to mount\n# sensitive
+    paths from the host filesystem.\n#\n# NOTE: This list is only provided for backwards
+    compatibility with\n# older local falco rules files that may have been appending
+    to\n# trusted_images. To make customizations, it's better to add images to\n#
+    either privileged_images or falco_sensitive_mount_images.\n- list: trusted_images\n
+    \ items: []\n\n# Add conditions to this macro (probably in a separate file,\n#
+    overwriting this macro) to specify additional containers that are\n# trusted and
+    therefore allowed to run privileged *and* with sensitive\n# mounts.\n#\n# Like
+    trusted_images, this is deprecated in favor of\n# user_privileged_containers and
+    user_sensitive_mount_containers and\n# is only provided for backwards compatibility.\n#\n#
+    In this file, it just takes one of the images in trusted_containers\n# and repeats
+    it.\n- macro: user_trusted_containers\n  condition: (never_true)\n\n- list: sematext_images\n
+    \ items: [docker.io/sematext/sematext-agent-docker, docker.io/sematext/agent,
+    docker.io/sematext/logagent,\n          registry.access.redhat.com/sematext/sematext-agent-docker,\n
+    \         registry.access.redhat.com/sematext/agent,\n          registry.access.redhat.com/sematext/logagent]\n\n#
+    Falco containers\n- list: falco_containers\n  items:\n    - falcosecurity/falco\n
+    \   - docker.io/falcosecurity/falco\n    - public.ecr.aws/falcosecurity/falco\n\n#
+    Falco no driver containers\n    - falcosecurity/falco-no-driver\n    - docker.io/falcosecurity/falco-no-driver\n
+    \   - public.ecr.aws/falcosecurity/falco-no-driver\n\n# These container images
+    are allowed to run with --privileged and full set of capabilities\n# TODO: Remove
+    k8s.gcr.io reference after 01/Dec/2023\n- list: falco_privileged_images\n  items:
+    [\n    falco_containers,\n    docker.io/calico/node,\n    calico/node,\n    docker.io/cloudnativelabs/kube-router,\n
+    \   docker.io/docker/ucp-agent,\n    docker.io/mesosphere/mesos-slave,\n    docker.io/rook/toolbox,\n
+    \   docker.io/sysdig/sysdig,\n    gcr.io/google_containers/kube-proxy,\n    gcr.io/google-containers/startup-script,\n
+    \   gcr.io/projectcalico-org/node,\n    gke.gcr.io/kube-proxy,\n    gke.gcr.io/gke-metadata-server,\n
+    \   gke.gcr.io/netd-amd64,\n    gke.gcr.io/watcher-daemonset,\n    gcr.io/google-containers/prometheus-to-sd,\n
+    \   k8s.gcr.io/ip-masq-agent-amd64,\n    k8s.gcr.io/kube-proxy,\n    k8s.gcr.io/prometheus-to-sd,\n
+    \   registry.k8s.io/ip-masq-agent-amd64,\n    registry.k8s.io/kube-proxy,\n    registry.k8s.io/prometheus-to-sd,\n
+    \   quay.io/calico/node,\n    sysdig/sysdig,\n    sematext_images,\n    k8s.gcr.io/dns/k8s-dns-node-cache,\n
+    \   registry.k8s.io/dns/k8s-dns-node-cache,\n    mcr.microsoft.com/oss/kubernetes/kube-proxy\n
+    \ ]\n\n- macro: falco_privileged_containers\n  condition: (openshift_image or\n
+    \             user_trusted_containers or\n              aws_eks_core_images or\n
+    \             container.image.repository in (trusted_images) or\n              container.image.repository
+    in (falco_privileged_images) or\n              container.image.repository startswith
+    istio/proxy_ or\n              container.image.repository startswith quay.io/sysdig/)\n\n#
+    Add conditions to this macro (probably in a separate file,\n# overwriting this
+    macro) to specify additional containers that are\n# allowed to run privileged\n#\n#
+    In this file, it just takes one of the images in falco_privileged_images\n# and
+    repeats it.\n- macro: user_privileged_containers\n  condition: (never_true)\n\n-
+    rule: Launch Privileged Container\n  desc: > \n    Detect the initial process
+    initiation within a privileged container, with exemptions for known and trusted
+    images. \n    This rule primarily serves as an excellent auditing mechanism since
+    highly privileged containers, when compromised, \n    can result in significant
+    harm. For instance, if another rule triggers within such a privileged container,
+    it could be \n    seen as more suspicious, prompting a closer inspection.\n  condition:
+    >\n    container_started \n    and container\n    and container.privileged=true\n
+    \   and not falco_privileged_containers\n    and not user_privileged_containers\n
+    \   and not redhat_image\n  output: Privileged container started (evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: INFO\n  tags: [maturity_incubating,
+    container, cis, mitre_execution, T1610, PCI_DSS_10.2.5]\n\n# These capabilities
+    were used in the past to escape from containers\n- macro: excessively_capable_container\n
+    \ condition: >\n    (thread.cap_permitted contains CAP_SYS_ADMIN\n    or thread.cap_permitted
+    contains CAP_SYS_MODULE\n    or thread.cap_permitted contains CAP_SYS_RAWIO\n
+    \   or thread.cap_permitted contains CAP_SYS_PTRACE\n    or thread.cap_permitted
+    contains CAP_SYS_BOOT\n    or thread.cap_permitted contains CAP_SYSLOG\n    or
+    thread.cap_permitted contains CAP_DAC_READ_SEARCH\n    or thread.cap_permitted
+    contains CAP_NET_ADMIN\n    or thread.cap_permitted contains CAP_BPF)\n\n- rule:
+    Launch Excessively Capable Container\n  desc: > \n    Identify containers that
+    start with a powerful set of capabilities, with exceptions for recognized trusted
+    images. \n    Similar to the \"Launch Privileged Container\" rule, this functions
+    as a robust auditing rule. Compromised highly privileged \n    containers can
+    lead to substantial harm. For instance, if another rule is triggered within such
+    a container, it might \n    raise suspicion, prompting closer scrutiny.\n  condition:
+    >\n    container_started \n    and container\n    and excessively_capable_container\n
+    \   and not falco_privileged_containers\n    and not user_privileged_containers\n
+    \ output: Excessively capable container started (cap_permitted=%thread.cap_permitted
+    evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n  priority: INFO\n
+    \ tags: [maturity_incubating, container, cis, mitre_execution, T1610]\n\n- macro:
+    login_doing_dns_lookup\n  condition: (proc.name=login and fd.l4proto=udp and fd.sport=53)\n\n#
+    sockfamily ip is to exclude certain processes (like 'groups') that communicate
+    on unix-domain sockets\n# systemd can listen on ports to launch things like sshd
+    on demand\n- rule: System procs network activity\n  desc: >\n    Detect any unexpected
+    network activity performed by system binaries that typically shouldn't perform
+    network activity, including \n    coreutils binaries (like sleep, mkdir, who,
+    date, and others) or user management binaries (such as login, systemd, usermod,
+    deluser, \n    adduser, chpasswd, and others). This serves as a valuable baseline
+    detection for network-related activities.\n  condition: >\n    inbound_outbound\n
+    \   and fd.sockfamily = ip \n    and (system_procs or proc.name in (shell_binaries))\n
+    \   and not proc.name in (known_system_procs_network_activity_binaries)\n    and
+    not login_doing_dns_lookup\n    and not user_expected_system_procs_network_activity_conditions\n
+    \ output: Known system binary sent/received network traffic (connection=%fd.name
+    lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating,
+    host, network, process, mitre_execution, T1059]\n\n# This list allows easily whitelisting
+    system proc names that are\n# expected to communicate on the network.\n- list:
+    known_system_procs_network_activity_binaries\n  items: [systemd, hostid, id]\n\n#
+    This macro allows specifying conditions under which a system binary\n# is allowed
+    to communicate on the network. For instance, only specific\n# proc.cmdline values
+    could be allowed to be more granular in what is\n# allowed.\n- macro: user_expected_system_procs_network_activity_conditions\n
+    \ condition: (never_true)\n\n# When filled in, this should look something like:\n#
+    (proc.env contains \"HTTP_PROXY=http://my.http.proxy.com \")\n# The trailing space
+    is intentional so avoid matching on prefixes of\n# the actual proxy.\n- macro:
+    allowed_ssh_proxy_env\n  condition: (never_true)\n\n- list: http_proxy_binaries\n
+    \ items: [curl, wget]\n\n- macro: http_proxy_procs\n  condition: (proc.name in
+    (http_proxy_binaries))\n\n- rule: Program run with disallowed http proxy env\n
+    \ desc: >\n    Detect curl or wget usage with HTTP_PROXY environment variable.
+    Attackers can manipulate the HTTP_PROXY variable's \n    value to redirect application's
+    internal HTTP requests. This could expose sensitive information like authentication
+    \n    keys and private data.\n  condition: >\n    spawned_process \n    and http_proxy_procs
+    \n    and proc.env icontains HTTP_PROXY\n    and not allowed_ssh_proxy_env \n
+    \ output: Curl or wget run with disallowed HTTP_PROXY environment variable (env=%proc.env
+    evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n  priority: NOTICE\n
+    \ tags: [maturity_incubating, host, container, users, mitre_execution, T1204]\n\n-
+    list: openvpn_udp_ports\n  items: [1194, 1197, 1198, 8080, 9201]\n\n- list: l2tp_udp_ports\n
+    \ items: [500, 1701, 4500, 10000]\n\n- list: statsd_ports\n  items: [8125]\n\n-
+    list: ntp_ports\n  items: [123]\n\n# Some applications will connect a udp socket
+    to an address only to\n# test connectivity. Assuming the udp connect works, they
+    will follow\n# up with a tcp connect that actually sends/receives data.\n#\n#
+    With that in mind, we listed a few commonly seen ports here to avoid\n# some false
+    positives. In addition, we make the main rule opt-in, so\n# it's disabled by default.\n-
+    list: test_connect_ports\n  items: [0, 9, 80, 3306]\n\n- list: expected_udp_ports\n
+    \ items: [53, openvpn_udp_ports, l2tp_udp_ports, statsd_ports, ntp_ports, test_connect_ports]\n\n-
+    macro: expected_udp_traffic\n  condition: fd.port in (expected_udp_ports)\n\n-
+    rule: Unexpected UDP Traffic\n  desc: > \n    Detecting UDP traffic on ports other
+    than 53 (DNS) or other commonly used ports. Misusing UDP is a known TTP among
+    attackers. \n    Monitoring unusual network activity is highly valuable but often
+    generates significant noise, as is the case with this detection.\n  condition:
+    > \n    inbound_outbound \n    and fd.l4proto=udp \n    and not expected_udp_traffic\n
+    \ output: Unexpected UDP Traffic Seen (connection=%fd.name lport=%fd.lport rport=%fd.rport
+    fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid
+    user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname
+    command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n
+    \ priority: NOTICE\n  tags: [maturity_incubating, host, container, network, mitre_exfiltration,
+    TA0011]\n\n- macro: somebody_becoming_themselves\n  condition: ((user.name=nobody
+    and evt.arg.uid=nobody) or\n              (user.name=www-data and evt.arg.uid=www-data)
+    or\n              (user.name=_apt and evt.arg.uid=_apt) or\n              (user.name=postfix
+    and evt.arg.uid=postfix) or\n              (user.name=pki-agent and evt.arg.uid=pki-agent)
+    or\n              (user.name=pki-acme and evt.arg.uid=pki-acme) or\n              (user.name=nfsnobody
+    and evt.arg.uid=nfsnobody) or\n              (user.name=postgres and evt.arg.uid=postgres))\n\n-
+    macro: nrpe_becoming_nagios\n  condition: (proc.name=nrpe and evt.arg.uid=nagios)\n\n#
+    In containers, the user name might be for a uid that exists in the\n# container
+    but not on the host. (See\n# https://github.com/draios/sysdig/issues/954). So
+    in that case, allow\n# a setuid.\n- macro: known_user_in_container\n  condition:
+    (container and user.name != \"N/A\")\n\n# Add conditions to this macro (probably
+    in a separate file,\n# overwriting this macro) to allow for specific combinations
+    of\n# programs changing users by calling setuid.\n#\n# In this file, it just takes
+    one of the condition in the base macro\n# and repeats it.\n- macro: user_known_non_sudo_setuid_conditions\n
+    \ condition: (user.name=root)\n\n# sshd, mail programs attempt to setuid to root
+    even when running as non-root. Excluding here to avoid meaningless FPs\n- rule:
+    Non sudo setuid\n  desc: >\n    Detect attempts to change users through the use
+    of setuid, with exceptions for sudo/su. \n    The users \"root\" and \"nobody\"
+    using setuid on themselves are also excluded, as setuid calls in these cases \n
+    \   typically involve reducing privileges. By setting the setuid bit, an attacker
+    could execute code in a \n    different user's context, potentially with higher
+    privileges. One drawback is the potential for noise, \n    as many applications
+    legitimately use this approach.\n  condition: >\n    evt.type=setuid and evt.dir=>\n
+    \   and (known_user_in_container or not container)\n    and not (user.name=root
+    or user.uid=0)\n    and not somebody_becoming_themselves\n    and not proc.name
+    in (known_setuid_binaries, userexec_binaries, mail_binaries, docker_binaries,\n
+    \                         nomachine_binaries)\n    and not proc.name startswith
+    \"runc:\"\n    and not java_running_sdjagent\n    and not nrpe_becoming_nagios\n
+    \   and not user_known_non_sudo_setuid_conditions\n  output: Unexpected setuid
+    call by non-sudo, non-root program (arg_uid=%evt.arg.uid evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+    %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating, host, container,
+    users, mitre_privilege_escalation, T1548.001]\n\n- macro: user_known_user_management_activities\n
+    \ condition: (never_true)\n\n- macro: chage_list\n  condition: (proc.name=chage
+    and (proc.cmdline contains \"-l\" or proc.cmdline contains \"--list\"))\n\n- rule:
+    User mgmt binaries\n  desc: >\n    Detect activity by any programs that can manage
+    users, passwords, or permissions (such as login, systemd, usermod, deluser, adduser,
+    \n    chpasswd, and others). sudo and su are excluded. Activity in containers
+    is also excluded -- some containers create custom users on \n    top of a base
+    linux distribution at startup. Some innocuous command lines that don't actually
+    change anything are excluded. You might \n    want to consider applying this rule
+    to container actions as well.\n  condition: >\n    spawned_process \n    and not
+    container\n    and proc.name in (user_mgmt_binaries) \n    and not proc.name in
+    (su, sudo, lastlog, nologin, unix_chkpwd)  \n    and not proc.pname in (cron_binaries,
+    systemd, systemd.postins, udev.postinst, run-parts)\n    and not proc.cmdline
+    startswith \"passwd -S\" \n    and not proc.cmdline startswith \"useradd -D\"
+    \n    and not proc.cmdline startswith \"systemd --version\" \n    and not run_by_qualys
+    \n    and not run_by_sumologic_securefiles \n    and not run_by_yum \n    and
+    not run_by_ms_oms \n    and not run_by_google_accounts_daemon \n    and not chage_list
+    \n    and not user_known_user_management_activities\n  output: User management
+    binary command run outside of container (gparent=%proc.aname[2] ggparent=%proc.aname[3]
+    gggparent=%proc.aname[4] evt_type=%evt.type user=%user.name user_uid=%user.uid
+    user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname
+    command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n
+    \ priority: NOTICE\n  tags: [maturity_incubating, host, users, software_mgmt,
+    mitre_persistence, T1098]\n\n- list: allowed_dev_files\n  items: [\n    /dev/null,
+    /dev/stdin, /dev/stdout, /dev/stderr,\n    /dev/random, /dev/urandom, /dev/console,
+    /dev/kmsg\n    ]\n\n- macro: user_known_create_files_below_dev_activities\n  condition:
+    (never_true)\n\n# (we may need to add additional checks against false positives,
+    see:\n# https://bugs.launchpad.net/ubuntu/+source/rkhunter/+bug/86153)\n- rule:
+    Create files below dev\n  desc: > \n    Detect the creation of files under /dev
+    except for authorized device management programs. This can reveal rootkits hiding
+    \n    files in /dev. Additionally, consider the \"Execution from /dev/shm\" rule.
+    The upstream rule already covers some tuning \n    scenarios that you can further
+    expand upon.\n  condition: >\n    (evt.type = creat or (evt.type in (open,openat,openat2)))\n
+    \   and evt.arg.flags contains O_CREAT\n    and fd.directory = /dev\n    and not
+    proc.name in (dev_creation_binaries)\n    and not fd.name in (allowed_dev_files)\n
+    \   and not fd.name startswith /dev/tty\n    and not user_known_create_files_below_dev_activities\n
+    \ output: File created below /dev by untrusted program (file=%fd.name evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: ERROR\n  tags: [maturity_incubating,
+    host, filesystem, mitre_persistence, T1543]\n\n# In a local/user rules file, you
+    could override this macro to\n# explicitly enumerate the container images that
+    you want to allow\n# access to EC2 metadata. In this main falco rules file, there
+    isn't\n# any way to know all the containers that should have access, so any\n#
+    container is allowed, by repeating the \"container\" macro. In the\n# overridden
+    macro, the condition would look something like\n# (container.image.repository
+    = vendor/container-1 or\n# container.image.repository = vendor/container-2 or
+    ...)\n- macro: ec2_metadata_containers\n  condition: (never_true)\n\n# On EC2
+    instances, 169.254.169.254 is a special IP used to fetch\n# metadata about the
+    instance. It may be desirable to prevent access\n# to this IP from containers.\n-
+    rule: Contact EC2 Instance Metadata Service From Container\n  desc: > \n    Detects
+    attempts to communicate with the EC2 Instance Metadata Service from a container.
+    This detection is narrowly focused \n    and might not apply to your environment.
+    In addition, it could generate noise and require fine-tuning.\n  condition: >
+    \n    outbound \n    and container\n    and fd.sip=\"169.254.169.254\" \n    and
+    not ec2_metadata_containers\n  output: Outbound connection to EC2 instance metadata
+    service (connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type
+    fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n  priority: NOTICE\n
+    \ tags: [maturity_incubating, network, aws, container, mitre_credential_access,
+    T1552.005]\n\n# This rule is not enabled by default, since this rule is for cloud
+    environment(GCP, AWS and Azure) only.\n# You can filter the container that you
+    want to allow access to metadata by overwriting user_known_metadata_access macro.\n-
+    macro: user_known_metadata_access\n  condition: (k8s.ns.name = \"kube-system\")\n\n#
+    On GCP, AWS and Azure, 169.254.169.254 is a special IP used to fetch\n# metadata
+    about the instance. The metadata could be used to get credentials by attackers.\n-
+    rule: Contact cloud metadata service from container\n  desc: > \n    Detects attempts
+    to communicate with the Cloud Instance Metadata Service from a container. This
+    detection is narrowly focused \n    and might not apply to your environment. In
+    addition, it could generate noise and require fine-tuning.\n  condition: > \n
+    \   outbound \n    and container \n    and fd.sip=\"169.254.169.254\" \n    and
+    not user_known_metadata_access\n  enabled: true\n  output: Outbound connection
+    to cloud instance metadata service (connection=%fd.name lport=%fd.lport rport=%fd.rport
+    fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid
+    user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname
+    command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n
+    \ priority: NOTICE\n  tags: [maturity_incubating, network, container, mitre_discovery,
+    T1565]\n\n- list: network_tool_binaries\n  items: [nc, ncat, netcat, nmap, dig,
+    tcpdump, tshark, ngrep, telnet, mitmproxy, socat, zmap]\n\n- macro: network_tool_procs\n
+    \ condition: (proc.name in (network_tool_binaries))\n\n# In a local/user rules
+    file, create a condition that matches legitimate uses\n# of a package management
+    process inside a container.\n#\n# For example:\n# - macro: user_known_package_manager_in_container\n#
+    \  condition: proc.cmdline=\"dpkg -l\"\n- macro: user_known_package_manager_in_container\n
+    \ condition: (never_true)\n\n# Container is supposed to be immutable. Package
+    management should be done in building the image.\n# TODO: Remove k8s.gcr.io reference
+    after 01/Dec/2023\n- macro: pkg_mgmt_in_kube_proxy\n  condition: >\n    (proc.cmdline
+    startswith \"update-alternat\"\n    and (container.image.repository = \"registry.k8s.io/kube-proxy\"\n
+    \   or container.image.repository = \"k8s.gcr.io/kube-proxy\"))\n\n- rule: Launch
+    Package Management Process in Container\n  desc: > \n    Detect package management
+    processes executed within containers. An excellent auditing rule to monitor general
+    drifts \n    in containers. Particularly useful for newer rules like \"Drop and
+    execute new binary in container\" during incident \n    response investigations.
+    This helps identify common anti-patterns of ad-hoc debugging. Simultaneously,
+    to maintain \n    optimal hygiene, it's recommended to prevent container drifts
+    and instead opt for redeploying new containers.\n  condition: >\n    spawned_process\n
+    \   and container\n    and user.name != \"_apt\"\n    and package_mgmt_procs\n
+    \   and not package_mgmt_ancestor_procs\n    and not user_known_package_manager_in_container\n
+    \   and not pkg_mgmt_in_kube_proxy\n  output: Package management process launched
+    in container (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n  priority: ERROR\n
+    \ tags: [maturity_incubating, container, process, software_mgmt, mitre_persistence,
+    T1505]\n\n- macro: user_known_network_tool_activities\n  condition: (never_true)\n\n-
+    rule: Launch Suspicious Network Tool in Container\n  desc: >\n    Detect network
+    tools (like netcat, nmap, tcpdump, socat, and more) launched within containers
+    without any additional filters. \n    This serves as a valuable general detection,
+    but it's recommended to invest engineering effort to fine-tune it and prevent
+    a \n    high volume of legitimate logs. This rule complements the more specific
+    \"Netcat Remote Code Execution in Container\" rule.\n  condition: >\n    spawned_process
+    \n    and container \n    and network_tool_procs \n    and not user_known_network_tool_activities\n
+    \ output: Network tool launched in container (evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+    %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating, container,
+    network, process, mitre_execution, T1059]\n\n- rule: Launch Suspicious Network
+    Tool on Host\n  desc: >\n    Detect network tools (like netcat, nmap, tcpdump,
+    socat, and more) launched within containers without any additional filters. \n
+    \   This serves as a valuable general detection, but it's recommended to invest
+    engineering effort to fine-tune it and prevent a \n    high volume of legitimate
+    logs. The host equivalent of \"Launch Suspicious Network Tool in Container.\".\n
+    \ condition: >\n    spawned_process \n    and not container \n    and network_tool_procs
+    \n    and not user_known_network_tool_activities\n  output: Network tool launched
+    on host (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags)\n  priority: NOTICE\n  tags: [maturity_incubating,
+    host, network, process, mitre_execution, T1059]\n\n# here `ash_history` will match
+    both `bash_history` and `ash_history`\n- macro: modify_shell_history\n  condition:
+    >\n    (modify and (\n      evt.arg.name endswith \"ash_history\" or\n      evt.arg.name
+    endswith \"zsh_history\" or\n      evt.arg.name contains \"fish_read_history\"
+    or\n      evt.arg.name endswith \"fish_history\" or\n      evt.arg.oldpath endswith
+    \"ash_history\" or\n      evt.arg.oldpath endswith \"zsh_history\" or\n      evt.arg.oldpath
+    contains \"fish_read_history\" or\n      evt.arg.oldpath endswith \"fish_history\"
+    or\n      evt.arg.path endswith \"ash_history\" or\n      evt.arg.path endswith
+    \"zsh_history\" or\n      evt.arg.path contains \"fish_read_history\" or\n      evt.arg.path
+    endswith \"fish_history\"))\n\n# here `ash_history` will match both `bash_history`
+    and `ash_history`\n- macro: truncate_shell_history\n  condition: >\n    (open_write
+    and (\n      fd.name endswith \"ash_history\" or\n      fd.name endswith \"zsh_history\"
+    or\n      fd.name contains \"fish_read_history\" or\n      fd.name endswith \"fish_history\")
+    and evt.arg.flags contains \"O_TRUNC\")\n\n- macro: var_lib_docker_filepath\n
+    \ condition: (evt.arg.name startswith /var/lib/docker or fd.name startswith /var/lib/docker)\n\n-
+    rule: Delete or rename shell history\n  desc: > \n    Detect shell history deletion,
+    frequently used by unsophisticated adversaries to eliminate evidence. \n    Note
+    that it can also trigger when exiting a Terminal shell, such as with `kubectl
+    exec`, which \n    may introduce some noise.\n  condition: >\n    (modify_shell_history
+    or truncate_shell_history) \n    and not var_lib_docker_filepath \n    and not
+    proc.name in (docker_binaries)\n  output: Shell history deleted or renamed (file=%fd.name
+    name=%evt.arg.name path=%evt.arg.path oldpath=%evt.arg.oldpath evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority:\n    WARNING\n  tags: [maturity_incubating,
+    host, container, process, filesystem, mitre_defense_evasion, T1070]\n\n- list:
+    user_known_chmod_applications\n  items: [hyperkube, kubelet, k3s-agent]\n\n# This
+    macro should be overridden in user rules as needed. This is useful if a given
+    application\n# should not be ignored altogether with the user_known_chmod_applications
+    list, but only in\n# specific conditions.\n- macro: user_known_set_setuid_or_setgid_bit_conditions\n
+    \ condition: (never_true)\n\n- rule: Set Setuid or Setgid bit\n  desc: >\n    This
+    rule is focused on detecting the use of setuid or setgid bits set via chmod. These
+    bits, when set for an application, \n    result in the application running with
+    the privileges of the owning user or group. By enabling the setuid or setgid bits,
+    \n    an attacker could run code in a different user's context, possibly with
+    elevated privileges. However, there's a trade-off \n    with noise, given that
+    numerous applications legitimately run chmod. This rule is related to the \"Non
+    sudo setuid\" rule.\n  condition: >\n    chmod \n    and (evt.arg.mode contains
+    \"S_ISUID\" or evt.arg.mode contains \"S_ISGID\")\n    and not proc.name in (user_known_chmod_applications)\n
+    \   and not exe_running_docker_save\n    and not user_known_set_setuid_or_setgid_bit_conditions\n
+    \ output: Setuid or setgid bit is set via chmod (fd=%evt.arg.fd filename=%evt.arg.filename
+    mode=%evt.arg.mode evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n  priority:\n    NOTICE\n
+    \ tags: [maturity_incubating, host, container, process, users, mitre_privilege_escalation,
+    T1548.001]\n\n- list: remote_file_copy_binaries\n  items: [rsync, scp, sftp, dcp]\n\n-
+    macro: remote_file_copy_procs\n  condition: (proc.name in (remote_file_copy_binaries))\n\n#
+    Users should overwrite this macro to specify conditions under which a\n# Custom
+    condition for use of remote file copy tool in container\n- macro: user_known_remote_file_copy_activities\n
+    \ condition: (never_true)\n\n- rule: Launch Remote File Copy Tools in Container\n
+    \ desc: > \n    Detect remote file copy tools (like rsync, scp, sftp, dcp) launched
+    within a container, potentially indicating data \n    exfiltration. Suggest refining
+    this rule to accommodate legitimate use cases.\n  condition: >\n    spawned_process\n
+    \   and container\n    and remote_file_copy_procs\n    and not user_known_remote_file_copy_activities\n
+    \ output: Remote file copy tool launched in container (evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+    %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating, container,
+    network, process, mitre_exfiltration, T1020]\n\n# Namespaces where the rule is
+    enforce\n- list: namespace_scope_network_only_subnet\n  items: []\n\n- macro:
+    network_local_subnet\n  condition: >\n    (fd.rnet in (rfc_1918_addresses) or\n
+    \   fd.ip = \"0.0.0.0\" or\n    fd.net = \"127.0.0.0/8\")\n\n# # The rule is disabled
+    by default.\n# # How to test:\n# # Add 'default' to namespace_scope_network_only_subnet\n#
+    # Run:\n# kubectl run --generator=run-pod/v1 -n default -i --tty busybox --image=busybox
+    --rm -- wget google.com -O /var/google.html\n# # Check logs running\n- rule: Network
+    Connection outside Local Subnet\n  desc: > \n    Detect network traffic (inbound
+    or outbound) from a container to a destination outside the local subnet. \n    To
+    operationalize this rule, profile your environment and update the template macro
+    namespace_scope_network_only_subnet. \n    Customizing network-related rules usually
+    demands substantial engineering effort to ensure their functionality.\n  condition:
+    >\n    inbound_outbound \n    and container \n    and k8s.ns.name in (namespace_scope_network_only_subnet)
+    \n    and not network_local_subnet \n  output: Network connection outside local
+    subnet (fd_rip_name=%fd.rip.name fd_lip_name=%fd.lip.name fd_cip_name=%fd.cip.name
+    fd_sip_name=%fd.sip.name connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type
+    fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid
+    process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline
+    terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)\n  priority: WARNING\n
+    \ tags: [maturity_incubating, container, network, mitre_discovery, T1046, PCI_DSS_6.4.2]\n\n-
+    macro: mount_info\n  condition: (proc.args=\"\" or proc.args intersects (\"-V\",
+    \"-l\", \"-h\"))\n\n- macro: known_gke_mount_in_privileged_containers\n  condition:\n
+    \   (k8s.ns.name = kube-system\n    and container.image.repository = gke.gcr.io/gcp-compute-persistent-disk-csi-driver)\n\n-
+    macro: known_aks_mount_in_privileged_containers\n  condition:\n    ((k8s.ns.name
+    = kube-system and container.image.repository in (mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi,mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi))\n
+    \   or (k8s.ns.name = system and container.image.repository = mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver))\n\n-
+    macro: user_known_mount_in_privileged_containers\n  condition: (never_true)\n\n-
+    rule: Mount Launched in Privileged Container\n  desc: > \n    Detect filesystem
+    mounts (using the mount binary) within a privileged container. Due to the elevated
+    privileges, \n    this action could be one of the TTPs used in an attempt to escape
+    from a container to the host. This type of action \n    is often preceded by reconnaissance
+    activities, for which you can also create custom rules.\n  condition: >\n    spawned_process
+    \n    and container\n    and container.privileged=true\n    and proc.name=mount\n
+    \   and not mount_info\n    and not known_gke_mount_in_privileged_containers\n
+    \   and not known_aks_mount_in_privileged_containers\n    and not user_known_mount_in_privileged_containers\n
+    \ output: Mount was executed inside a privileged container (evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: WARNING\n  tags: [maturity_incubating,
+    container, cis, filesystem, mitre_privilege_escalation, T1611]\n\n- list: ingress_remote_file_copy_binaries\n
+    \ items: [wget]\n\n- macro: ingress_remote_file_copy_procs\n  condition: (proc.name
+    in (ingress_remote_file_copy_binaries))\n\n# Users should overwrite this macro
+    to specify conditions under which a\n# Custom condition for use of ingress remote
+    file copy tool in container\n- macro: user_known_ingress_remote_file_copy_activities\n
+    \ condition: (never_true)\n\n- macro: curl_download\n  condition: (proc.name =
+    curl and\n              (proc.cmdline contains \" -o \" or\n              proc.cmdline
+    contains \" --output \" or\n              proc.cmdline contains \" -O \" or\n
+    \             proc.cmdline contains \" --remote-name \"))\n\n- rule: Launch Ingress
+    Remote File Copy Tools in Container\n  desc: > \n    Detect ingress remote file
+    copy tools (such as curl or wget) launched inside containers. This rule can be
+    \n    considered a valuable auditing tool, but it has the potential to generate
+    notable noise and requires careful \n    profiling before full operationalization.\n
+    \ condition: >\n    spawned_process \n    and container \n    and (ingress_remote_file_copy_procs
+    or curl_download) \n    and not user_known_ingress_remote_file_copy_activities\n
+    \ output: Ingress remote file copy tool launched in container (evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating,
+    container, network, process, mitre_command_and_control, TA0011]\n\n- list: docker_binaries\n
+    \ items: [docker, dockerd, containerd-shim, \"runc:[1:CHILD]\", pause, exe, docker-compose,
+    docker-entrypoi, docker-runc-cur, docker-current, dockerd-current]\n\n- list:
+    known_binaries_to_read_environment_variables_from_proc_files\n  items: [scsi_id,
+    argoexec]\n\n- rule: Read environment variable from /proc files\n  desc: > \n
+    \   An attempt to read process environment variables from /proc files. The consequences
+    are akin to accessing traditional \n    sensitive files, as sensitive data, including
+    secrets, might be stored in environment variables. Understanding your \n    environment,
+    such as identifying critical namespaces, and incorporating extra filtering statements
+    to alert exclusively \n    for those, can enhance the rule's effectiveness.\n
+    \ condition: >\n    open_read \n    and container \n    and (fd.name glob /proc/*/environ)\n
+    \   and not proc.name in (known_binaries_to_read_environment_variables_from_proc_files)\n
+    \ output: Environment variables were retrieved from /proc files (file=%fd.name
+    gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: WARNING\n  tags: [maturity_incubating,
+    container, filesystem, process, mitre_discovery, T1083]\n\n# The steps libcontainer
+    performs to set up the root program for a container are:\n# - clone + exec self
+    to a program runc:[0:PARENT]\n# - clone a program runc:[1:CHILD] which sets up
+    all the namespaces\n# - clone a second program runc:[2:INIT] + exec to the root
+    program.\n#   The parent of runc:[2:INIT] is runc:0:PARENT]\n# As soon as 1:CHILD
+    is created, 0:PARENT exits, so there's a race\n#   where at the time 2:INIT execs
+    the root program, 0:PARENT might have\n#   already exited, or might still be around.
+    So we handle both.\n# We also let runc:[1:CHILD] count as the parent process,
+    which can occur\n# when we lose events and lose track of state.\n- macro: container_entrypoint\n
+    \ condition: (not proc.pname exists or proc.pname in (runc:[0:PARENT], runc:[1:CHILD],
+    runc, docker-runc, exe, docker-runc-cur, containerd-shim, systemd, crio))\n\n-
+    macro: system_level_side_effect_artifacts_kubectl_cp\n  condition: (fd.name startswith
+    /etc or \n              fd.name startswith /proc or \n              fd.name startswith
+    /lib or \n              fd.name startswith /run or \n              fd.name startswith
+    /usr or \n              fd.name=\"/\")\n\n- rule: Exfiltrating Artifacts via Kubernetes
+    Control Plane\n  desc: >\n    Detect the copying of artifacts from a container's
+    file system using the Kubernetes control plane (kubectl cp). \n    This rule can
+    identify potential exfiltration of application secrets from containers' file systems,
+    potentially \n    revealing the outcomes of unauthorized access and control plane
+    misuse via stolen identities (such as stolen \n    credentials like Kubernetes
+    serviceaccount tokens). Can be customized by the adopter to only monitor specific
+    \n    artifact paths, containers, or namespaces as needed.\n  condition: >\n    open_read
+    \n    and container \n    and proc.name=tar \n    and container_entrypoint \n
+    \   and proc.tty=0 \n    and not system_level_side_effect_artifacts_kubectl_cp\n
+    \ output: Exfiltrating Artifacts via Kubernetes Control Plane (file=%fd.name evt_type=%evt.type
+    user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    exe_flags=%evt.arg.flags %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating,
+    container, filesystem, mitre_exfiltration, TA0010]\n\n- rule: Adding ssh keys
+    to authorized_keys\n  desc: >\n    After gaining access, attackers can modify
+    the authorized_keys file to maintain persistence on a victim host.\n    Where
+    authorized_keys files are modified via cloud APIs or command line interfaces,
+    an adversary may achieve \n    privilege escalation on the target virtual machine
+    if they add a key to a higher-privileged user.\n    This rules aims at detecting
+    any modification to the authorized_keys file, that is usually located under the
+    .ssh\n    directory in any user's home directory. This rule complements the more
+    generic auditing rule \"Read ssh information\"\n    by specifically detecting
+    the writing of new, potentially attacker-provided keys.\n  condition: >\n    open_write\n
+    \   and (user_ssh_directory or fd.name startswith /root/.ssh)\n    and fd.name
+    endswith authorized_keys\n    and not proc.name in (ssh_binaries)\n  output: Adding
+    ssh keys to authorized_keys (file=%fd.name evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags)\n
+    \ priority: WARNING\n  tags: [maturity_incubating, host, filesystem, mitre_persistence,
+    T1098.004]\n\n# possible use of CVE-2023-4911\n- macro: glibc_tunables_env\n  condition:
+    (proc.env icontains GLIBC_TUNABLES)\n\n- rule: Potential Local Privilege Escalation
+    via Environment Variables Misuse\n  desc: >\n    Process run with suspect environment
+    variable that could be attempting privilege escalation. One use case is \n    detecting
+    the use of the GLIBC_TUNABLES environment variable, which could be used for privilege
+    escalation \n    on systems running vulnerable glibc versions. Only known and
+    carefully profiled processes that legitimately \n    exhibit this behavior should
+    be excluded from this rule. This rule is expected to trigger on every attempt,
+    \n    even failed ones.\n  condition: >\n    spawned_process \n    and glibc_tunables_env\n
+    \ enabled: true\n  output: Process run with suspect environment variable which
+    could be attempting privilege escalation (env=%proc.env evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath
+    parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+    %container.info)\n  priority: NOTICE\n  tags: [maturity_incubating, host, container,
+    users, mitre_privilege_escalation, TA0004]\n  "
+kind: ConfigMap
+metadata:
+  name: falco-incubating-rules
+  namespace: {{ include "falco.namespace" . }}
+{{- end}}

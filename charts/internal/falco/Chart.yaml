@@ -1,0 +1,19 @@
+apiVersion: v1
+name: falco
+version: 0.0.2
+appVersion: "0.37.2"
+description: Gardener Falco
+keywords:
+  - monitoring
+  - security
+  - alerting
+  - metric
+  - troubleshooting
+  - run-time
+home: https://github.com/gardener/gardener-extension-shoot-falco-service/
+icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/falco/horizontal/color/falco-horizontal-color.svg
+sources:
+  - https://github.com/gardener/gardener-extension-shoot-falco-service/tree/main/charts/internal/falco
+maintainers:
+  - name: Dirk Marwinski
+    email: dirk.marwinski@sap.com

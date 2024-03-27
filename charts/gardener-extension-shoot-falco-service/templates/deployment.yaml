@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gardener-extension-{{ .Values.serviceName }}
+  namespace: {{ .Release.Namespace }}
+{{- if .Values.ignoreResources }}
+  annotations:
+    resources.gardener.cloud/ignore: "true"
+{{- end }}
+  labels:
+    app.kubernetes.io/name: gardener-extension-{{ .Values.serviceName }}
+    helm.sh/chart: gardener-extension-{{ .Values.serviceName }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    high-availability-config.resources.gardener.cloud/type: controller
+spec:
+  revisionHistoryLimit: 2
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gardener-extension-{{ .Values.serviceName }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        checksum/configmap-extension-falco.config: {{ include (print $.Template.BasePath "/extension-config.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enableScraping }}
+        prometheus.io/name: {{ .Release.Name }}
+        prometheus.io/scrape: "true"
+        # default metrics endpoint in controller-runtime
+        prometheus.io/port: "8080"
+        {{- end }}
+      labels:
+        app.kubernetes.io/name: gardener-extension-{{ .Values.serviceName }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        networking.gardener.cloud/to-runtime-apiserver: allowed
+        networking.gardener.cloud/to-dns: allowed
+    spec:
+      {{- if gt (int .Values.replicaCount) 1 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - gardener-extension-{{ .Values.serviceName }}
+              - key: app.kubernetes.io/instance
+                operator: In
+                values:
+                - {{ .Release.Name }}
+            topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      priorityClassName: {{ .Values.falco.priorityClassName }}
+      serviceAccountName: gardener-extension-{{ .Values.serviceName }}
+      containers:
+      - name: gardener-extension-{{ .Values.serviceName }}
+        image: {{ include "image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - /gardener-extension-shoot-falco-service
+        - --config-file=/etc/extension-config/config.yaml
+        - --leader-election-id={{ include "leaderelectionid" . }}
+        env:
+        - name: LEADER_ELECTION_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: EXTENSION_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- if .Values.resources }}
+        resources:
+{{ toYaml .Values.resources | trim | indent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: extension-shoot-falco-service-config
+          mountPath: /etc/extension-config
+          readOnly: true
+      volumes:
+      - name: extension-shoot-falco-service-config
+        configMap:
+          name: extension-falco.config
+          items:
+            - key: config.yaml
+              path: config.yaml
+      {{- if .Values.imageVectorOverwrite }}
+      - name: extension-imagevector-overwrite
+        configMap:
+          name: gardener-extension-{{ .Values.serviceName }}-imagevector-overwrite
+          defaultMode: 420
+      {{- end }}

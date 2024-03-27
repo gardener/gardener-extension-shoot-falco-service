@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: falcosidekick
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: falcosidekick
+    helm.sh/chart: {{ include "falco.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  {{- with .Values.falcosidekick.service.annotations }}
+  annotations:
+    prometheus.io/scrape: "true"
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.falcosidekick.service.type }}
+  ports:
+    - port: {{ .Values.falcosidekick.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- if not (eq .Values.falcosidekick.config.tlsserver.notlspaths "") }}
+    - port: {{ .Values.falcosidekick.config.tlsserver.notlsport }}
+      targetPort: http-notls
+      protocol: TCP
+      name: http-notls
+    {{- end }}
+
+  selector:
+    app.kubernetes.io/name: falcosidekick
+    app.kubernetes.io/instance: {{ .Release.Name }}
