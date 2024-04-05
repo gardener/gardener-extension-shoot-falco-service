@@ -16,14 +16,18 @@ type FalcoServiceConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// Falco version to use
+	// +optional
 	FalcoVersion *string `json:"falcoVersion,omitempty"`
 
 	// use Falco incubating rules from correspoonging rules release
+	// +optional
 	UseFalcoIncubatingRules bool `json:"useFalcoIncubatingRules,omitempty"`
 
 	// use Falco sandbox rules from corresponding rules release
+	// +optional
 	UseFalcoSandboxRules bool `json:"useFalcoSandboxRules,omitempty"`
 
 	// References to custom rules files
+	// +optional
 	RuleRefs []string `json:"ruleRefs,omitempty"`
 }
