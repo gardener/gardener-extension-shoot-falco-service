@@ -7,11 +7,6 @@ gardener-extension-shoot-falco-service:
     traits:
       component_descriptor:
         ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
-        component_labels:
-        - name: 'cloud.gardener.cnudie/responsibles'
-          value:
-          - type: 'codeowners'
-        retention_policy: 'clean-snapshots'
       version:
         preprocess: 'inject-commit-hash'
   jobs:
@@ -21,16 +16,12 @@ gardener-extension-shoot-falco-service:
         component_descriptor:
           ocm_repository_mappings:
             - repository: europe-docker.pkg.dev/gardener-project/releases
-        options:
-          public_build_logs: true
     pull-request:
       traits:
         pull-request: ~
         component_descriptor:
           ocm_repository_mappings:
             - repository: europe-docker.pkg.dev/gardener-project/releases
-        options:
-          public_build_logs: true
     release:
       traits:
         version:
@@ -47,6 +38,6 @@ gardener-extension-shoot-falco-service:
           - linux/amd64
           - linux/arm64
           dockerimages:
-            gardener-extension-shoot-networking-problemdetector:
+            gardener-extension-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/shoot-falco-service
               tag_as_latest: true
