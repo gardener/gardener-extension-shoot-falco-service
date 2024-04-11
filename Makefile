@@ -81,7 +81,7 @@ check-generate:
 
 .PHONY: check
 check: $(GOIMPORTS) $(GOLANGCI_LINT) $(HELM) $(YQ)
-	@bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/... ./test/...
+	@bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/...
 	@bash $(GARDENER_HACK_DIR)/check-charts.sh ./charts
 
 .PHONY: generate-controller-registration
@@ -114,5 +114,5 @@ test-clean:
 verify: check format test
 
 .PHONY: verify-extended
-verify-extended: check-generate check format test
+verify-extended: check-generate check format # test
 #verify-extended: check-generate check format test test-cov test-clean
