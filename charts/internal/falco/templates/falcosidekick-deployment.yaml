@@ -1,0 +1,178 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falcosidekick
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: falcosidekick
+    helm.sh/chart: {{ include "falco.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.falcosidekick.replicaCount }}
+  {{- if .Values.falcosidekick.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.falcosidekick.revisionHistoryLimit }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: falcosidekick
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        networking.gardener.cloud/to-dns: allowed
+        networking.gardener.cloud/to-public-networks: allowed
+        app.kubernetes.io/name: falcosidekick
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.falcosidekick.podLabels }}
+{{ toYaml .Values.falcosidekick.podLabels | indent 8 }}
+      {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/falcosidekick-secrets.yaml") . | sha256sum }}
+      {{- if .Values.falcosidekick.podAnnotations }}
+{{ toYaml .Values.falcosidekick.podAnnotations | indent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.falcosidekick.imagePullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.falcosidekick.imagePullSecrets }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      serviceAccountName: falcosidekick
+      {{- if .Values.falcosidekick.priorityClassName }}
+      priorityClassName: "{{ .Values.falcosidekick.priorityClassName }}"
+      {{- end }}
+      {{- if .Values.falcosidekick.podSecurityContext }}
+      securityContext:
+      {{- toYaml .Values.falcosidekick.podSecurityContext | nindent 8}}
+      {{- end }}
+      containers:
+        - name: falcosidekick
+          {{- if ne .Values.falcosidekick.image.image "" }}
+          image: {{ .Values.falcosidekick.image.image }}
+          {{- else }}
+          image: "{{ .Values.falcosidekick.image.registry }}/{{ .Values.falcosidekick.image.repository }}:{{ .Values.falcosidekick.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.falcosidekick.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 2801
+              protocol: TCP
+          {{- if .Values.falcosidekick.config.tlsserver.deploy }}
+            - name: http-notls
+              containerPort: 2810
+              protocol: TCP
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /ping
+              {{- if .Values.falcosidekick.config.tlsserver.deploy }}
+              port: http-notls
+              {{- else }}
+              port: http
+              {{- end }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ping
+              {{- if .Values.falcosidekick.config.tlsserver.deploy }}
+              port: http-notls
+              {{- else }}
+              port: http
+              {{- end }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          {{- if .Values.falcosidekick.securityContext }}
+          securityContext:
+          {{- toYaml .Values.falcosidekick.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.falcosidekick.config.extraArgs }}
+          args:
+          {{ toYaml .Values.falcosidekick.config.extraArgs | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                {{- if .Values.falcosidekick.config.existingSecret }}
+                name: {{ .Values.falcosidekick.config.existingSecret }}
+                {{- else }}
+                name: falcosidekick
+                {{- end }}
+          env:
+            - name: DEBUG
+              value: {{ .Values.falcosidekick.config.debug | quote }}
+            - name: CUSTOMFIELDS
+              value: {{ .Values.falcosidekick.config.customfields | quote }}
+            - name: TEMPLATEDFIELDS
+              value: {{ .Values.falcosidekick.config.templatedfields | quote }}
+            - name: BRACKETREPLACER
+              value: {{ .Values.falcosidekick.config.bracketreplacer | quote }}
+            - name: MUTUALTLSFILESPATH
+              value: {{ .Values.falcosidekick.config.mutualtlsfilespath | quote }}
+            - name: MUTUALTLSCLIENT_CERTFILE
+              value: {{ .Values.falcosidekick.config.mutualtlsclient.certfile | quote }}
+            - name: MUTUALTLSCLIENT_KEYFILE
+              value: {{ .Values.falcosidekick.config.mutualtlsclient.keyfile | quote }}
+            - name: MUTUALTLSCLIENT_CACERTFILE
+              value: {{ .Values.falcosidekick.config.mutualtlsclient.cacertfile | quote }}
+            - name: TLSSERVER_DEPLOY
+              value: {{ .Values.falcosidekick.config.tlsserver.deploy | quote }}
+            - name: TLSSERVER_CERTFILE
+              value: {{ .Values.falcosidekick.config.tlsserver.certfile | quote }}
+            - name: TLSSERVER_KEYFILE
+              value: {{ .Values.falcosidekick.config.tlsserver.keyfile | quote }}
+            - name: TLSSERVER_CACERTFILE
+              value: {{ .Values.falcosidekick.config.tlsserver.cacertfile | quote }}
+            - name: TLSSERVER_MUTUALTLS
+              value: {{ .Values.falcosidekick.config.tlsserver.mutualtls | quote }}
+            - name: TLSSERVER_NOTLSPORT
+              value: {{ .Values.falcosidekick.config.tlsserver.notlsport | quote }}
+            - name: TLSSERVER_NOTLSPATHS
+              value: {{ .Values.falcosidekick.config.tlsserver.notlspaths | quote }}
+
+            {{- if .Values.falcosidekick.config.extraEnv }}
+            {{ toYaml .Values.falcosidekick.config.extraEnv | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.falcosidekick.resources | nindent 12 }}
+        {{- if or .Values.falcosidekick.extraVolumeMounts (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt)) }}
+          volumeMounts:
+        {{- if and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt) }}
+            - mountPath: /etc/certs/server
+              name: certs-volume
+              readOnly: true
+        {{- end }}  
+        {{- if or .Values.falcosidekick.extraVolumeMounts }}   
+{{ toYaml .Values.falcosidekick.extraVolumeMounts | indent 12 }}
+        {{- end }}
+        {{- end }}
+      {{- with .Values.falcosidekick.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.falcosidekick.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.falcosidekick.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- if or .Values.falcosidekick.extraVolumes (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.server_ca_crt)) }}
+      volumes:
+    {{- if and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt) }}
+        - name: certs-volume
+          secret:
+            {{- if .Values.falcosidekick.config.tlsserver.existingSecret }}
+            secretName: {{.Values.falcosidekick.config.tlsserver.existingSecret }}
+            {{- else }}
+            secretName: falcosidekick-certs
+            {{- end }}
+    {{- end }}
+    {{- if or .Values.falcosidekick.extraVolumes }}
+{{ toYaml .Values.falcosidekick.extraVolumes | indent 8 }}
+    {{- end }}
+    {{- end }}
+

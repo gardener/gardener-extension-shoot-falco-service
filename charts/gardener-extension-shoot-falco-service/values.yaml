@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+---
+serviceName: shoot-falco-service
+replicaCount: 2
+
+ignoreResources: false
+
+image: 
+  repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/shoot-falco-service
+  tag: 0.2.0
+  pullPolicy: IfNotPresent
+
+controllers:
+  lifecycle:
+    concurrentSyncs: 5
+  healthcheck:
+    concurrentSyncs: 5
+  heartbeat: 
+    renewIntervalSeconds: 30 
+  ignoreOperationAnnotation: false
+
+metrics:
+  enableScraping: true
+  port: 8080
+
+vpa:
+  enabled: true
+  resourcePolicy:
+    minAllowed:
+      memory: 64Mi
+  updatePolicy:
+    updateMode: "Auto"
+
+falco:
+  # PriorityClass to use for Falco shoot deployment
+  priorityClassName: ""
+
+  # Lifetime of the CA certificates
+  certificateLifetime: "8760h"
+
+  # Renew CA certificates after this duration
+  certificateRenewAfter: "8000h"
+
+  # Token lifetime
+  tokenLifetime: "168h"
+
+  # Private key for token issuer
+  tokenIssuerPrivateKey: ""
+
+  # Ingestor URL
+  ingestorURL: ""
+
+
+  falcoImages: []
+
+  falcoVersions: []

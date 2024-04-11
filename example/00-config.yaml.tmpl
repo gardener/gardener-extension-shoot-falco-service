@@ -1,0 +1,25 @@
+apiVersion: falco.extensions.config.gardener.cloud/v1alpha1
+kind: Configuration
+falco:
+  tokenLifetime: "3600h"
+  # private key used to sign JWT tokens for events sent to the 
+  # Falco event ingestor
+  tokenIssuerPrivateKey: ""
+  # Falco event ingestor URL
+  ingestorURL: ""
+  certificateLifetime: "48h"
+  cerfificateRenewAfter: "20h"
+  priorityClassName: ""
+
+  falcoImages:
+  - version: 0.37.1
+    architectures:
+    - amd64
+    - arm64
+    falcoImage: falcosecurity/falco:0.37.1
+    falcosidekickImage: falcosecurity/falcosidekick:2.28.0
+
+  falcoVersions:
+  - version: 0.37.1
+    classification: supported
+    
