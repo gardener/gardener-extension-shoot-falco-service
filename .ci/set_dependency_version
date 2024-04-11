@@ -4,4 +4,5 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"$(dirname $0)"/hack/set_dependency_version '{"network-problem-detector": ["network-problem-detector-agent", "network-problem-detector-controller"]}'
+# "$(dirname $0)"/hack/set_dependency_version '{"shoot-falco-service": ["falco", "falcosidekick"]}'
+echo "TODO: Implement this script to set dependency versions for Falco and Falcosidekick."

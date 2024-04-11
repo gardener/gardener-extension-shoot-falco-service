@@ -50,6 +50,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Falco version to use</p>
 </td>
 </tr>
@@ -61,6 +62,7 @@ bool
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>use Falco incubating rules from correspoonging rules release</p>
 </td>
 </tr>
@@ -72,6 +74,7 @@ bool
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>use Falco sandbox rules from corresponding rules release</p>
 </td>
 </tr>
@@ -83,6 +86,7 @@ bool
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>References to custom rules files</p>
 </td>
 </tr>
