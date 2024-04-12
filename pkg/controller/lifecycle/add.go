@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-falco/pkg/constants"
-	controllerconfig "github.com/gardener/gardener-extension-falco/pkg/controller/config"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	controllerconfig "github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/config"
 )
 
 const (

@@ -11,7 +11,7 @@ package v1alpha1
 import (
 	unsafe "unsafe"
 
-	config "github.com/gardener/gardener-extension-falco/pkg/apis/config"
+	config "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
 	configv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

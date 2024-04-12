@@ -25,7 +25,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/configmap-extension-falco.config: {{ include (print $.Template.BasePath "/extension-config.yaml") . | sha256sum }}
+        checksum/configmap-extension-shoot-falco-service.config: {{ include (print $.Template.BasePath "/extension-config.yaml") . | sha256sum }}
         {{- if .Values.metrics.enableScraping }}
         prometheus.io/name: {{ .Release.Name }}
         prometheus.io/scrape: "true"
@@ -84,7 +84,7 @@ spec:
       volumes:
       - name: extension-shoot-falco-service-config
         configMap:
-          name: extension-falco.config
+          name: extension-shoot-falco-service.config
           items:
             - key: config.yaml
               path: config.yaml

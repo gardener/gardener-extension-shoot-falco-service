@@ -6,6 +6,7 @@ ENSURE_GARDENER_MOD         := $(shell go get github.com/gardener/gardener@$$(go
 GARDENER_HACK_DIR           := $(shell go list -m -f "{{.Dir}}" github.com/gardener/gardener)/hack
 EXTENSION_PREFIX            := gardener-extension
 NAME                        := shoot-falco-service
+ADMISSION_NAME              := admission-shoot-falco-service
 REGISTRY                    := europe-docker.pkg.dev/gardener-project/public/gardener
 IMAGE_PREFIX                := $(REGISTRY)/extensions
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -17,6 +18,15 @@ EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse HEAD)
 LD_FLAGS                    := "-w $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh "" $(REPO_ROOT)/VERSION "$(EXTENSION_PREFIX)")"
 LEADER_ELECTION             := false
 IGNORE_OPERATION_ANNOTATION := true
+
+WEBHOOK_CONFIG_PORT    := 8443
+WEBHOOK_CONFIG_MODE    := url
+WEBHOOK_CONFIG_URL     := host.docker.internal:$(WEBHOOK_CONFIG_PORT)
+EXTENSION_NAMESPACE    :=
+WEBHOOK_PARAM := --webhook-config-url=$(WEBHOOK_CONFIG_URL)
+ifeq ($(WEBHOOK_CONFIG_MODE), service)
+  WEBHOOK_PARAM := --webhook-config-namespace=$(EXTENSION_NAMESPACE)
+endif
 
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
 	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
@@ -37,6 +47,16 @@ start:
 			--leader-election=$(LEADER_ELECTION) \
 			--log-level=debug
 
+.PHONY: start-admission
+start-admission:
+	@LEADER_ELECTION_NAMESPACE=garden go run \
+		-ldflags $(LD_FLAGS) \
+		./cmd/$(EXTENSION_PREFIX)-$(ADMISSION_NAME) \
+		--webhook-config-server-host=0.0.0.0 \
+		--webhook-config-server-port=$(WEBHOOK_CONFIG_PORT) \
+		--webhook-config-mode=$(WEBHOOK_CONFIG_MODE) \
+        $(WEBHOOK_PARAM)
+
 #################################################################
 # Rules related to binary build, Docker image build and release #
 #################################################################
@@ -52,8 +72,8 @@ docker-login:
 
 .PHONY: docker-images
 docker-images:
-	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(NAME):latest -f Dockerfile -m 6g --target $(NAME) .
-
+	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(EXTENSION_PREFIX)-$(NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME) .
+	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
 .PHONY: docker-push
 docker-push:
 	@docker push $(IMAGE_PREFIX)/$(NAME):$(VERSION)
@@ -86,7 +106,7 @@ check: $(GOIMPORTS) $(GOLANGCI_LINT) $(HELM) $(YQ)
 
 .PHONY: generate-controller-registration
 generate-controller-registration:
-	@bash $(HACK_DIR)/generate-controller-registration.sh extension-shoot-falco charts/gardener-extension-falco 0.0.1 example/ControllerRegistration.yaml 
+	@bash $(HACK_DIR)/generate-controller-registration.sh extension-shoot-falco charts/$(EXTENSION_PREFIX)-$(NAME) 0.0.1 example/ControllerRegistration.yaml 
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(HELM) $(MOCKGEN) $(YQ) $(VGOPATH)

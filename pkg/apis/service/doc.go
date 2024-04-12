@@ -7,4 +7,4 @@
 
 //go:generate ../../../hack/update-codegen.sh
 
-package service // import "github.com/gardener/gardener-extension-falco/pkg/apis/service"
+package service // import "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=github.com/gardener/gardener-extension-falco/pkg/apis/config
+// +k8s:conversion-gen=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config
 // +k8s:defaulter-gen=TypeMeta
 // +k8s:openapi-gen=true
 

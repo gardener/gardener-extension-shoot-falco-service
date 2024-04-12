@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/gardener/gardener-extension-falco/pkg/apis/service"
-	"github.com/gardener/gardener-extension-falco/pkg/apis/service/v1alpha1"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 )
 
 var (
