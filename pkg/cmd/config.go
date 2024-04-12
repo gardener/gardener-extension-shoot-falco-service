@@ -14,9 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	apisconfig "github.com/gardener/gardener-extension-falco/pkg/apis/config"
-	"github.com/gardener/gardener-extension-falco/pkg/apis/config/v1alpha1"
-	controllerconfig "github.com/gardener/gardener-extension-falco/pkg/controller/config"
+	apisconfig "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/v1alpha1"
+	controllerconfig "github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/config"
 )
 
 var (

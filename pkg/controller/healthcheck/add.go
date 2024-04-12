@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-falco/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
 var (

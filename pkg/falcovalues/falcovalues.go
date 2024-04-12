@@ -15,10 +15,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/gardener/gardener-extension-falco/pkg/apis/config"
-	apisservice "github.com/gardener/gardener-extension-falco/pkg/apis/service"
-	"github.com/gardener/gardener-extension-falco/pkg/constants"
-	"github.com/gardener/gardener-extension-falco/pkg/secrets"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
+	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
 type ConfigBuilder struct {

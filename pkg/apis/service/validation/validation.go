@@ -7,7 +7,7 @@ package validation
 import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/gardener/gardener-extension-falco/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 )
 
 func ValidateFalcoServiceConfig(config *service.FalcoServiceConfig) field.ErrorList {

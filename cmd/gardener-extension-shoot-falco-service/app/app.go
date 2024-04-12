@@ -24,13 +24,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	serviceinstall "github.com/gardener/gardener-extension-falco/pkg/apis/service/install"
-	"github.com/gardener/gardener-extension-falco/pkg/cmd"
-	"github.com/gardener/gardener-extension-falco/pkg/constants"
-	"github.com/gardener/gardener-extension-falco/pkg/controller/lifecycle"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/cmd"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/lifecycle"
 )
 
-const Name = "gardener-extension-falco"
+const Name = "gardener-extension-shoot-falco-service"
 
 // NewControllerManagerCommand creates a new command for running the Falco extension service controller
 func NewControllerManagerCommand(ctx context.Context) *cobra.Command {

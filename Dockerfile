@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ############# builder
-FROM golang:1.22.1 AS builder
+FROM golang:1.22.2 AS builder
 
 WORKDIR /go/src/github.com/gardener/gardener-extension-shoot-falco-service
 
@@ -17,10 +17,20 @@ COPY . .
 ARG EFFECTIVE_VERSION
 RUN make install EFFECTIVE_VERSION=$EFFECTIVE_VERSION
 
+############# base
+FROM gcr.io/distroless/static-debian11:nonroot AS base
+
 ############# gardener-extension-shoot-falco
-FROM gcr.io/distroless/static-debian11:nonroot AS gardener-extension-shoot-falco-service
+FROM base AS gardener-extension-shoot-falco-service
 
 WORKDIR /
 COPY charts /charts
 COPY --from=builder /go/bin/gardener-extension-shoot-falco-service /gardener-extension-shoot-falco-service
-ENTRYPOINT ["/gardener-extension-falco-service"]
+ENTRYPOINT ["/gardener-extension-shoot-falco-service"]
+
+############# gardener-extension-admission-shoot-falco-service
+FROM base AS gardener-extension-admission-shoot-falco-service
+WORKDIR /
+
+COPY --from=builder /go/bin/gardener-extension-admission-shoot-falco-service /gardener-extension-admission-shoot-falco-service
+ENTRYPOINT ["/gardener-extension-admission-shoot-falco-service"]

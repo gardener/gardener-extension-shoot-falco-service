@@ -16,7 +16,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/gardener/gardener-extension-falco/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
 const (

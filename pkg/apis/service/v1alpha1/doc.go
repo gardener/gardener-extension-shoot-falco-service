@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=github.com/gardener/gardener-extension-falco/pkg/apis/service
+// +k8s:conversion-gen=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service
 // +k8s:openapi-gen=true
 // +k8s:defaulter-gen=TypeMeta
 
@@ -11,4 +11,4 @@
 
 // Package v1alpha1 contains the Falco extension.
 // +groupName=falco.extensions.gardener.cloud
-package v1alpha1 // import "github.com/gardener/gardener-extension-falco/pkg/apis/service/v1alpha1"
+package v1alpha1 // import "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
