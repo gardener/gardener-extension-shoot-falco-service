@@ -15,7 +15,7 @@ images:
 - name: falco
   sourceRepository: https://github.com/falcosecurity/falco-distroless
   repository: falcosecurity/falco-distroless
-  repository: 0.37.0
+  tag: 0.37.0
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
@@ -28,7 +28,7 @@ images:
 - name: falco
   sourceRepository: https://github.com/falcosecurity/falco-distroless
   repository: falcosecurity/falco-distroless
-  repository: 0.37.1
+  tag: 0.37.1
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
