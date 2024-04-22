@@ -148,7 +148,7 @@ func (a *actuator) extractFalcoServiceConfig(ex *extensionsv1alpha1.Extension) (
 	falcoServiceConfig := &apisservice.FalcoServiceConfig{}
 	if ex.Spec.ProviderConfig != nil {
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
-			return nil, fmt.Errorf("could not decode falco cluster config: %w", err)
+			return nil, fmt.Errorf("could not decode falco service config: %w", err)
 		}
 		if errs := validation.ValidateFalcoServiceConfig(falcoServiceConfig); len(errs) > 0 {
 			return nil, errs.ToAggregate()
