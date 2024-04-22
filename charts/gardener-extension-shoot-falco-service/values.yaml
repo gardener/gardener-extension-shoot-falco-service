@@ -22,6 +22,21 @@ controllers:
     renewIntervalSeconds: 30 
   ignoreOperationAnnotation: false
 
+# imageVectorOverwrite: |
+#   images:
+#   - name: falcosidekick
+#     repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcosidekick
+#     tag: sha256:654fcd411b48fe0d1f8451f691647ee3617bdea7a1c3972da03c2d455f19f748
+#     version: 2.28.0
+#   - name: falco
+#     repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco-distroless
+#     tag: sha256:325592ab2dc07c42eb097bcbb038fb290fee548c451d4c3e14fa4a66bc1e1ba6
+#     version: 0.37.0
+#   - name: falco
+#     repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco-distroless
+#     tag: sha256:30d4b877298a317e0df1594dd836d89993e4cf6376051420026d6695b37f9693
+#     version: 0.37.1
+
 metrics:
   enableScraping: true
   port: 8080

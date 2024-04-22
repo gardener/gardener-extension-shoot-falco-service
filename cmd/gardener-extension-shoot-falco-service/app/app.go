@@ -102,7 +102,25 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not instantiate manager: %w", err)
 			}
-
+			/*
+				log.Info("Getting rest config for garden")
+				gardenRESTConfig, err := kubernetes.RESTConfigFromKubeconfigFile(os.Getenv("GARDEN_KUBECONFIG"), kubernetes.AuthTokenFile)
+				if err != nil {
+					return err
+				}
+				log.Info("Setting up cluster object for garden")
+				gardenCluster, err := cluster.New(gardenRESTConfig, func(opts *cluster.Options) {
+					opts.Scheme = kubernetes.GardenScheme
+					opts.Logger = log
+				})
+				if err != nil {
+					return fmt.Errorf("failed creating garden cluster object: %w", err)
+				}
+				log.Info("Adding garden cluster to manager")
+				if err := mgr.Add(gardenCluster); err != nil {
+					return fmt.Errorf("failed adding garden cluster to manager: %w", err)
+				}
+			*/
 			if err := controller.AddToScheme(mgr.GetScheme()); err != nil {
 				return fmt.Errorf("could not update manager scheme: %w", err)
 			}

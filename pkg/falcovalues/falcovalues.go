@@ -10,11 +10,14 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/pkg/extensions"
+	"github.com/gardener/gardener/pkg/utils/imagevector"
 	"github.com/go-logr/logr"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	images "github.com/gardener/gardener-extension-shoot-falco-service/imagevector"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -25,6 +28,7 @@ type ConfigBuilder struct {
 	client      client.Client
 	config      *config.Configuration
 	tokenIssuer *secrets.TokenIssuer
+	imageVector imagevector.ImageVector
 }
 
 func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration) *ConfigBuilder {
@@ -32,6 +36,7 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 		client:      client,
 		config:      config,
 		tokenIssuer: tokenIssuer,
+		imageVector: images.ImageVector(),
 	}
 }
 
@@ -55,12 +60,21 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err != nil {
 		return nil, err
 	}
-	falcoImages, err := c.getImagesForVersion(falcoVersion)
+	falcoImage, err := c.getImageForVersion("falco", falcoVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	// falco sidekick
+	falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
+	if err != nil {
+		return nil, err
+	}
+	falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	ingestorAddress := c.config.Falco.IngestorURL
 
 	customHeadersMap := map[string]string{
@@ -89,7 +103,8 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"kind": "modern-bpf",
 		},
 		"image": map[string]string{
-			"image": falcoImages.FalcoImage,
+			"image": falcoImage.Repository,
+			"tag":   *falcoImage.Tag,
 		},
 		"collectors": map[string]interface{}{
 			"crio": map[string]bool{
@@ -145,7 +160,8 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"enabled": false,
 			},
 			"image": map[string]string{
-				"image": falcoImages.FalcosidekickImage,
+				"image": falcosidekickImage.Repository,
+				"tag":   *falcosidekickImage.Tag,
 			},
 			"priorityClassName": c.config.Falco.PriorityClassName,
 			"config": map[string]interface{}{
@@ -171,22 +187,50 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	return falcoChartValues, nil
 }
 
+// get the latest Falco version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
+	var latestVersion string = ""
 	for _, version := range c.config.Falco.FalcoVersions {
 		if version.Classification == "supported" {
-			return version.Version, nil
+			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
+				latestVersion = version.Version
+			}
 		}
 	}
-	return "", fmt.Errorf("no supported falco version found")
+	if latestVersion != "" {
+		return latestVersion, nil
+	} else {
+		return "", fmt.Errorf("no supported Falco version found")
+	}
 }
 
-func (c *ConfigBuilder) getImagesForVersion(version string) (*config.FalcoImages, error) {
-	for _, images := range c.config.Falco.FalcoImages {
-		if images.Version == version {
-			return &images, nil
+// get the latest Falco version tagged as "supported"
+func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
+	var latestVersion string = ""
+	for _, version := range c.config.Falco.FalcosidekickVersions {
+		if version.Classification == "supported" {
+			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
+				latestVersion = version.Version
+			}
 		}
 	}
-	return nil, fmt.Errorf("no images found for falco version %s", version)
+	if latestVersion != "" {
+		return latestVersion, nil
+	} else {
+		return "", fmt.Errorf("no supported Falcosidekick version found")
+	}
+}
+
+func (c *ConfigBuilder) getImageForVersion(name string, version string) (*imagevector.ImageSource, error) {
+
+	fmt.Println(c.imageVector)
+	for _, image := range c.imageVector {
+		fmt.Println(*image.Version, image.Name)
+		if *image.Version == version && image.Name == name {
+			return image, nil
+		}
+	}
+	return nil, fmt.Errorf("no images found for %s version %s", name, version)
 }
 
 func (c *ConfigBuilder) storeFalcoCas(ctx context.Context, namespace string, cas *secrets.FalcoCas) error {

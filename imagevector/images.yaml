@@ -3,6 +3,7 @@ images:
   sourceRepository: https://github.com/falcosecurity/falcosidekick
   repository: falcosecurity/falcosidekick
   tag: 2.28.0
+  version: 2.28.0
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
@@ -16,6 +17,7 @@ images:
   sourceRepository: https://github.com/falcosecurity/falco-distroless
   repository: falcosecurity/falco-distroless
   tag: 0.37.0
+  version: 0.37.0
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
@@ -29,6 +31,7 @@ images:
   sourceRepository: https://github.com/falcosecurity/falco-distroless
   repository: falcosecurity/falco-distroless
   tag: 0.37.1
+  version: 0.37.1
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:

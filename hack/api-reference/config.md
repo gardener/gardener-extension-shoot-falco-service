@@ -167,8 +167,8 @@ string
 <td>
 <code>falcoVersions</code></br>
 <em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcoVersions">
-[]FalcoVersions
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Version">
+[]Version
 </a>
 </em>
 </td>
@@ -178,82 +178,20 @@ string
 </tr>
 <tr>
 <td>
-<code>falcoImages</code></br>
+<code>falcosidekickVersions</code></br>
 <em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcoImages">
-[]FalcoImages
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Version">
+[]Version
 </a>
 </em>
 </td>
 <td>
-<p>Falco images</p>
+<p>Falco versions</p>
 </td>
 </tr>
 </tbody>
 </table>
-<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcoImages">FalcoImages
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Falco">Falco</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>version</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Falco version</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>architectures</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>supported architectures (amd64, arm64)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>falcoImage</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Falco image for that version</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>falcosidekickImage</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Falcosidekick image for that version</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcoVersions">FalcoVersions
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Version">Version
 </h3>
 <p>
 (<em>Appears on:</em>

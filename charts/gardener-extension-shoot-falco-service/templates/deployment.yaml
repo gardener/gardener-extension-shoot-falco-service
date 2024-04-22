@@ -25,6 +25,9 @@ spec:
   template:
     metadata:
       annotations:
+        {{- if .Values.imageVectorOverwrite }}
+        checksum/configmap-extension-imagevector-overwrite: {{ include (print $.Template.BasePath "/configmap-imagevector-overwrite.yaml") . | sha256sum }}
+        {{- end }}
         checksum/configmap-extension-shoot-falco-service.config: {{ include (print $.Template.BasePath "/extension-config.yaml") . | sha256sum }}
         {{- if .Values.metrics.enableScraping }}
         prometheus.io/name: {{ .Release.Name }}
@@ -73,6 +76,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        {{- if .Values.imageVectorOverwrite }}
+        - name: IMAGEVECTOR_OVERWRITE
+          value: /charts_overwrite/images_overwrite.yaml
+        {{- end }}
+        - name: GARDEN_KUBECONFIG
+          value: /var/run/secrets/gardener.cloud/garden/generic-kubeconfig/kubeconfig
         {{- if .Values.resources }}
         resources:
 {{ toYaml .Values.resources | trim | indent 10 }}
@@ -81,6 +90,11 @@ spec:
         - name: extension-shoot-falco-service-config
           mountPath: /etc/extension-config
           readOnly: true
+        {{- if .Values.imageVectorOverwrite }}
+        - name: extension-imagevector-overwrite
+          mountPath: /charts_overwrite/
+          readOnly: true
+        {{ end }}
       volumes:
       - name: extension-shoot-falco-service-config
         configMap:

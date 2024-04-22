@@ -43,27 +43,12 @@ type Falco struct {
 	IngestorURL string
 
 	// Falco versions
-	FalcoVersions []FalcoVersions
+	FalcoVersions []Version
 
-	// Falco images
-	FalcoImages []FalcoImages
+	FalcosidekickVersions []Version
 }
 
-type FalcoImages struct {
-	// Falco version
-	Version string
-
-	// supported architectures (amd64, arm64)
-	Architectures []string
-
-	// Falco image for that version
-	FalcoImage string
-
-	// Falcosidekick image for that version
-	FalcosidekickImage string
-}
-
-type FalcoVersions struct {
+type Version struct {
 	// Falco version
 	Version string
 

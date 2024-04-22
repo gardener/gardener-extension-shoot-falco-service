@@ -48,27 +48,13 @@ type Falco struct {
 	IngestorURL string `json:"ingestorURL,omitempty"`
 
 	// Falco versions
-	FalcoVersions []FalcoVersions `json:"falcoVersions,omitempty"`
+	FalcoVersions []Version `json:"falcoVersions,omitempty"`
 
-	// Falco images
-	FalcoImages []FalcoImages `json:"falcoImages,omitempty"`
+	// Falco versions
+	FalcosidekickVersions []Version `json:"falcosidekickVersions,omitempty"`
 }
 
-type FalcoImages struct {
-	// Falco version
-	Version string `json:"version"`
-
-	// supported architectures (amd64, arm64)
-	Architectures []string `json:"architectures"`
-
-	// Falco image for that version
-	FalcoImage string `json:"falcoImage"`
-
-	// Falcosidekick image for that version
-	FalcosidekickImage string `json:"falcosidekickImage"`
-}
-
-type FalcoVersions struct {
+type Version struct {
 	// Falco version
 	Version string `json:"version"`
 
