@@ -28,6 +28,7 @@ type Falco struct {
 	PriorityClassName *string
 
 	// Lifetime of the CA certificates
+	// (Falco - Falcosidekick communication)
 	CertificateLifetime *metav1.Duration
 
 	// Renew CA certificates after this duration
