@@ -19,6 +19,32 @@ type FalcoServiceConfig struct {
 	// +optional
 	FalcoVersion *string `json:"falcoVersion,omitempty"`
 
+	// Automatically update Falco
+	// +optional
+	AutoUpdate bool `json:"autoUpdate,omitempty"`
+
+	// use "gardener" or "falcoctl", defaults to "gardener"
+	// +optional
+	Resources string `json:"resources,omitempty"`
+
+	// Falcoctl configuration
+	// +optional
+	FalcoCtl FalcoCtl `json:"falcoCtl,omitempty"`
+
+	// Configuration for Gardener managed Falco
+	// +optional
+	Gardener Gardener `json:"gardener,omitempty"`
+
+	// Configuration for custom webhook
+	// +optional
+	CustomWebhook Webhook `json:"webhook,omitempty"`
+}
+
+type FalcoCtl struct {
+	// TODO
+}
+
+type Gardener struct {
 	// use Falco incubating rules from correspoonging rules release
 	// +optional
 	UseFalcoIncubatingRules bool `json:"useFalcoIncubatingRules,omitempty"`
@@ -29,5 +55,16 @@ type FalcoServiceConfig struct {
 
 	// References to custom rules files
 	// +optional
-	RuleRefs []string `json:"ruleRefs,omitempty"`
+	RuleRefs []Rule `json:"ruleRefs,omitempty"`
+}
+
+type Rule struct {
+	Ref string `json:"ref,omitempty"`
+}
+
+type Webhook struct {
+	Enabled       bool   `json:"enabled,omitempty"`
+	Address       string `json:"address,omitempty"`
+	CustomHeaders string `json:"customHeaders,omitempty"`
+	Checkcerts    bool   `json:"checkcerts,omitempty"`
 }

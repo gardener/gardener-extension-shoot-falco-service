@@ -180,8 +180,8 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				},
 			},
 		},
-		"useFalcoSandboxRules":    falcoServiceConfig.UseFalcoSandboxRules,
-		"useFalcoIncubatingRules": falcoServiceConfig.UseFalcoIncubatingRules,
+		"useFalcoSandboxRules":    falcoServiceConfig.Gardener.UseFalcoSandboxRules,
+		"useFalcoIncubatingRules": falcoServiceConfig.Gardener.UseFalcoIncubatingRules,
 		"customRules":             customRules,
 	}
 	return falcoChartValues, nil
@@ -287,7 +287,7 @@ func serializeCustomHeaders(customHeadersMap map[string]string) string {
 
 func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, error) {
 
-	if len(falcoServiceConfig.RuleRefs) == 0 {
+	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}
@@ -298,9 +298,9 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 		}
 	}
 	selectedConfigMaps := map[string]string{}
-	for _, ruleRef := range falcoServiceConfig.RuleRefs {
-		if configMapName, ok := allConfigMaps[ruleRef]; ok {
-			selectedConfigMaps[ruleRef] = configMapName
+	for _, ruleRef := range falcoServiceConfig.Gardener.RuleRefs {
+		if configMapName, ok := allConfigMaps[ruleRef.Ref]; ok {
+			selectedConfigMaps[ruleRef.Ref] = configMapName
 		} else {
 			return nil, fmt.Errorf("no resource for curstom rule ref %s found", ruleRef)
 		}
