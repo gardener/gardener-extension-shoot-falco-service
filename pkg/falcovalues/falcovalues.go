@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	images "github.com/gardener/gardener-extension-shoot-falco-service/imagevector"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -25,18 +26,20 @@ import (
 )
 
 type ConfigBuilder struct {
-	client      client.Client
-	config      *config.Configuration
-	tokenIssuer *secrets.TokenIssuer
-	imageVector imagevector.ImageVector
+	client        client.Client
+	config        *config.Configuration
+	tokenIssuer   *secrets.TokenIssuer
+	imageVector   imagevector.ImageVector
+	falcoVersions *falco.Falco
 }
 
-func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration) *ConfigBuilder {
+func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, falcoVersions *falco.Falco) *ConfigBuilder {
 	return &ConfigBuilder{
-		client:      client,
-		config:      config,
-		tokenIssuer: tokenIssuer,
-		imageVector: images.ImageVector(),
+		client:        client,
+		config:        config,
+		tokenIssuer:   tokenIssuer,
+		imageVector:   images.ImageVector(),
+		falcoVersions: falcoVersions,
 	}
 }
 
@@ -190,7 +193,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 // get the latest Falco version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
 	var latestVersion string = ""
-	for _, version := range c.config.Falco.FalcoVersions {
+	for _, version := range c.falcoVersions.Falco.FalcoVersions {
 		if version.Classification == "supported" {
 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
 				latestVersion = version.Version
@@ -207,7 +210,7 @@ func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
 // get the latest Falco version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	var latestVersion string = ""
-	for _, version := range c.config.Falco.FalcosidekickVersions {
+	for _, version := range c.falcoVersions.FalcoSidekickVersions.FalcosidekickVersions {
 		if version.Classification == "supported" {
 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
 				latestVersion = version.Version
