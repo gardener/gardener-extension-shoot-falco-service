@@ -44,6 +44,10 @@ type FalcoCtl struct {
 }
 
 type Gardener struct {
+	// use Falco rules from correspoonging rules release, defaults to true
+	// +optional
+	UseFalcoRules bool
+
 	// use Falco incubating rules from correspoonging rules release
 	// +optional
 	UseFalcoIncubatingRules bool

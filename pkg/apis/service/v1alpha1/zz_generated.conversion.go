@@ -137,6 +137,7 @@ func Convert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *servi
 }
 
 func autoConvert_v1alpha1_Gardener_To_service_Gardener(in *Gardener, out *service.Gardener, s conversion.Scope) error {
+	out.UseFalcoRules = in.UseFalcoRules
 	out.UseFalcoIncubatingRules = in.UseFalcoIncubatingRules
 	out.UseFalcoSandboxRules = in.UseFalcoSandboxRules
 	out.RuleRefs = *(*[]service.Rule)(unsafe.Pointer(&in.RuleRefs))
@@ -149,6 +150,7 @@ func Convert_v1alpha1_Gardener_To_service_Gardener(in *Gardener, out *service.Ga
 }
 
 func autoConvert_service_Gardener_To_v1alpha1_Gardener(in *service.Gardener, out *Gardener, s conversion.Scope) error {
+	out.UseFalcoRules = in.UseFalcoRules
 	out.UseFalcoIncubatingRules = in.UseFalcoIncubatingRules
 	out.UseFalcoSandboxRules = in.UseFalcoSandboxRules
 	out.RuleRefs = *(*[]Rule)(unsafe.Pointer(&in.RuleRefs))

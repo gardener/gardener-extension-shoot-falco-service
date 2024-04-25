@@ -341,8 +341,11 @@ customRules:
   # rules-traefik.yaml: |-
   #   [ rule body ]
 
-useFalcoSandboxRules: false
-useFalcoIncubatingRules: false
+falcoRules: ""
+
+falcoSandboxRules: ""
+
+falcoIncubatingRules: ""
 
 ####################
 # falcoctl config  #
@@ -361,7 +364,7 @@ falcoctl:
     # -- Runs "falcoctl artifact install" command as an init container. It is used to install artfacts before
     # Falco starts. It provides them to Falco by using an emptyDir volume.
     install:
-      enabled: true
+      enabled: false
       # -- Extra environment variables that will be pass onto falcoctl-artifact-install init container.
       env: []
       # -- Arguments to pass to the falcoctl-artifact-install init container.
@@ -464,7 +467,6 @@ falco:
   # intended.
   # -- The location of the rules files that will be consumed by Falco.
   rules_file:
-    - /etc/falco/falco_rules.yaml
     - /etc/falco/falco_rules.local.yaml
     - /etc/falco/rules.d
 

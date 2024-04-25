@@ -1,10 +1,10 @@
-{{- if .Values.falcoIncubatingRules }}
+{{- if .Values.falcoRules }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: falco-incubating-rules
+  name: falco-rules
   namespace: {{ include "falco.namespace" . }}
 data:
   falco-incubating_rules.yaml: |-
-{{ .Values.falcoIncubatingRules | indent 4 }}
+{{ .Values.falcoRules | indent 4 }}
 {{- end}}
