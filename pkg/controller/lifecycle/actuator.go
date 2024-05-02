@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
+	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
@@ -40,7 +41,8 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 	if err != nil {
 		return nil, err
 	}
-	configBuilder := falcovalues.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config)
+	falcoVersions := falco.FalcoVersions()
+	configBuilder := falcovalues.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, &falcoVersions)
 	return &actuator{
 		client:        mgr.GetClient(),
 		config:        mgr.GetConfig(),

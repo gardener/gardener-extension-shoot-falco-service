@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	images "github.com/gardener/gardener-extension-shoot-falco-service/imagevector"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -24,19 +25,29 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
-type ConfigBuilder struct {
-	client      client.Client
-	config      *config.Configuration
-	tokenIssuer *secrets.TokenIssuer
-	imageVector imagevector.ImageVector
+var (
+	versions falco.Falco
+)
+
+func init() {
+	versions = falco.FalcoVersions()
 }
 
-func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration) *ConfigBuilder {
+type ConfigBuilder struct {
+	client        client.Client
+	config        *config.Configuration
+	tokenIssuer   *secrets.TokenIssuer
+	imageVector   imagevector.ImageVector
+	falcoVersions *falco.Falco
+}
+
+func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, falcoVersions *falco.Falco) *ConfigBuilder {
 	return &ConfigBuilder{
-		client:      client,
-		config:      config,
-		tokenIssuer: tokenIssuer,
-		imageVector: images.ImageVector(),
+		client:        client,
+		config:        config,
+		tokenIssuer:   tokenIssuer,
+		imageVector:   images.ImageVector(),
+		falcoVersions: falcoVersions,
 	}
 }
 
@@ -180,9 +191,35 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				},
 			},
 		},
-		"useFalcoSandboxRules":    falcoServiceConfig.Gardener.UseFalcoSandboxRules,
-		"useFalcoIncubatingRules": falcoServiceConfig.Gardener.UseFalcoIncubatingRules,
-		"customRules":             customRules,
+		"customRules": customRules,
+	}
+	if falcoServiceConfig.Gardener.UseFalcoRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
+		if err != nil {
+			return nil, err
+		}
+		falcoChartValues["falcoRules"] = r
+	}
+	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, falcoVersion)
+		if err != nil {
+			return nil, err
+		}
+		falcoChartValues["falcoIncubatingRules"] = r
+	}
+	if falcoServiceConfig.Gardener.UseFalcoSandboxRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, falcoVersion)
+		if err != nil {
+			return nil, err
+		}
+		falcoChartValues["falcoSandboxRules"] = r
+	}
+	if falcoServiceConfig.Gardener.UseFalcoRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
+		if err != nil {
+			return nil, err
+		}
+		falcoChartValues["falcoRules"] = r
 	}
 	return falcoChartValues, nil
 }
@@ -190,7 +227,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 // get the latest Falco version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
 	var latestVersion string = ""
-	for _, version := range c.config.Falco.FalcoVersions {
+	for _, version := range c.falcoVersions.Falco.FalcoVersions {
 		if version.Classification == "supported" {
 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
 				latestVersion = version.Version
@@ -207,7 +244,7 @@ func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
 // get the latest Falco version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	var latestVersion string = ""
-	for _, version := range c.config.Falco.FalcosidekickVersions {
+	for _, version := range c.falcoVersions.FalcoSidekickVersions.FalcosidekickVersions {
 		if version.Classification == "supported" {
 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
 				latestVersion = version.Version
@@ -223,9 +260,7 @@ func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 
 func (c *ConfigBuilder) getImageForVersion(name string, version string) (*imagevector.ImageSource, error) {
 
-	fmt.Println(c.imageVector)
 	for _, image := range c.imageVector {
-		fmt.Println(*image.Version, image.Name)
 		if *image.Version == version && image.Name == name {
 			return image, nil
 		}
@@ -331,4 +366,18 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 		}
 	}
 	return ruleFiles, nil
+}
+
+func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string) (string, error) {
+	rules := versions.Rules
+	for _, fv := range versions.Falco.FalcoVersions {
+		dir := "rules/" + fv.RulesVersion + "/" + rulesFile
+		f, err := rules.ReadFile(dir)
+		if err != nil {
+			return "", err
+		} else {
+			return string(f[:]), nil
+		}
+	}
+	return "", fmt.Errorf("cannot find rules %s for Falco version %s", rulesFile, falcoVersion)
 }

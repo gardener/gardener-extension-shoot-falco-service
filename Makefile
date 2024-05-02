@@ -74,6 +74,7 @@ docker-login:
 docker-images:
 	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(EXTENSION_PREFIX)-$(NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME) .
 	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
+
 .PHONY: docker-push
 docker-push:
 	@docker push $(IMAGE_PREFIX)/$(NAME):$(VERSION)
@@ -93,7 +94,7 @@ tidy:
 .PHONY: clean
 clean:
 	@$(shell find ./example -type f -name "controller-registration.yaml" -exec rm '{}' \;)
-	@bash $(GARDENER_HACK_DIR)/clean.sh ./cmd/... ./pkg/...
+	@bash $(GARDENER_HACK_DIR)/clean.sh ./cmd/... ./pkg/... ./imagevector/... ./falco/...
 
 .PHONY: check-generate
 check-generate:
@@ -101,7 +102,7 @@ check-generate:
 
 .PHONY: check
 check: $(GOIMPORTS) $(GOLANGCI_LINT) $(HELM) $(YQ)
-	@bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/...
+	@bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/...  ./imagevector/... ./falco/...
 	@bash $(GARDENER_HACK_DIR)/check-charts.sh ./charts
 
 .PHONY: generate-controller-registration
@@ -116,11 +117,11 @@ generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(HELM) $(MOCKGEN) $(Y
 
 .PHONY: format
 format: $(GOIMPORTS) $(GOIMPORTSREVISER)
-	@bash $(GARDENER_HACK_DIR)/format.sh ./cmd ./pkg
+	@bash $(GARDENER_HACK_DIR)/format.sh ./cmd ./pkg ./imagevector ./falco
 
 .PHONY: test
 test:
-	@SKIP_FETCH_TOOLS=1 bash $(GARDENER_HACK_DIR)/test.sh ./cmd/... ./pkg/...
+	@SKIP_FETCH_TOOLS=1 bash $(GARDENER_HACK_DIR)/test.sh ./cmd/... ./pkg/... ./falco/... ./imagevector
 
 .PHONY: test-cov
 test-cov:

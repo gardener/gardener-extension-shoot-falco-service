@@ -14,7 +14,8 @@
 !hack/
 !pkg/
 !test/
-!vendor/
+!imagevector/
+!falco/
 
 !.gitignore
 

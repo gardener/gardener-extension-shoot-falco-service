@@ -214,7 +214,7 @@ spec:
         - mountPath: /gvisor-config
           name: falco-gvisor-config
         {{- end }}
-        {{- if or .Values.customRules .Values.useFalcoIncubatingRules .Values.useFalcoSandboxRules }}
+        {{- if or .Values.customRules .Values.falcoIncubatingRules .Values.falcoSandboxRules }}
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
@@ -317,16 +317,16 @@ spec:
         items:
         - key: falco.yaml
           path: falco.yaml
-    {{- if or .Values.customRules .Values.useFalcoIncubatingRules .Values.useFalcoSandboxRules }}
+    {{- if or .Values.customRules .Values.falcoIncubatingRules .Values.falcoSandboxRules }}
     - name: rules-volume
       projected:
         defaultMode: 0644
         sources:
-          {{- if .Values.useFalcoIncubatingRules }}
+          {{- if .Values.falcoIncubatingRules }}
         - configMap:
             name: falco-incubating-rules
           {{- end }}
-          {{- if .Values.useFalcoSandboxRules }}
+          {{- if .Values.falcoSandboxRules }}
         - configMap:
             name: falco-sandbox-rules
           {{- end }}
