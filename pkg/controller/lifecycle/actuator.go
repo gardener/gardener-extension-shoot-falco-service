@@ -97,6 +97,7 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cl
 		return fmt.Errorf("could not render chart for shoot: %w", err)
 	}
 	releaseManifest := release.Manifest()
+
 	data := map[string][]byte{"config.yaml": releaseManifest}
 	if err := managedresources.CreateForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
 		return fmt.Errorf("could not create managed resource for shoot falco deployment %w", err)

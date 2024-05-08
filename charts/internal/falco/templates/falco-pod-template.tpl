@@ -214,11 +214,9 @@ spec:
         - mountPath: /gvisor-config
           name: falco-gvisor-config
         {{- end }}
-        {{- if or .Values.customRules .Values.falcoIncubatingRules .Values.falcoSandboxRules }}
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
-        {{- end }}
   {{- if .Values.falcoctl.artifact.follow.enabled }}
     {{- include "falcoctl.sidecar" . | nindent 4 }}
   {{- end }}
@@ -317,24 +315,26 @@ spec:
         items:
         - key: falco.yaml
           path: falco.yaml
-    {{- if or .Values.customRules .Values.falcoIncubatingRules .Values.falcoSandboxRules }}
     - name: rules-volume
       projected:
         defaultMode: 0644
         sources:
-          {{- if .Values.falcoIncubatingRules }}
+        {{- if .Values.falcoRules }}
+        - configMap:
+            name: falco-rules
+        {{- end }}
+        {{- if .Values.falcoIncubatingRules }}
         - configMap:
             name: falco-incubating-rules
-          {{- end }}
-          {{- if .Values.falcoSandboxRules }}
+        {{- end }}
+        {{- if .Values.falcoSandboxRules }}
         - configMap:
             name: falco-sandbox-rules
-          {{- end }}
-          {{- if .Values.customRules }}
+        {{- end }}
+        {{- if .Values.customRules }}
         - configMap:
             name: falco-custom-rules
-          {{- end }}
-    {{- end }}
+        {{- end }}
     {{- if or .Values.certs.existingSecret (and .Values.certs.server.key .Values.certs.server.crt .Values.certs.ca.crt) }}
     - name: certs-volume
       secret:
