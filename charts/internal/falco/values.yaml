@@ -466,9 +466,7 @@ falco:
   # desired customizations and rule behaviors are prioritized and applied as
   # intended.
   # -- The location of the rules files that will be consumed by Falco.
-  rules_file:
-    - /etc/falco/falco_rules.local.yaml
-    - /etc/falco/rules.d
+  rules_file: {}
 
   # [Experimental] `rule_matching`
   #
