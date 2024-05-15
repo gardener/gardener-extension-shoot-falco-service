@@ -9,6 +9,16 @@ gardener-extension-shoot-falco-service:
         ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
       version:
         preprocess: 'inject-commit-hash'
+      publish:
+        dockerimages:
+          gardener-extension-shoot-falco-service:
+            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/shoot-falco-service
+            dockerfile: 'Dockerfile'
+            target: gardener-extension-shoot-falco-service
+          gardener-extension-admission-shoot-falco-service:
+            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/admission-shoot-falco-service
+            dockerfile: 'Dockerfile'
+            target: gardener-extension-admission-shoot-falco-service
   jobs:
     head-update:
       traits:
