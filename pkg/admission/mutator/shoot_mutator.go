@@ -52,11 +52,12 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if s.isDisabled(new) {
 		return nil
 	}
-	// falcoConfig, err := s.extractFalcoConfig(new)
-	_, err := s.extractFalcoConfig(new)
+	falcoConf, err := s.extractFalcoConfig(new)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println(falcoConf.FalcoVersion)
 
 	// syncProviders := dnsConfig == nil || dnsConfig.Providers == nil
 	// if dnsConfig != nil && dnsConfig.SyncProvidersFromShootSpecDNS != nil {

@@ -50,9 +50,18 @@ func (v *validator) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		return allErrs.ToAggregate()
 	}
 
-	if _, err := v.extractFalcoConfig(shoot); err != nil {
+	falcoConf, err := v.extractFalcoConfig(shoot)
+	if err != nil {
 		return err
 	}
+
+	v.verifyFalcoVersion(falcoConf)
+
+	return nil
+}
+
+func (v *validator) verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
+	fmt.Println(falcoConf.FalcoVersion)
 	return nil
 }
 
