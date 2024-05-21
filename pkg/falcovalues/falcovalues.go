@@ -7,6 +7,7 @@ package falcovalues
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -114,8 +115,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"kind": "modern-bpf",
 		},
 		"image": map[string]string{
-			"image": falcoImage.Repository,
-			"tag":   *falcoImage.Tag,
+			"image": falcoImage,
 		},
 		"collectors": map[string]interface{}{
 			"crio": map[string]bool{
@@ -171,8 +171,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"enabled": false,
 			},
 			"image": map[string]string{
-				"image": falcosidekickImage.Repository,
-				"tag":   *falcosidekickImage.Tag,
+				"image": falcosidekickImage,
 			},
 			"priorityClassName": c.config.Falco.PriorityClassName,
 			"config": map[string]interface{}{
@@ -214,13 +213,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 		falcoChartValues["falcoSandboxRules"] = r
 	}
-	if falcoServiceConfig.Gardener.UseFalcoRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
-		if err != nil {
-			return nil, err
-		}
-		falcoChartValues["falcoRules"] = r
-	}
 	return falcoChartValues, nil
 }
 
@@ -258,14 +250,24 @@ func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	}
 }
 
-func (c *ConfigBuilder) getImageForVersion(name string, version string) (*imagevector.ImageSource, error) {
+func (c *ConfigBuilder) getImageForVersion(name string, version string) (string, error) {
+
+	isDigest := func(tag string) bool {
+		return strings.HasPrefix(tag, "sha256:")
+	}
 
 	for _, image := range c.imageVector {
 		if *image.Version == version && image.Name == name {
-			return image, nil
+			if isDigest(*image.Tag) {
+				return image.Repository + "@" + *image.Tag, nil
+			} else if *image.Tag != "" {
+				return image.Repository + ":" + *image.Tag, nil
+			} else {
+				return image.Repository, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("no images found for %s version %s", name, version)
+	return "", fmt.Errorf("no images found for %s version %s", name, version)
 }
 
 func (c *ConfigBuilder) storeFalcoCas(ctx context.Context, namespace string, cas *secrets.FalcoCas) error {

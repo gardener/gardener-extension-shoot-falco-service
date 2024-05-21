@@ -72,20 +72,6 @@ func (in *Falco) DeepCopyInto(out *Falco) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.FalcoVersions != nil {
-		in, out := &in.FalcoVersions, &out.FalcoVersions
-		*out = make([]Version, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
-	if in.FalcosidekickVersions != nil {
-		in, out := &in.FalcosidekickVersions, &out.FalcosidekickVersions
-		*out = make([]Version, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
 	return
 }
 
