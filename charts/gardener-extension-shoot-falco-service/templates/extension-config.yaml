@@ -4,7 +4,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: extension-falco.config
+  name: extension-shoot-falco-service-config
   namespace: {{ .Release.Namespace }}	
 data:
   config.yaml: |

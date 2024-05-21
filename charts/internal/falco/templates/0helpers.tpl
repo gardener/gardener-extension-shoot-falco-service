@@ -157,6 +157,27 @@ Set appropriate falco configuration if falcosidekick has been configured.
 {{- end -}}
 
 {{/*
+Set appropriate falco rule configuration if rules are managed by the Gardener extension
+*/}}
+{{- define "falco.gardenerManagedRules" -}}
+    {{- $rulesFileList := list -}}
+    {{- if .Values.falcoRules }}
+      {{- $rulesFileList = append $rulesFileList "/etc/falco/rules.d/falco_rules.yaml" }}
+    {{- end }}
+    {{- if .Values.falcoIncubatingRules }}
+      {{- $rulesFileList = append $rulesFileList "/etc/falco/rules.d/falco-incubating_rules.yaml" }}
+    {{- end }}
+    {{- if .Values.falcoSandboxRules }}
+      {{- $rulesFileList = append $rulesFileList "/etc/falco/rules.d/falco-sandbox_rules.yaml" }}
+    {{- end }}
+    {{- range $file, $content :=  .Values.customRules }}
+      {{- $rulesFile := printf "%s%s" "/etc/falco/rules.d/" $file }}
+      {{- $rulesFileList = append $rulesFileList $rulesFile }}
+    {{- end }}
+    {{- $_ := set .Values.falco "rules_file" $rulesFileList }}
+{{- end -}}
+
+{{/*
 Get cluster name
 */}}
 {{- define "cluster.name" -}}

@@ -148,6 +148,18 @@ Webhook
 <tbody>
 <tr>
 <td>
+<code>useFalcoRules</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>use Falco rules from correspoonging rules release, defaults to true</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>useFalcoIncubatingRules</code></br>
 <em>
 bool
