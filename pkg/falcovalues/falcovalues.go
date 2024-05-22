@@ -7,6 +7,7 @@ package falcovalues
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
@@ -40,6 +41,11 @@ type ConfigBuilder struct {
 	tokenIssuer   *secrets.TokenIssuer
 	imageVector   imagevector.ImageVector
 	falcoVersions *falco.Falco
+}
+
+type customRulesFile struct {
+	Filename string `json:"filename"`
+	Content  string `json:"content"`
 }
 
 func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, falcoVersions *falco.Falco) *ConfigBuilder {
@@ -233,7 +239,7 @@ func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
 	}
 }
 
-// get the latest Falco version tagged as "supported"
+// get the latest Falcosidekick version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	var latestVersion string = ""
 	for _, version := range c.falcoVersions.FalcoSidekickVersions.FalcosidekickVersions {
@@ -322,7 +328,7 @@ func serializeCustomHeaders(customHeadersMap map[string]string) string {
 	return customHeaders[:len(customHeaders)-1]
 }
 
-func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, error) {
+func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRulesFile, error) {
 
 	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
 		// no custom rules to apply
@@ -345,7 +351,7 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 	return c.loadRuleConfig(ctx, log, namespace, &selectedConfigMaps)
 }
 
-func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) (map[string]string, error) {
+func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) ([]customRulesFile, error) {
 	ruleFiles := map[string]string{}
 	for ruleRef, configMapName := range *selectedConfigMaps {
 		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
@@ -357,7 +363,7 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 				Name:      refConfigMapName},
 			&configMap)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %v", refConfigMapName, ruleRef, err)
+			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %w", refConfigMapName, ruleRef, err)
 		}
 		for name, file := range configMap.Data {
 			if _, ok := ruleFiles[name]; ok {
@@ -366,30 +372,19 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 			ruleFiles[name] = file
 		}
 	}
-	return ruleFiles, nil
-}
-
-func (c *ConfigBuilder) getCustomRules1(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, []string, error) {
-
-	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
-		// no custom rules to apply
-		return nil, nil, nil
-	}
-	allConfigMaps := map[string]string{}
-	for _, r := range cluster.Shoot.Spec.Resources {
-		if r.ResourceRef.Kind == "ConfigMap" && r.ResourceRef.APIVersion == "v1" {
-			allConfigMaps[r.Name] = r.ResourceRef.Name
+	rules := make([]customRulesFile, len(ruleFiles))
+	i := 0
+	for name, content := range ruleFiles {
+		rules[i] = customRulesFile{
+			Filename: name,
+			Content:  content,
 		}
+		i++
 	}
-	selectedConfigMaps := map[string]string{}
-	for _, ruleRef := range falcoServiceConfig.Gardener.RuleRefs {
-		if configMapName, ok := allConfigMaps[ruleRef.Ref]; ok {
-			selectedConfigMaps[ruleRef.Ref] = configMapName
-		} else {
-			return nil, nil, fmt.Errorf("no resource for curstom rule ref %s found", ruleRef)
-		}
-	}
-	return c.loadRuleConfig1(ctx, log, namespace, &selectedConfigMaps)
+	slices.SortFunc(rules, func(a, b customRulesFile) int {
+		return strings.Compare(a.Filename, b.Filename)
+	})
+	return rules, nil
 }
 
 // TODO: better error messages as direct user interaction
