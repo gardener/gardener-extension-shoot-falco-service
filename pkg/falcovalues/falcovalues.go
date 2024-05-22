@@ -387,33 +387,6 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 	return rules, nil
 }
 
-// TODO: better error messages as direct user interaction
-func (c *ConfigBuilder) loadRuleConfig1(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) (map[string]string, []string, error) {
-	ruleFiles := map[string]string{}
-	customRuleConfigMaps := make([]string, 0)
-	for ruleRef, configMapName := range *selectedConfigMaps {
-		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
-		configMap := corev1.ConfigMap{}
-		refConfigMapName := "ref-" + configMapName
-		err := c.client.Get(ctx,
-			client.ObjectKey{
-				Namespace: namespace,
-				Name:      refConfigMapName},
-			&configMap)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get configmap %s: %v", refConfigMapName, err)
-		}
-		customRuleConfigMaps = append(customRuleConfigMaps, refConfigMapName)
-		for name, file := range configMap.Data {
-			if _, in := ruleFiles[name]; in {
-				return nil, nil, fmt.Errorf("duplicate file %s in configmap %s", name, configMapName)
-			}
-			ruleFiles[name] = file
-		}
-	}
-	return ruleFiles, customRuleConfigMaps, nil
-}
-
 func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string) (string, error) {
 	rules := versions.Rules
 	for _, fv := range versions.Falco.FalcoVersions {
