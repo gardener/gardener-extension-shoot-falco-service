@@ -42,11 +42,6 @@ type Falco struct {
 
 	// Event inggestor URL
 	IngestorURL string
-
-	// Falco versions
-	FalcoVersions []Version
-
-	FalcosidekickVersions []Version
 }
 
 type Version struct {

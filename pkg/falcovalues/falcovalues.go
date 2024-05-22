@@ -7,6 +7,8 @@ package falcovalues
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -39,6 +41,11 @@ type ConfigBuilder struct {
 	tokenIssuer   *secrets.TokenIssuer
 	imageVector   imagevector.ImageVector
 	falcoVersions *falco.Falco
+}
+
+type customRulesFile struct {
+	Filename string `json:"filename"`
+	Content  string `json:"content"`
 }
 
 func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, falcoVersions *falco.Falco) *ConfigBuilder {
@@ -114,8 +121,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"kind": "modern-bpf",
 		},
 		"image": map[string]string{
-			"image": falcoImage.Repository,
-			"tag":   *falcoImage.Tag,
+			"image": falcoImage,
 		},
 		"collectors": map[string]interface{}{
 			"crio": map[string]bool{
@@ -171,8 +177,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"enabled": false,
 			},
 			"image": map[string]string{
-				"image": falcosidekickImage.Repository,
-				"tag":   *falcosidekickImage.Tag,
+				"image": falcosidekickImage,
 			},
 			"priorityClassName": c.config.Falco.PriorityClassName,
 			"config": map[string]interface{}{
@@ -214,13 +219,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 		falcoChartValues["falcoSandboxRules"] = r
 	}
-	if falcoServiceConfig.Gardener.UseFalcoRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
-		if err != nil {
-			return nil, err
-		}
-		falcoChartValues["falcoRules"] = r
-	}
 	return falcoChartValues, nil
 }
 
@@ -241,7 +239,7 @@ func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
 	}
 }
 
-// get the latest Falco version tagged as "supported"
+// get the latest Falcosidekick version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	var latestVersion string = ""
 	for _, version := range c.falcoVersions.FalcoSidekickVersions.FalcosidekickVersions {
@@ -258,14 +256,24 @@ func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	}
 }
 
-func (c *ConfigBuilder) getImageForVersion(name string, version string) (*imagevector.ImageSource, error) {
+func (c *ConfigBuilder) getImageForVersion(name string, version string) (string, error) {
+
+	isDigest := func(tag string) bool {
+		return strings.HasPrefix(tag, "sha256:")
+	}
 
 	for _, image := range c.imageVector {
 		if *image.Version == version && image.Name == name {
-			return image, nil
+			if isDigest(*image.Tag) {
+				return image.Repository + "@" + *image.Tag, nil
+			} else if *image.Tag != "" {
+				return image.Repository + ":" + *image.Tag, nil
+			} else {
+				return image.Repository, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("no images found for %s version %s", name, version)
+	return "", fmt.Errorf("no images found for %s version %s", name, version)
 }
 
 func (c *ConfigBuilder) storeFalcoCas(ctx context.Context, namespace string, cas *secrets.FalcoCas) error {
@@ -320,7 +328,7 @@ func serializeCustomHeaders(customHeadersMap map[string]string) string {
 	return customHeaders[:len(customHeaders)-1]
 }
 
-func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, error) {
+func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRulesFile, error) {
 
 	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
 		// no custom rules to apply
@@ -343,7 +351,7 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 	return c.loadRuleConfig(ctx, log, namespace, &selectedConfigMaps)
 }
 
-func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) (map[string]string, error) {
+func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) ([]customRulesFile, error) {
 	ruleFiles := map[string]string{}
 	for ruleRef, configMapName := range *selectedConfigMaps {
 		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
@@ -355,7 +363,7 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 				Name:      refConfigMapName},
 			&configMap)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %v", refConfigMapName, ruleRef, err)
+			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %w", refConfigMapName, ruleRef, err)
 		}
 		for name, file := range configMap.Data {
 			if _, ok := ruleFiles[name]; ok {
@@ -364,57 +372,19 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 			ruleFiles[name] = file
 		}
 	}
-	return ruleFiles, nil
-}
-
-func (c *ConfigBuilder) getCustomRules1(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, []string, error) {
-
-	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
-		// no custom rules to apply
-		return nil, nil, nil
-	}
-	allConfigMaps := map[string]string{}
-	for _, r := range cluster.Shoot.Spec.Resources {
-		if r.ResourceRef.Kind == "ConfigMap" && r.ResourceRef.APIVersion == "v1" {
-			allConfigMaps[r.Name] = r.ResourceRef.Name
+	rules := make([]customRulesFile, len(ruleFiles))
+	i := 0
+	for name, content := range ruleFiles {
+		rules[i] = customRulesFile{
+			Filename: name,
+			Content:  content,
 		}
+		i++
 	}
-	selectedConfigMaps := map[string]string{}
-	for _, ruleRef := range falcoServiceConfig.Gardener.RuleRefs {
-		if configMapName, ok := allConfigMaps[ruleRef.Ref]; ok {
-			selectedConfigMaps[ruleRef.Ref] = configMapName
-		} else {
-			return nil, nil, fmt.Errorf("no resource for curstom rule ref %s found", ruleRef)
-		}
-	}
-	return c.loadRuleConfig1(ctx, log, namespace, &selectedConfigMaps)
-}
-
-// TODO: better error messages as direct user interaction
-func (c *ConfigBuilder) loadRuleConfig1(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) (map[string]string, []string, error) {
-	ruleFiles := map[string]string{}
-	customRuleConfigMaps := make([]string, 0)
-	for ruleRef, configMapName := range *selectedConfigMaps {
-		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
-		configMap := corev1.ConfigMap{}
-		refConfigMapName := "ref-" + configMapName
-		err := c.client.Get(ctx,
-			client.ObjectKey{
-				Namespace: namespace,
-				Name:      refConfigMapName},
-			&configMap)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get configmap %s: %v", refConfigMapName, err)
-		}
-		customRuleConfigMaps = append(customRuleConfigMaps, refConfigMapName)
-		for name, file := range configMap.Data {
-			if _, in := ruleFiles[name]; in {
-				return nil, nil, fmt.Errorf("duplicate file %s in configmap %s", name, configMapName)
-			}
-			ruleFiles[name] = file
-		}
-	}
-	return ruleFiles, customRuleConfigMaps, nil
+	slices.SortFunc(rules, func(a, b customRulesFile) int {
+		return strings.Compare(a.Filename, b.Filename)
+	})
+	return rules, nil
 }
 
 func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string) (string, error) {

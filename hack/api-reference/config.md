@@ -163,40 +163,10 @@ string
 <p>Ingestor URL</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>falcoVersions</code></br>
-<em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Version">
-[]Version
-</a>
-</em>
-</td>
-<td>
-<p>Falco versions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>falcosidekickVersions</code></br>
-<em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Version">
-[]Version
-</a>
-</em>
-</td>
-<td>
-<p>Falco versions</p>
-</td>
-</tr>
 </tbody>
 </table>
 <h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Version">Version
 </h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Falco">Falco</a>)
-</p>
 <p>
 </p>
 <table>
