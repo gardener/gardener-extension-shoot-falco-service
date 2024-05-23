@@ -96,11 +96,14 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if err != nil {
 		return err
 	}
+	// Need to handle empty falco conf
 
 	// Set faclo version
 	fmt.Println(falcoConf.FalcoVersion)
 	setFalcoVersion(falcoConf)
 	fmt.Println(*falcoConf.FalcoVersion)
+
+	return s.updateFalcoConfig(new, falcoConf)
 
 	// syncProviders := dnsConfig == nil || dnsConfig.Providers == nil
 	// if dnsConfig != nil && dnsConfig.SyncProvidersFromShootSpecDNS != nil {
@@ -182,7 +185,6 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	// }
 
 	// return s.updateDNSConfig(new, dnsConfig)
-	return nil
 }
 
 // isDisabled returns true if extension is explicitly disabled.
@@ -250,30 +252,32 @@ func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 // 	return nil, nil
 // }
 
-// func (s *shoot) updateDNSConfig(shoot *gardencorev1beta1.Shoot, config *servicev1alpha1.DNSConfig) error {
-// 	raw, err := s.toRaw(config)
-// 	if err != nil {
-// 		return err
-// 	}
+func (s *shoot) updateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
+	raw, err := s.toRaw(config)
+	if err != nil {
+		return err
+	}
 
-// 	index := -1
-// 	for i, ext := range shoot.Spec.Extensions {
-// 		if ext.Type == pkgservice.ExtensionType {
-// 			index = i
-// 			break
-// 		}
-// 	}
-// 	if index == -1 {
-// 		index = len(shoot.Spec.Extensions)
-// 		shoot.Spec.Extensions = append(shoot.Spec.Extensions, gardencorev1beta1.Extension{
-// 			Type: pkgservice.ExtensionType,
-// 		})
-// 	}
-// 	shoot.Spec.Extensions[index].ProviderConfig = &runtime.RawExtension{Raw: raw}
-// 	return nil
-// }
+	extensionType := "shoot-falco-service"
+	index := -1
+	for i, ext := range shoot.Spec.Extensions {
+		if ext.Type == extensionType {
+			index = i
+			break
+		}
+	}
 
-func (s *shoot) toRaw(config *servicev1alpha1.FalcoServiceConfig) ([]byte, error) {
+	if index == -1 {
+		index = len(shoot.Spec.Extensions)
+		shoot.Spec.Extensions = append(shoot.Spec.Extensions, gardencorev1beta1.Extension{
+			Type: extensionType,
+		})
+	}
+	shoot.Spec.Extensions[index].ProviderConfig = &runtime.RawExtension{Raw: raw}
+	return nil
+}
+
+func (s *shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 	encoder, err := s.getEncoder()
 	if err != nil {
 		return nil, err
