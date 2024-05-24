@@ -12,6 +12,7 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	pkgversion "github.com/hashicorp/go-version"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,7 +22,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
-	pkgversion "github.com/hashicorp/go-version"
 )
 
 // NewShootMutator returns a new instance of a shoot mutator.
@@ -50,6 +50,15 @@ func (s *shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	}
 	return s.mutateShoot(ctx, shoot)
 }
+
+// func setAutoUpdate(falcoConf *service.FalcoServiceConfig) error {
+// 	if falcoConf.AutoUpdate != nil {
+// 		return nil
+// 	}
+// 	autoUpdateVal := true
+// 	falcoConf.AutoUpdate = *autoUpdateVal
+// 	return nil
+// }
 
 func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	if falcoConf.FalcoVersion != nil {
@@ -102,6 +111,11 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	fmt.Println(falcoConf.FalcoVersion)
 	setFalcoVersion(falcoConf)
 	fmt.Println(*falcoConf.FalcoVersion)
+
+	// Set auto update
+	fmt.Println(falcoConf.AutoUpdate)
+	// setAutoUpdate(falcoConf)
+	fmt.Println(falcoConf.AutoUpdate)
 
 	return s.updateFalcoConfig(new, falcoConf)
 
