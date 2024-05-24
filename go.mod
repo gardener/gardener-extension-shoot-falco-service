@@ -1,6 +1,6 @@
 module github.com/gardener/gardener-extension-shoot-falco-service
 
-go 1.22.2
+go 1.22.3
 
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
