@@ -389,14 +389,19 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 
 func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string) (string, error) {
 	rules := versions.Rules
+	rulesVersion := ""
 	for _, fv := range versions.Falco.FalcoVersions {
-		dir := "rules/" + fv.RulesVersion + "/" + rulesFile
-		f, err := rules.ReadFile(dir)
-		if err != nil {
-			return "", err
-		} else {
-			return string(f[:]), nil
+		if falcoVersion == fv.Version {
+			rulesVersion = fv.RulesVersion
 		}
 	}
-	return "", fmt.Errorf("cannot find rules %s for Falco version %s", rulesFile, falcoVersion)
+	if rulesVersion == "" {
+		return "", fmt.Errorf("cannot find rules %s for Falco version %s", rulesFile, falcoVersion)
+	}
+	dir := "rules/" + rulesVersion + "/" + rulesFile
+	if f, err := rules.ReadFile(dir); err != nil {
+		return "", err
+	} else {
+		return string(f[:]), nil
+	}
 }

@@ -5,6 +5,6 @@ metadata:
   name: falco-rules
   namespace: {{ include "falco.namespace" . }}
 data:
-  falco-incubating_rules.yaml: |-
+  falco_rules.yaml: |-
 {{ .Values.falcoRules | indent 4 }}
 {{- end}}
