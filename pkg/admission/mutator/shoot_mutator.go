@@ -51,22 +51,66 @@ func (s *shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	return s.mutateShoot(ctx, shoot)
 }
 
-// func setAutoUpdate(falcoConf *service.FalcoServiceConfig) error {
-// 	if falcoConf.AutoUpdate != nil {
-// 		return nil
-// 	}
-// 	autoUpdateVal := true
-// 	falcoConf.AutoUpdate = *autoUpdateVal
-// 	return nil
-// }
+func setCustomWebhook(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.CustomWebhook == nil {
+		enabledWebhook := false
+		falcoConf.CustomWebhook = &service.Webhook{Enabled: &enabledWebhook}
+	}
+}
+
+func setFalcoCtl(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.FalcoCtl == nil {
+		falcoConf.FalcoCtl = &service.FalcoCtl{}
+	}
+}
+
+func setGardenerRules(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Gardener == nil {
+		falcoConf.Gardener = &service.Gardener{}
+	}
+
+	if falcoConf.Gardener.UseFalcoRules == nil {
+		defaultRules := true
+		falcoConf.Gardener.UseFalcoRules = &defaultRules
+	}
+
+	if falcoConf.Gardener.UseFalcoIncubatingRules == nil {
+		defaultIncRules := false
+		falcoConf.Gardener.UseFalcoIncubatingRules = &defaultIncRules
+	}
+
+	if falcoConf.Gardener.UseFalcoSandboxRules == nil {
+		defaultSandRules := false
+		falcoConf.Gardener.UseFalcoSandboxRules = &defaultSandRules
+	}
+
+	if falcoConf.Gardener.RuleRefs == nil {
+		falcoConf.Gardener.RuleRefs = []service.Rule{}
+	}
+}
+
+func setResources(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Resources == nil {
+		defaultResource := "gardener"
+		falcoConf.Resources = &defaultResource
+	}
+}
+
+func setAutoUpdate(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.AutoUpdate == nil {
+		autoUpdateVal := true
+		falcoConf.AutoUpdate = &autoUpdateVal
+	}
+}
 
 func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	if falcoConf.FalcoVersion != nil {
 		return nil
 	}
-	versions := falco.FalcoVersions().Falco
 
+	versions := falco.FalcoVersions().Falco
 	version, err := chooseHighestVersion(versions, "supported")
+	// TODO what to do in case of error i.e. no supported version available
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -114,70 +158,33 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	// Set auto update
 	fmt.Println(falcoConf.AutoUpdate)
-	// setAutoUpdate(falcoConf)
+	setAutoUpdate(falcoConf)
 	fmt.Println(falcoConf.AutoUpdate)
 
+	// Set resources
+	fmt.Println(falcoConf.Resources)
+	setResources(falcoConf)
+	fmt.Println(falcoConf.Resources)
+
+	fmt.Println(falcoConf.FalcoCtl)
+	setFalcoCtl(falcoConf)
+	fmt.Println(falcoConf.FalcoCtl)
+
+	fmt.Println(falcoConf.Gardener)
+	setGardenerRules(falcoConf)
+	fmt.Println(falcoConf.Gardener)
+
+	fmt.Println(falcoConf.CustomWebhook)
+	setCustomWebhook(falcoConf)
+	fmt.Println(falcoConf.CustomWebhook)
+
 	return s.updateFalcoConfig(new, falcoConf)
-
-	// syncProviders := dnsConfig == nil || dnsConfig.Providers == nil
-	// if dnsConfig != nil && dnsConfig.SyncProvidersFromShootSpecDNS != nil {
-	// 	syncProviders = *dnsConfig.SyncProvidersFromShootSpecDNS
-	// }
-	// if !syncProviders {
-	// 	return nil
-	// }
-
-	// if dnsConfig == nil {
-	// 	dnsConfig = &servicev1alpha1.DNSConfig{}
-	// }
-	// dnsConfig.SyncProvidersFromShootSpecDNS = &syncProviders
 
 	// oldNamedResources := map[string]int{}
 	// for i, r := range new.Spec.Resources {
 	// 	oldNamedResources[r.Name] = i
 	// }
 	// newNamedResources := map[string]struct{}{}
-
-	// dnsConfig.Providers = nil
-	// for _, p := range new.Spec.DNS.Providers {
-	// 	np := servicev1alpha1.DNSProvider{Type: p.Type}
-	// 	if p.Domains != nil {
-	// 		np.Domains = &servicev1alpha1.DNSIncludeExclude{
-	// 			Include: p.Domains.Include,
-	// 			Exclude: p.Domains.Exclude,
-	// 		}
-	// 	}
-	// 	if p.Zones != nil {
-	// 		np.Zones = &servicev1alpha1.DNSIncludeExclude{
-	// 			Include: p.Zones.Include,
-	// 			Exclude: p.Zones.Exclude,
-	// 		}
-	// 	}
-	// 	if p.Primary != nil && *p.Primary && p.Domains == nil && p.Zones == nil && new.Spec.DNS.Domain != nil {
-	// 		np.Domains = &servicev1alpha1.DNSIncludeExclude{
-	// 			Include: []string{*new.Spec.DNS.Domain},
-	// 		}
-	// 	}
-	// 	if p.SecretName != nil {
-	// 		secretName := pkgservice.ExtensionType + "-" + *p.SecretName
-	// 		np.SecretName = &secretName
-	// 		resource := gardencorev1beta1.NamedResourceReference{
-	// 			Name: secretName,
-	// 			ResourceRef: autoscalingv1.CrossVersionObjectReference{
-	// 				Kind:       "Secret",
-	// 				Name:       *p.SecretName,
-	// 				APIVersion: "v1",
-	// 			},
-	// 		}
-	// 		newNamedResources[secretName] = struct{}{}
-	// 		if index, ok := oldNamedResources[secretName]; ok {
-	// 			new.Spec.Resources[index].ResourceRef = resource.ResourceRef
-	// 		} else {
-	// 			new.Spec.Resources = append(new.Spec.Resources, resource)
-	// 		}
-	// 	}
-	// 	dnsConfig.Providers = append(dnsConfig.Providers, np)
-	// }
 
 	// outdated := map[string]struct{}{}
 	// for key := range oldNamedResources {
@@ -203,9 +210,6 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 // isDisabled returns true if extension is explicitly disabled.
 func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
-	if shoot.Spec.DNS == nil {
-		return true
-	}
 	if shoot.DeletionTimestamp != nil {
 		// don't mutate shoots in deletion
 		return true
