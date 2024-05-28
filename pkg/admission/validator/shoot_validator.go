@@ -92,7 +92,7 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 	if gardenerManager == nil {
 		return fmt.Errorf("gardener managing configuration not set")
 	}
-	if gardenerManager.UseFalcoRules == nil || gardenerManager.UseFalcoIncubatingRules == nil ||  gardenerManager.UseFalcoSandboxRules == nil{
+	if gardenerManager.UseFalcoRules == nil || gardenerManager.UseFalcoIncubatingRules == nil || gardenerManager.UseFalcoSandboxRules == nil {
 		return fmt.Errorf("gardener rules not set")
 	}
 	// RulesRef will be set to default val as no pointer
@@ -101,10 +101,11 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 
 func verifyWebhook(falcoConf *service.FalcoServiceConfig) error {
 	webhook := falcoConf.CustomWebhook
-	if webhook.Enabled == nil {
+	if webhook == nil {
+		return fmt.Errorf("webhook is nil")
+	} else if webhook.Enabled == nil {
 		return fmt.Errorf("webhook needs to be either enabled or disbaled")
-	}
-	if *webhook.Enabled && webhook.Address == nil {
+	} else if *webhook.Enabled && webhook.Address == nil {
 		return fmt.Errorf("webhook is enabled but without address")
 	}
 	return nil
