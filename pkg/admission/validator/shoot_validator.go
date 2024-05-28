@@ -125,6 +125,10 @@ func verifyResources(falcoConf *service.FalcoServiceConfig) error {
 func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	versions := falco.FalcoVersions().Falco
 	chosenVersion := falcoConf.FalcoVersion
+	if chosenVersion == nil {
+		return fmt.Errorf("falcoVersion is nil")
+	}
+
 	for _, ver := range versions.FalcoVersions {
 		if *chosenVersion == ver.Version {
 			if ver.Classification == "deprecated" {
