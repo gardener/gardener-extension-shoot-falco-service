@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gardener/gardener/pkg/apis/core"
+
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 )
@@ -35,6 +37,73 @@ func getDeprecatedAndSupportedVersions() (*string, *string, error) {
 	err := errors.Join(errSup, errDep)
 
 	return &supported, &deprecated, err
+}
+
+func TestExtractFalcoConf(t *testing.T) {
+	s := &shoot{}
+	exampleShoot := &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{},
+		},
+	}
+
+	conf, err := s.extractFalcoConfig(exampleShoot)
+	if err != nil && conf != nil {
+		t.Errorf("FalcoConf not present but extracted")
+	}
+
+	// TODO need decoder scheme
+
+	// ext := runtime.RawExtension{
+	// 	Raw: []byte(`{"FalcoVersion": "0.0.0"}`),
+	// }
+	// exampleShoot = &core.Shoot{
+	// 	Spec: core.ShootSpec{
+	// 		Extensions: []core.Extension{
+	// 			{Type: "shoot-falco-service", ProviderConfig: &ext},
+	// 		},
+	// 	},
+	// }
+	// conf, err = s.extractFalcoConfig(exampleShoot)
+	// if err != nil && conf == nil {
+	// 	t.Errorf("FalcoConf present but not extracted")
+	// }
+
+}
+
+func TestExtensionIsDisabled(t *testing.T) {
+	disabledSet := false
+	exampleShoot := &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{
+				{Type: "shoot-falco-service", Disabled: &disabledSet},
+			},
+		},
+	}
+
+	s := &shoot{}
+	disabled := s.isDisabled(exampleShoot)
+	if disabled {
+		t.Error("Extension is present but not found")
+	}
+
+	disabledSet = true
+	disabled = s.isDisabled(exampleShoot)
+	if !disabled {
+		t.Error("Extension is disabled but found")
+	}
+
+	exampleShoot.Spec.Extensions[0].Disabled = nil
+	disabled = s.isDisabled(exampleShoot)
+	if disabled {
+		t.Error("Extension is present and not explicitly disabled but not found")
+	}
+
+	exampleShoot.Spec.Extensions = []core.Extension{}
+	disabled = s.isDisabled(exampleShoot)
+	if !disabled {
+		t.Error("No extension is present but reported found")
+	}
 }
 
 func TestVerifyWebhook(t *testing.T) {

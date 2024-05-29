@@ -145,7 +145,7 @@ func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 	ext := s.findExtension(shoot)
 	if ext == nil {
-		return false
+		return true
 	}
 
 	if ext.Disabled != nil {
@@ -159,7 +159,6 @@ func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
 	extensionType := "shoot-falco-service"
 	for i, ext := range shoot.Spec.Extensions {
 		if ext.Type == extensionType {
-			fmt.Println(string(shoot.Spec.Extensions[i].ProviderConfig.Raw))
 			return &shoot.Spec.Extensions[i]
 		}
 	}
@@ -169,12 +168,11 @@ func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
 func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConfig, error) {
 	ext := s.findExtension(shoot)
 	if ext != nil && ext.ProviderConfig != nil {
-		// dnsConfig := &apisservice.DNSConfig{}
 		falcoConfig := &service.FalcoServiceConfig{}
 		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
 			return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
 		}
 		return falcoConfig, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("no FalcoConfig found in extensions")
 }
