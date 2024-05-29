@@ -97,7 +97,7 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 	if gardenerManager.UseFalcoRules == nil || gardenerManager.UseFalcoIncubatingRules == nil || gardenerManager.UseFalcoSandboxRules == nil {
 		return fmt.Errorf("gardener rules not set")
 	}
-	// RulesRef will be set to default val as no pointer
+	// RulesRef will be set to default val as not a pointer
 	return nil
 }
 

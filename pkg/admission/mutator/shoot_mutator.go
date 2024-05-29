@@ -42,8 +42,6 @@ type shoot struct {
 
 // Mutate implements extensionswebhook.Mutator.Mutate
 func (s *shoot) Mutate(ctx context.Context, new, _ client.Object) error {
-	fmt.Println("I am the mutator")
-
 	shoot, ok := new.(*gardencorev1beta1.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
@@ -112,18 +110,14 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	version, err := chooseHighestVersion(versions, "supported")
 	// TODO what to do in case of error i.e. no supported version available
 	if err != nil {
-		fmt.Println(err.Error())
 		return err
 	}
-	falcoConf.FalcoVersion = &version
+	falcoConf.FalcoVersion = version
 	return nil
 }
 
-func chooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (string, error) {
-	highest, err := pkgversion.NewVersion("0") // does not allow empty string
-	if err != nil {
-		return "", fmt.Errorf("could not parse version: %s", err)
-	}
+func chooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
+	var highest *pkgversion.Version = nil
 	for _, v := range versions.FalcoVersions {
 		if v.Classification != classification {
 			continue
@@ -131,14 +125,19 @@ func chooseHighestVersion(versions *falcoversions.FalcoVersions, classification 
 		incumbent, err := pkgversion.NewVersion(v.Version)
 
 		if err != nil {
-			return "", fmt.Errorf("could not parse version: %s", err)
+			return nil, fmt.Errorf("could not parse version: %s", err)
 		}
 
-		if incumbent.GreaterThan(highest) {
+		if highest == nil || incumbent.GreaterThan(highest) {
 			highest = incumbent
 		}
 	}
-	return highest.String(), nil
+
+	if highest != nil {
+		highestVersion := highest.String()
+		return &highestVersion, nil
+	}
+	return nil, fmt.Errorf("no version with classification %s was found", classification)
 }
 
 func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
@@ -151,32 +150,17 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	}
 	// Need to handle empty falco conf
 
-	// Set faclo version
-	fmt.Println(falcoConf.FalcoVersion)
 	setFalcoVersion(falcoConf)
-	fmt.Println(*falcoConf.FalcoVersion)
 
-	// Set auto update
-	fmt.Println(falcoConf.AutoUpdate)
 	setAutoUpdate(falcoConf)
-	fmt.Println(falcoConf.AutoUpdate)
 
-	// Set resources
-	fmt.Println(falcoConf.Resources)
 	setResources(falcoConf)
-	fmt.Println(falcoConf.Resources)
 
-	fmt.Println(falcoConf.FalcoCtl)
 	setFalcoCtl(falcoConf)
-	fmt.Println(falcoConf.FalcoCtl)
 
-	fmt.Println(falcoConf.Gardener)
 	setGardenerRules(falcoConf)
-	fmt.Println(falcoConf.Gardener)
 
-	fmt.Println(falcoConf.CustomWebhook)
 	setCustomWebhook(falcoConf)
-	fmt.Println(falcoConf.CustomWebhook)
 
 	return s.updateFalcoConfig(new, falcoConf)
 
@@ -214,16 +198,18 @@ func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 		// don't mutate shoots in deletion
 		return true
 	}
+
+	// TODO shouldnt we test for equality here??? was equality before
 	if shoot.Status.LastOperation != nil &&
-		shoot.Status.LastOperation.Type != gardencorev1beta1.LastOperationTypeReconcile &&
-		shoot.Status.LastOperation.State != gardencorev1beta1.LastOperationStateProcessing {
+		shoot.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeReconcile &&
+		shoot.Status.LastOperation.State == gardencorev1beta1.LastOperationStateProcessing {
 		// don't mutate shoots if not in reconcile processing state
 		return true
 	}
 
 	ext := s.findExtension(shoot)
 	if ext == nil {
-		return false
+		return true // TODO verify that this is correct
 	}
 	if ext.Disabled != nil {
 		return *ext.Disabled
@@ -236,7 +222,6 @@ func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1
 	extensionType := "shoot-falco-service"
 	for i, ext := range shoot.Spec.Extensions {
 		if ext.Type == extensionType {
-			fmt.Println(string(shoot.Spec.Extensions[i].ProviderConfig.Raw))
 			return &shoot.Spec.Extensions[i]
 		}
 	}
@@ -246,7 +231,6 @@ func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1
 func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
 	ext := s.findExtension(shoot)
 	if ext != nil && ext.ProviderConfig != nil {
-		// dnsConfig := &apisservice.DNSConfig{}
 		falcoConfig := &service.FalcoServiceConfig{}
 		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
 			return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
@@ -255,20 +239,6 @@ func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 	}
 	return nil, nil
 }
-
-// // extractDNSConfig extracts DNSConfig from providerConfig.
-// func (s *shoot) extractDNSConfig(shoot *gardencorev1beta1.Shoot) (*servicev1alpha1.DNSConfig, error) {
-// 	ext := s.findExtension(shoot)
-// 	if ext != nil && ext.ProviderConfig != nil && ext.ProviderConfig.Raw != nil {
-// 		dnsConfig := &servicev1alpha1.DNSConfig{}
-// 		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, dnsConfig); err != nil {
-// 			return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
-// 		}
-// 		return dnsConfig, nil
-// 	}
-
-// 	return nil, nil
-// }
 
 func (s *shoot) updateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
 	raw, err := s.toRaw(config)
