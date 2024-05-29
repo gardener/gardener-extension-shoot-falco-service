@@ -5,20 +5,20 @@
 package validator
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
-func getDeprecatedAndSupportedVersions() (*string, *string, error) {
-	versions := falco.FalcoVersions().Falco
+func getDeprecatedAndSupportedVersions(falcoVersions *falcoversions.FalcoVersions) (*string, *string, error) {
 	var deprecated, supported string
-	for _, ver := range versions.FalcoVersions {
+	for _, ver := range falcoVersions.FalcoVersions {
 		if deprecated == "" && ver.Classification == "deprecated" {
 			deprecated = ver.Version
 		}
@@ -69,6 +69,24 @@ func TestExtractFalcoConf(t *testing.T) {
 	// 	t.Errorf("FalcoConf present but not extracted")
 	// }
 
+}
+
+func TestValidateShoot(t *testing.T) {
+	// TODO to continue need proper shoot object -> schema
+
+	disabledSet := true
+	exampleShoot := &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{
+				{Type: "shoot-falco-service", Disabled: &disabledSet},
+			},
+		},
+	}
+	s := &shoot{}
+
+	if err := s.validateShoot(context.Background(), exampleShoot); err != nil {
+		t.Error("Extension disabled but validated")
+	}
 }
 
 func TestExtensionIsDisabled(t *testing.T) {
@@ -156,24 +174,27 @@ func TestVerifyFalcoVersion(t *testing.T) {
 		t.Fatalf("FalcoVersion is nil but not detected as such")
 	}
 
-	supported, deprecated, err := getDeprecatedAndSupportedVersions()
+	supportedV := falcoversions.FalcoVersion{Version: "1.2.3", Classification: "supported"}
+	depreatedV := falcoversions.FalcoVersion{Version: "3.2.1", Classification: "deprecated"}
+	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{supportedV, depreatedV}}
+	supported, deprecated, err := getDeprecatedAndSupportedVersions(&falcoVersions)
 	if err != nil {
 		t.Fatalf("%s", err.Error())
 	}
 
 	conf.FalcoVersion = supported
-	if err := verifyFalcoVersion(conf); err != nil {
+	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
 		t.Fatalf("Supported FalcoVersion is set but detected as invalid")
 	}
 
 	conf.FalcoVersion = deprecated
-	if err := verifyFalcoVersion(conf); err == nil {
+	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err == nil {
 		t.Fatalf("Deprecated FalcoVersion is set but accepted as valid")
 	}
 
 	nonVersion := "0.0.0"
 	conf.FalcoVersion = &nonVersion
-	if err := verifyFalcoVersion(conf); err == nil {
+	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err == nil {
 		t.Fatalf("Nonsensical FalcoVersion is set but accepted as valid")
 	}
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
 // NewShootValidator returns a new instance of a shoot validator.
@@ -46,6 +47,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 	if s.isDisabled(shoot) {
 		return nil
 	}
+	// TODO should all errors be combined?
 	allErrs := field.ErrorList{}
 
 	if len(allErrs) != 0 {
@@ -124,7 +126,13 @@ func verifyResources(falcoConf *service.FalcoServiceConfig) error {
 }
 
 func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
-	versions := falco.FalcoVersions().Falco
+	if err := verifyFalcoVersionInVersions(falcoConf, falco.FalcoVersions().Falco); err != nil {
+		return err
+	}
+	return nil
+}
+
+func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, versions *falcoversions.FalcoVersions) error {
 	chosenVersion := falcoConf.FalcoVersion
 	if chosenVersion == nil {
 		return fmt.Errorf("falcoVersion is nil")
