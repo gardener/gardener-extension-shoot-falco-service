@@ -46,12 +46,6 @@ type Falco struct {
 
 	// Ingestor URL
 	IngestorURL string `json:"ingestorURL,omitempty"`
-
-	// Falco versions
-	FalcoVersions []Version `json:"falcoVersions,omitempty"`
-
-	// Falco versions
-	FalcosidekickVersions []Version `json:"falcosidekickVersions,omitempty"`
 }
 
 type Version struct {
