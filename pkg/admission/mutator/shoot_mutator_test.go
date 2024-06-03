@@ -7,10 +7,11 @@ package mutator
 import (
 	"testing"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
 func TestSetWebhook(t *testing.T) {
