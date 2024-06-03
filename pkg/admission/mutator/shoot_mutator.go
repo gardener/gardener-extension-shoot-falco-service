@@ -147,9 +147,10 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if err != nil {
 		return err
 	}
-	// Need to handle empty falco conf
 
-	setFalcoVersion(falcoConf)
+	if err = setFalcoVersion(falcoConf); err != nil {
+		return err
+	}
 
 	setAutoUpdate(falcoConf)
 
