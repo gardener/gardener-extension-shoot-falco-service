@@ -51,29 +51,9 @@ func TestExtractFalcoConf(t *testing.T) {
 	if err != nil && conf != nil {
 		t.Errorf("FalcoConf not present but extracted")
 	}
-
-	// TODO need decoder scheme
-
-	// ext := runtime.RawExtension{
-	// 	Raw: []byte(`{"FalcoVersion": "0.0.0"}`),
-	// }
-	// exampleShoot = &core.Shoot{
-	// 	Spec: core.ShootSpec{
-	// 		Extensions: []core.Extension{
-	// 			{Type: "shoot-falco-service", ProviderConfig: &ext},
-	// 		},
-	// 	},
-	// }
-	// conf, err = s.extractFalcoConfig(exampleShoot)
-	// if err != nil && conf == nil {
-	// 	t.Errorf("FalcoConf present but not extracted")
-	// }
-
 }
 
 func TestValidateShoot(t *testing.T) {
-	// TODO to continue need proper shoot object -> schema
-
 	disabledSet := true
 	exampleShoot := &core.Shoot{
 		Spec: core.ShootSpec{

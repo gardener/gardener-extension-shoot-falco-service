@@ -108,7 +108,6 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 
 	versions := falco.FalcoVersions().Falco
 	version, err := chooseHighestVersion(versions, "supported")
-	// TODO what to do in case of error i.e. no supported version available
 	if err != nil {
 		return err
 	}
@@ -199,17 +198,9 @@ func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 		return true
 	}
 
-	// TODO shouldnt we test for equality here??? was equality before
-	if shoot.Status.LastOperation != nil &&
-		shoot.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeReconcile &&
-		shoot.Status.LastOperation.State == gardencorev1beta1.LastOperationStateProcessing {
-		// don't mutate shoots if not in reconcile processing state
-		return true
-	}
-
 	ext := s.findExtension(shoot)
 	if ext == nil {
-		return true // TODO verify that this is correct
+		return true
 	}
 	if ext.Disabled != nil {
 		return *ext.Disabled

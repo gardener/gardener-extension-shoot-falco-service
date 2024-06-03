@@ -6,13 +6,13 @@ package validator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -47,36 +47,36 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 	if s.isDisabled(shoot) {
 		return nil
 	}
-	// TODO should all errors be combined?
-	allErrs := field.ErrorList{}
-
-	if len(allErrs) != 0 {
-		return allErrs.ToAggregate()
-	}
 
 	falcoConf, err := s.extractFalcoConfig(shoot)
 	if err != nil {
 		return err
 	}
 
+	allErrs := []error{}
+
 	if err := verifyFalcoVersion(falcoConf); err != nil {
-		return err
+		allErrs = append(allErrs, err)
 	}
 
 	if err := verifyResources(falcoConf); err != nil {
-		return err
+		allErrs = append(allErrs, err)
 	}
 
 	if err := verifyFalcoCtl(falcoConf); err != nil {
-		return err
+		allErrs = append(allErrs, err)
 	}
 
 	if err := verifyGardenerSet(falcoConf); err != nil {
-		return err
+		allErrs = append(allErrs, err)
 	}
 
 	if err := verifyWebhook(falcoConf); err != nil {
-		return err
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
 	}
 
 	return nil
@@ -110,8 +110,8 @@ func verifyWebhook(falcoConf *service.FalcoServiceConfig) error {
 	} else if *webhook.Enabled && webhook.Address == nil {
 		return fmt.Errorf("webhook is enabled but without address")
 	}
+	// may also want to enforce headers at some point
 	return nil
-	// TODO unclear what is required and what not maybe roll out all
 }
 
 func verifyResources(falcoConf *service.FalcoServiceConfig) error {
