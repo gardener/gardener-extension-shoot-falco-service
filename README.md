@@ -1,6 +1,6 @@
 # [Gardner Extension for Falco](https://gardener.cloud)
 
-This controller impements Gardener's extension contract for deploying and managing Falco in shoot clusters.
+This controller implements Gardener's extension contract for deploying and managing Falco in shoot clusters.
 
 # Extension Resources
 
