@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
@@ -163,33 +164,6 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	setCustomWebhook(falcoConf)
 
 	return s.updateFalcoConfig(new, falcoConf)
-
-	// oldNamedResources := map[string]int{}
-	// for i, r := range new.Spec.Resources {
-	// 	oldNamedResources[r.Name] = i
-	// }
-	// newNamedResources := map[string]struct{}{}
-
-	// outdated := map[string]struct{}{}
-	// for key := range oldNamedResources {
-	// 	if !strings.HasPrefix(key, pkgservice.ExtensionType+"-") {
-	// 		continue
-	// 	}
-	// 	if _, ok := newNamedResources[key]; !ok {
-	// 		outdated[key] = struct{}{}
-	// 	}
-	// }
-	// if len(outdated) > 0 {
-	// 	newResources := []gardencorev1beta1.NamedResourceReference{}
-	// 	for _, resource := range new.Spec.Resources {
-	// 		if _, ok := outdated[resource.Name]; !ok {
-	// 			newResources = append(newResources, resource)
-	// 		}
-	// 	}
-	// 	new.Spec.Resources = newResources
-	// }
-
-	// return s.updateDNSConfig(new, dnsConfig)
 }
 
 // isDisabled returns true if extension is explicitly disabled.
@@ -211,9 +185,8 @@ func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 
 // findExtension returns shoot-falco-service extension.
 func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
-	extensionType := "shoot-falco-service"
 	for i, ext := range shoot.Spec.Extensions {
-		if ext.Type == extensionType {
+		if ext.Type == constants.ExtensionType {
 			return &shoot.Spec.Extensions[i]
 		}
 	}

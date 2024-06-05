@@ -18,6 +18,7 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
@@ -164,9 +165,8 @@ func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 
 // findExtension returns shoot-falco-service extension.
 func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
-	extensionType := "shoot-falco-service"
 	for i, ext := range shoot.Spec.Extensions {
-		if ext.Type == extensionType {
+		if ext.Type == constants.ExtensionType {
 			return &shoot.Spec.Extensions[i]
 		}
 	}
