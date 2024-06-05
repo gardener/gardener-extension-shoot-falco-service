@@ -7,6 +7,7 @@ package cmd
 import (
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/validator"
 )
 
@@ -14,6 +15,6 @@ import (
 func GardenWebhookSwitchOptions() *webhookcmd.SwitchOptions {
 	return webhookcmd.NewSwitchOptions(
 		webhookcmd.Switch(validator.ValidatorName, validator.New),
-		// webhookcmd.Switch(mutator.MutatorName, mutator.New),
+		webhookcmd.Switch(mutator.MutatorName, mutator.New),
 	)
 }

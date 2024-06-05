@@ -21,23 +21,23 @@ type FalcoServiceConfig struct {
 
 	// Automatically update Falco
 	// +optional
-	AutoUpdate bool `json:"autoUpdate,omitempty"`
+	AutoUpdate *bool `json:"autoUpdate,omitempty"`
 
 	// use "gardener" or "falcoctl", defaults to "gardener"
 	// +optional
-	Resources string `json:"resources,omitempty"`
+	Resources *string `json:"resources,omitempty"`
 
 	// Falcoctl configuration
 	// +optional
-	FalcoCtl FalcoCtl `json:"falcoCtl,omitempty"`
+	FalcoCtl *FalcoCtl `json:"falcoCtl,omitempty"`
 
 	// Configuration for Gardener managed Falco
 	// +optional
-	Gardener Gardener `json:"gardener,omitempty"`
+	Gardener *Gardener `json:"gardener,omitempty"`
 
 	// Configuration for custom webhook
 	// +optional
-	CustomWebhook Webhook `json:"webhook,omitempty"`
+	CustomWebhook *Webhook `json:"webhook,omitempty"`
 }
 
 type FalcoCtl struct {
@@ -47,15 +47,15 @@ type FalcoCtl struct {
 type Gardener struct {
 	// use Falco rules from correspoonging rules release, defaults to true
 	// +optional
-	UseFalcoRules bool `json:"useFalcoRules,omitempty"`
+	UseFalcoRules *bool `json:"useFalcoRules,omitempty"`
 
 	// use Falco incubating rules from correspoonging rules release
 	// +optional
-	UseFalcoIncubatingRules bool `json:"useFalcoIncubatingRules,omitempty"`
+	UseFalcoIncubatingRules *bool `json:"useFalcoIncubatingRules,omitempty"`
 
 	// use Falco sandbox rules from corresponding rules release
 	// +optional
-	UseFalcoSandboxRules bool `json:"useFalcoSandboxRules,omitempty"`
+	UseFalcoSandboxRules *bool `json:"useFalcoSandboxRules,omitempty"`
 
 	// References to custom rules files
 	// +optional
@@ -67,8 +67,8 @@ type Rule struct {
 }
 
 type Webhook struct {
-	Enabled       bool   `json:"enabled,omitempty"`
-	Address       string `json:"address,omitempty"`
-	CustomHeaders string `json:"customHeaders,omitempty"`
-	Checkcerts    bool   `json:"checkcerts,omitempty"`
+	Enabled       *bool   `json:"enabled,omitempty"`
+	Address       *string `json:"address,omitempty"`
+	CustomHeaders *string `json:"customHeaders,omitempty"`
+	Checkcerts    *bool   `json:"checkcerts,omitempty"`
 }

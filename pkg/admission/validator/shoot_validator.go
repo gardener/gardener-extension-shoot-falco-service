@@ -6,6 +6,7 @@ package validator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -14,6 +15,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
 // NewShootValidator returns a new instance of a shoot validator.
@@ -30,66 +36,151 @@ type shoot struct {
 
 // Validate implements extensionswebhook.Validator.Validate
 func (s *shoot) Validate(ctx context.Context, new, _ client.Object) error {
-	_, ok := new.(*core.Shoot)
+	shoot, ok := new.(*core.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
 	}
-
-	//	return s.validateShoot(ctx, shoot)
-	return nil
+	return s.validateShoot(ctx, shoot)
 }
 
-/*
 func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
+	// Need check here
 	if s.isDisabled(shoot) {
 		return nil
 	}
-	dnsConfig, err := s.extractDNSConfig(shoot)
+
+	falcoConf, err := s.extractFalcoConfig(shoot)
 	if err != nil {
 		return err
 	}
 
-	allErrs := field.ErrorList{}
-	if dnsConfig != nil {
-		allErrs = append(allErrs, validation.ValidateDNSConfig(dnsConfig, shoot.Spec.Resources)...)
+	allErrs := []error{}
+
+	if err := verifyFalcoVersion(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
 	}
 
-	return allErrs.ToAggregate()
+	if err := verifyResources(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyFalcoCtl(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyGardenerSet(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyWebhook(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
+	}
+
+	return nil
+}
+
+func verifyFalcoCtl(falcoConf *service.FalcoServiceConfig) error {
+	if falcoConf.FalcoCtl == nil {
+		return fmt.Errorf("falcoCtl is not set")
+	}
+	return nil
+}
+
+func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
+	gardenerManager := falcoConf.Gardener
+	if gardenerManager == nil {
+		return fmt.Errorf("gardener managing configuration not set")
+	}
+	if gardenerManager.UseFalcoRules == nil || gardenerManager.UseFalcoIncubatingRules == nil || gardenerManager.UseFalcoSandboxRules == nil {
+		return fmt.Errorf("gardener rules not set")
+	}
+	// RulesRef will be set to default val as not a pointer
+	return nil
+}
+
+func verifyWebhook(falcoConf *service.FalcoServiceConfig) error {
+	webhook := falcoConf.CustomWebhook
+	if webhook == nil {
+		return fmt.Errorf("webhook is nil")
+	} else if webhook.Enabled == nil {
+		return fmt.Errorf("webhook needs to be either enabled or disbaled")
+	} else if *webhook.Enabled && webhook.Address == nil {
+		return fmt.Errorf("webhook is enabled but without address")
+	}
+	// may also want to enforce headers at some point
+	return nil
+}
+
+func verifyResources(falcoConf *service.FalcoServiceConfig) error {
+	resource := falcoConf.Resources
+	if resource == nil {
+		return fmt.Errorf("resource is not defined")
+	}
+	if *resource != "gardener" && *resource != "falcoctl" {
+		return fmt.Errorf("resource needs to be either gardener or falcoctl")
+	}
+	return nil
+}
+
+func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
+	if err := verifyFalcoVersionInVersions(falcoConf, falco.FalcoVersions().Falco); err != nil {
+		return err
+	}
+	return nil
+}
+
+func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, versions *falcoversions.FalcoVersions) error {
+	chosenVersion := falcoConf.FalcoVersion
+	if chosenVersion == nil {
+		return fmt.Errorf("falcoVersion is nil")
+	}
+
+	for _, ver := range versions.FalcoVersions {
+		if *chosenVersion == ver.Version {
+			if ver.Classification == "deprecated" {
+				return fmt.Errorf("chosen version is marked as deprecated")
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("version not found in possible versions")
 }
 
 // isDisabled returns true if extension is explicitly disabled.
 func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 	ext := s.findExtension(shoot)
 	if ext == nil {
-		return false
+		return true
 	}
+
 	if ext.Disabled != nil {
 		return *ext.Disabled
 	}
 	return false
 }
 
-// extractDNSConfig extracts DNSConfig from providerConfig.
-func (s *shoot) extractDNSConfig(shoot *core.Shoot) (*apisservice.DNSConfig, error) {
-	ext := s.findExtension(shoot)
-	if ext != nil && ext.ProviderConfig != nil {
-		dnsConfig := &apisservice.DNSConfig{}
-		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, dnsConfig); err != nil {
-			return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
-		}
-		return dnsConfig, nil
-	}
-
-	return nil, nil
-}
-
-// findExtension returns shoot-dns-service extension.
+// findExtension returns shoot-falco-service extension.
 func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
 	for i, ext := range shoot.Spec.Extensions {
-		if ext.Type == service.ExtensionType {
+		if ext.Type == constants.ExtensionType {
 			return &shoot.Spec.Extensions[i]
 		}
 	}
 	return nil
 }
-*/
+
+func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConfig, error) {
+	ext := s.findExtension(shoot)
+	if ext != nil && ext.ProviderConfig != nil {
+		falcoConfig := &service.FalcoServiceConfig{}
+		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
+			return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
+		}
+		return falcoConfig, nil
+	}
+	return nil, fmt.Errorf("no FalcoConfig found in extensions")
+}

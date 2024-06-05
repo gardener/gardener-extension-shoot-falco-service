@@ -7,6 +7,7 @@ require (
 	github.com/gardener/gardener v1.92.0
 	github.com/go-logr/logr v1.4.1
 	github.com/golang-jwt/jwt/v5 v5.2.0
+	github.com/hashicorp/go-version v1.6.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/mod v0.17.0

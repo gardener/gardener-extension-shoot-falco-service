@@ -96,17 +96,11 @@ func Convert_service_FalcoCtl_To_v1alpha1_FalcoCtl(in *service.FalcoCtl, out *Fa
 
 func autoConvert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *FalcoServiceConfig, out *service.FalcoServiceConfig, s conversion.Scope) error {
 	out.FalcoVersion = (*string)(unsafe.Pointer(in.FalcoVersion))
-	out.AutoUpdate = in.AutoUpdate
-	out.Resources = in.Resources
-	if err := Convert_v1alpha1_FalcoCtl_To_service_FalcoCtl(&in.FalcoCtl, &out.FalcoCtl, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_Gardener_To_service_Gardener(&in.Gardener, &out.Gardener, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_Webhook_To_service_Webhook(&in.CustomWebhook, &out.CustomWebhook, s); err != nil {
-		return err
-	}
+	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
+	out.Resources = (*string)(unsafe.Pointer(in.Resources))
+	out.FalcoCtl = (*service.FalcoCtl)(unsafe.Pointer(in.FalcoCtl))
+	out.Gardener = (*service.Gardener)(unsafe.Pointer(in.Gardener))
+	out.CustomWebhook = (*service.Webhook)(unsafe.Pointer(in.CustomWebhook))
 	return nil
 }
 
@@ -117,17 +111,11 @@ func Convert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *Falco
 
 func autoConvert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *service.FalcoServiceConfig, out *FalcoServiceConfig, s conversion.Scope) error {
 	out.FalcoVersion = (*string)(unsafe.Pointer(in.FalcoVersion))
-	out.AutoUpdate = in.AutoUpdate
-	out.Resources = in.Resources
-	if err := Convert_service_FalcoCtl_To_v1alpha1_FalcoCtl(&in.FalcoCtl, &out.FalcoCtl, s); err != nil {
-		return err
-	}
-	if err := Convert_service_Gardener_To_v1alpha1_Gardener(&in.Gardener, &out.Gardener, s); err != nil {
-		return err
-	}
-	if err := Convert_service_Webhook_To_v1alpha1_Webhook(&in.CustomWebhook, &out.CustomWebhook, s); err != nil {
-		return err
-	}
+	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
+	out.Resources = (*string)(unsafe.Pointer(in.Resources))
+	out.FalcoCtl = (*FalcoCtl)(unsafe.Pointer(in.FalcoCtl))
+	out.Gardener = (*Gardener)(unsafe.Pointer(in.Gardener))
+	out.CustomWebhook = (*Webhook)(unsafe.Pointer(in.CustomWebhook))
 	return nil
 }
 
@@ -137,9 +125,9 @@ func Convert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *servi
 }
 
 func autoConvert_v1alpha1_Gardener_To_service_Gardener(in *Gardener, out *service.Gardener, s conversion.Scope) error {
-	out.UseFalcoRules = in.UseFalcoRules
-	out.UseFalcoIncubatingRules = in.UseFalcoIncubatingRules
-	out.UseFalcoSandboxRules = in.UseFalcoSandboxRules
+	out.UseFalcoRules = (*bool)(unsafe.Pointer(in.UseFalcoRules))
+	out.UseFalcoIncubatingRules = (*bool)(unsafe.Pointer(in.UseFalcoIncubatingRules))
+	out.UseFalcoSandboxRules = (*bool)(unsafe.Pointer(in.UseFalcoSandboxRules))
 	out.RuleRefs = *(*[]service.Rule)(unsafe.Pointer(&in.RuleRefs))
 	return nil
 }
@@ -150,9 +138,9 @@ func Convert_v1alpha1_Gardener_To_service_Gardener(in *Gardener, out *service.Ga
 }
 
 func autoConvert_service_Gardener_To_v1alpha1_Gardener(in *service.Gardener, out *Gardener, s conversion.Scope) error {
-	out.UseFalcoRules = in.UseFalcoRules
-	out.UseFalcoIncubatingRules = in.UseFalcoIncubatingRules
-	out.UseFalcoSandboxRules = in.UseFalcoSandboxRules
+	out.UseFalcoRules = (*bool)(unsafe.Pointer(in.UseFalcoRules))
+	out.UseFalcoIncubatingRules = (*bool)(unsafe.Pointer(in.UseFalcoIncubatingRules))
+	out.UseFalcoSandboxRules = (*bool)(unsafe.Pointer(in.UseFalcoSandboxRules))
 	out.RuleRefs = *(*[]Rule)(unsafe.Pointer(&in.RuleRefs))
 	return nil
 }
@@ -183,10 +171,10 @@ func Convert_service_Rule_To_v1alpha1_Rule(in *service.Rule, out *Rule, s conver
 }
 
 func autoConvert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webhook, s conversion.Scope) error {
-	out.Enabled = in.Enabled
-	out.Address = in.Address
-	out.CustomHeaders = in.CustomHeaders
-	out.Checkcerts = in.Checkcerts
+	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
+	out.Address = (*string)(unsafe.Pointer(in.Address))
+	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
+	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
 	return nil
 }
 
@@ -196,10 +184,10 @@ func Convert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webho
 }
 
 func autoConvert_service_Webhook_To_v1alpha1_Webhook(in *service.Webhook, out *Webhook, s conversion.Scope) error {
-	out.Enabled = in.Enabled
-	out.Address = in.Address
-	out.CustomHeaders = in.CustomHeaders
-	out.Checkcerts = in.Checkcerts
+	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
+	out.Address = (*string)(unsafe.Pointer(in.Address))
+	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
+	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
 	return nil
 }
 

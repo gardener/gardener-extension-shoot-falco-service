@@ -19,23 +19,23 @@ type FalcoServiceConfig struct {
 
 	// Automatically update Falco
 	// +optional
-	AutoUpdate bool
+	AutoUpdate *bool
 
 	// use "gardener" or "falcoctl", defaults to "gardener"
 	// +optional
-	Resources string
+	Resources *string
 
 	// Falcoctl configuration
 	// +optional
-	FalcoCtl FalcoCtl
+	FalcoCtl *FalcoCtl
 
 	// Configuration for Gardener managed Falco
 	// +optional
-	Gardener Gardener
+	Gardener *Gardener
 
 	// Configuration for custom webhook
 	// +optional
-	CustomWebhook Webhook
+	CustomWebhook *Webhook
 }
 
 type FalcoCtl struct {
@@ -46,15 +46,15 @@ type FalcoCtl struct {
 type Gardener struct {
 	// use Falco rules from correspoonging rules release, defaults to true
 	// +optional
-	UseFalcoRules bool
+	UseFalcoRules *bool
 
 	// use Falco incubating rules from correspoonging rules release
 	// +optional
-	UseFalcoIncubatingRules bool
+	UseFalcoIncubatingRules *bool
 
 	// use Falco sandbox rules from corresponding rules release
 	// +optional
-	UseFalcoSandboxRules bool
+	UseFalcoSandboxRules *bool
 
 	// References to custom rules files
 	// +optional
@@ -66,8 +66,8 @@ type Rule struct {
 }
 
 type Webhook struct {
-	Enabled       bool
-	Address       string
-	CustomHeaders string
-	Checkcerts    bool
+	Enabled       *bool
+	Address       *string
+	CustomHeaders *string
+	Checkcerts    *bool
 }

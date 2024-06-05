@@ -34,7 +34,7 @@ import (
 )
 
 // AdmissionName is the name of the admission component.
-const AdmissionName = "admission-shoot-dns-service"
+const AdmissionName = "admission-shoot-falco-service"
 
 var log = logf.Log.WithName("gardener-extension-admission-shoot-falco-service")
 

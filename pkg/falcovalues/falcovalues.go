@@ -198,21 +198,21 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		},
 		"customRules": customRules,
 	}
-	if falcoServiceConfig.Gardener.UseFalcoRules {
+	if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
 		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
 		if err != nil {
 			return nil, err
 		}
 		falcoChartValues["falcoRules"] = r
 	}
-	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
+	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
 		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, falcoVersion)
 		if err != nil {
 			return nil, err
 		}
 		falcoChartValues["falcoIncubatingRules"] = r
 	}
-	if falcoServiceConfig.Gardener.UseFalcoSandboxRules {
+	if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
 		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, falcoVersion)
 		if err != nil {
 			return nil, err
