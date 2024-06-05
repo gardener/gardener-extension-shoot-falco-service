@@ -2,21 +2,4 @@
 
 This controller implements Gardener's extension contract for deploying and managing Falco in shoot clusters.
 
-# Extension Resources
-
-Example extension resource:
-
-```
-apiVersion: extensions.gardener.cloud/v1alpha1
-kind: Extension
-metadata:
-  name: shoot-falco-service
-  namespace: shoot--project--abc
-spec:
-  providerConfig:
-    apiVersion: falco.extensions.gardener.cloud/v1alpha1
-    kind: FalcoServiceConfig
-    useFalcoIncubatingRules: true
-    useFalcoSandboxRules: true
-  type: shoot-falco-service
-```
+The planned functionality is described in this proposal: [Falco Extension](https://github.com/gardener/gardener/blob/a0f959ee152e13a22db1b0d9f6f146bc16c8b7ed/docs/proposals/27-falco-extension.md).
