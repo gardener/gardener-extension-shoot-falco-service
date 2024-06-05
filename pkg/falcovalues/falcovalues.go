@@ -60,9 +60,6 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 
 func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]interface{}, error) {
 
-	// ok to generate new token on each reconcile
-	token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
-
 	certs, err := c.getFalcoCaCertificates(ctx, log, cluster, namespace)
 	if err != nil {
 		return nil, err
@@ -92,13 +89,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err != nil {
 		return nil, err
 	}
-
-	ingestorAddress := c.config.Falco.IngestorURL
-
-	customHeadersMap := map[string]string{
-		"Authorization": "Bearer " + token,
-	}
-	customHeaders := serializeCustomHeaders(customHeadersMap)
 
 	customFieldsMap := map[string]string{
 		"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
@@ -190,14 +180,39 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 					"server_ca_crt": certificates.ServerCaCrt,
 				},
 				"customfields": customFields,
-				"webhook": map[string]interface{}{
-					"address":       ingestorAddress,
-					"customheaders": customHeaders,
-				},
 			},
 		},
 		"customRules": customRules,
 	}
+
+	if falcoServiceConfig.CustomWebhook == nil {
+		// Gardener managed event store
+		ingestorAddress := c.config.Falco.IngestorURL
+		// ok to generate new token on each reconcile
+		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
+		customHeadersMap := map[string]string{
+			"Authorization": "Bearer " + token,
+		}
+		customHeaders := serializeCustomHeaders(customHeadersMap)
+		webhook := map[string]string{
+			"address":       ingestorAddress,
+			"customheaders": customHeaders,
+		}
+		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		config["webhook"] = webhook
+	} else {
+		// user has defined a custom location, we just pass it
+		customWebhook := falcoServiceConfig.CustomWebhook
+		webhook := map[string]string{
+			"address": *customWebhook.Address,
+		}
+		if customWebhook.CustomHeaders != nil {
+			webhook["customHeaders"] = *customWebhook.CustomHeaders
+		}
+		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		config["webhook"] = webhook
+	}
+
 	if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
 		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
 		if err != nil {
