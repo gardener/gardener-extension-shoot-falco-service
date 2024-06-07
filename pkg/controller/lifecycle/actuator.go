@@ -83,7 +83,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
-	log.Info("Reconciling shoot resources for shoot " + cluster.Shoot.Name)
+	log.Info("Reconciling Falco resources for shoot " + cluster.Shoot.Name)
 	renderer, err := util.NewChartRendererForShoot(cluster.Shoot.Spec.Kubernetes.Version)
 	if err != nil {
 		return fmt.Errorf("could not create chart renderer for rendering manged resource chart for shoot: %w", err)
@@ -108,9 +108,14 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cl
 // Delete the Extension resource.
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
 	namespace := ex.GetNamespace()
-	err := a.deleteShootResources(ctx, log, namespace)
+	cluster, err := controller.GetCluster(ctx, a.client, namespace)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to get cluster for Falco excetion delete operation: %w", err)
+	}
+	log.Info("Deleting falco resources for shoot " + cluster.Shoot.Name)
+	err = a.deleteShootResources(ctx, log, namespace)
+	if err != nil {
+		return fmt.Errorf("unable to delete Falco from shoot %s: %w", cluster.Shoot.Name, err)
 	}
 	return nil
 }
@@ -121,15 +126,16 @@ func (a *actuator) ForceDelete(ctx context.Context, log logr.Logger, ex *extensi
 }
 
 func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, namespace string) error {
-	log.Info("Deleting managed resource for shoot", "namespace", namespace)
-	if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ExtensionServiceName); err != nil {
+	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
+	if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
 		return err
 	}
 	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	if err := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ExtensionServiceName); err != nil {
+	if err := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
 		return err
 	}
+	log.Info(fmt.Sprintf("Successfully deleted managed resource  %s/%s", namespace, constants.ManagedResourceNameFalco))
 	return nil
 }
 
@@ -151,7 +157,7 @@ func (a *actuator) extractFalcoServiceConfig(ex *extensionsv1alpha1.Extension) (
 	falcoServiceConfig := &apisservice.FalcoServiceConfig{}
 	if ex.Spec.ProviderConfig != nil {
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
-			return nil, fmt.Errorf("could not decode falco service config: %w", err)
+			return nil, fmt.Errorf("could not decode Falco service config: %w", err)
 		}
 		if errs := validation.ValidateFalcoServiceConfig(falcoServiceConfig); len(errs) > 0 {
 			return nil, errs.ToAggregate()
