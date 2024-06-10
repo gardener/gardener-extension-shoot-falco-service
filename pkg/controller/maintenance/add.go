@@ -8,14 +8,13 @@ import (
 	"context"
 	"fmt"
 
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 )
 
@@ -24,7 +23,7 @@ const CONTROLLERNAME = "shoot-maintenance-falco"
 
 func AddToManager(ctx context.Context, mgr manager.Manager) error { // , cfg config.ControllerManagerConfiguration) error {
 	// if err := (&maintenance.Reconciler{Config: cfg.Controllers.ShootMaintenance,}).AddToManager(mgr); err != nil {
-	r := &Reconciler{}
+	r := &Reconciler{mutator: mutator.NewShoot(mgr)}
 	if err := r.AddToManager(mgr); err != nil {
 		return fmt.Errorf("failed adding maintenance reconciler: %w", err)
 	}
@@ -47,9 +46,6 @@ func (r *Reconciler) AddToManager(mgr manager.Manager) error {
 		ControllerManagedBy(mgr).
 		Named(CONTROLLERNAME).
 		For(&gardencorev1beta1.Shoot{}, builder.WithPredicates(r.ShootPredicate())).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: 0, //ptr.Deref(r.Config.ConcurrentSyncs, 0), TODO sensible default??
-		}).
 		Complete(r)
 }
 
@@ -62,13 +58,23 @@ func (r *Reconciler) ShootPredicate() predicate.Predicate {
 				return false
 			}
 
-			oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
+			_, ok = e.ObjectOld.(*gardencorev1beta1.Shoot)
 			if !ok {
-				return false
+				return ok
 			}
 
-			return (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
-				!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
+			// oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
+			// if !ok {
+			// 	return false
+			// }
+
+			// TODO combine with general maintenance
+			// return (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
+			// 	!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
+
+			key := "extensions.extensions.gardener.cloud/shoot-falco-service"
+			val, ok := shoot.ObjectMeta.Labels[key]
+			return ok && val == "true"
 		},
 	}
 }

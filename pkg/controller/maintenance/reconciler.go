@@ -24,6 +24,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -35,12 +37,14 @@ import (
 	featuresvalidation "github.com/gardener/gardener/pkg/utils/validation/features"
 )
 
+var i int = 0
+
 // Reconciler reconciles Shoots and maintains them by updating versions or triggering operations.
 type Reconciler struct {
 	Client   client.Client
-	// Config   config.ShootMaintenanceControllerConfiguration
 	Clock    clock.Clock
 	Recorder record.EventRecorder
+	mutator *mutator.Shoot
 }
 
 // Reconcile reconciles Shoots and maintains them by updating versions or triggering operations.
@@ -61,10 +65,88 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, fmt.Errorf("error retrieving object from store: %w", err)
 	}
 
+	// TODO probably not required
+	// maintainedShoot := shoot.DeepCopy()
+
+	// TODO check if we have to do anything
+	falcoConf, err := r.mutator.ExtractFalcoConfig(shoot)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if falcoConf == nil {
+		return reconcile.Result{}, fmt.Errorf("the Falco config is empty")
+	}
+
+	if falcoConf.AutoUpdate == nil || !*falcoConf.AutoUpdate {
+		fmt.Println("AutoUpdate disabled")
+		return reconcile.Result{}, nil
+	}
+
+	currentVersion := falcoConf.FalcoVersion
+	availableVersions := falco.FalcoVersions().Falco
+	highestVersion, err := mutator.ChooseHighestVersion(availableVersions, "supported")
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	needToUpdate := *currentVersion != *highestVersion
+
+
+	// TODO set annotation/label/status that we will do something
+	if !needToUpdate {
+		fmt.Println("Nothing to do")
+		return reconcile.Result{}, err
+	}
+
+	fmt.Println("We need to set the annotations because we will update")
+
+	// TODO do the update and remove the labels. set success or not
+	falcoConf.FalcoVersion = highestVersion
+	if err := r.mutator.UpdateFalcoConfig(shoot, falcoConf); err != nil {
+		return reconcile.Result{}, fmt.Errorf("could not update Falco config: %s", err.Error())
+	}
+
+	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
+	var m = make(map[string]string)
+	m["myAnnotation"] = fmt.Sprintf("helloWorls %d", i)
+	i++
+	shoot.Annotations = m
+
+
+	// for maintenance operations unrelated to machine images and Kubernetes versions
+	// operations := []string{}
+
+	// _ = maintainOperation(shoot)
+	// maintainTasks(shoot, r.Config)
+
+
+
+	// ========================================================================================================================
+	// try to maintain shoot, but don't retry on conflict, because a conflict means that we potentially operated on stale
+	// data (e.g. when calculating the updated k8s version), so rather return error and backoff
+	if err := r.Client.Update(ctx, shoot); err != nil {
+		r.Recorder.Event(shoot, corev1.EventTypeWarning, gardencorev1beta1.ShootMaintenanceFailed, err.Error())
+		return reconcile.Result{}, fmt.Errorf("update failed: %w", err)
+	}
+
+	// if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
+	patch := client.MergeFrom(shoot.DeepCopy())
+	shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
+
+	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
+		return reconcile.Result{}, fmt.Errorf("patch failed: %w", err)
+	}
+	// }
+
+	fmt.Println("We are done with something")
+	// return reconcile.Result{RequeueAfter: time.Second}, nil
+	return reconcile.Result{}, nil
+
+
 	for _, ext := range shoot.Spec.Extensions {
 		if ext.Type == constants.ExtensionType {
 			//return reconcile.Result{RequeueAfter: time.Second}, nil
-			return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 	}
 	return reconcile.Result{}, nil
@@ -90,6 +172,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 
 	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
+}
+
+func findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
+	for i, ext := range shoot.Spec.Extensions {
+		if ext.Type == constants.ExtensionType {
+			return &shoot.Spec.Extensions[i]
+		}
+	}
+	return nil
 }
 
 func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.Time) {

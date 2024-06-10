@@ -27,14 +27,18 @@ import (
 
 // NewShootMutator returns a new instance of a shoot mutator.
 func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
-	return &shoot{
+	return NewShoot(mgr)
+}
+
+func NewShoot(mgr manager.Manager) *Shoot {
+	return &Shoot{
 		decoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
 		scheme:  mgr.GetScheme(),
 	}
 }
 
 // shoot mutates shoots
-type shoot struct {
+type Shoot struct {
 	decoder runtime.Decoder
 	scheme  *runtime.Scheme
 	lock    sync.Mutex
@@ -42,7 +46,7 @@ type shoot struct {
 }
 
 // Mutate implements extensionswebhook.Mutator.Mutate
-func (s *shoot) Mutate(ctx context.Context, new, _ client.Object) error {
+func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	shoot, ok := new.(*gardencorev1beta1.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
@@ -108,7 +112,7 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	}
 
 	versions := falco.FalcoVersions().Falco
-	version, err := chooseHighestVersion(versions, "supported")
+	version, err := ChooseHighestVersion(versions, "supported")
 	if err != nil {
 		return err
 	}
@@ -116,7 +120,7 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func chooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
+func ChooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
 	var highest *pkgversion.Version = nil
 	for _, v := range versions.FalcoVersions {
 		if v.Classification != classification {
@@ -140,11 +144,11 @@ func chooseHighestVersion(versions *falcoversions.FalcoVersions, classification 
 	return nil, fmt.Errorf("no version with classification %s was found", classification)
 }
 
-func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
+func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
 	if s.isDisabled(new) {
 		return nil
 	}
-	falcoConf, err := s.extractFalcoConfig(new)
+	falcoConf, err := s.ExtractFalcoConfig(new)
 	if err != nil {
 		return err
 	}
@@ -163,11 +167,11 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	setCustomWebhook(falcoConf)
 
-	return s.updateFalcoConfig(new, falcoConf)
+	return s.UpdateFalcoConfig(new, falcoConf)
 }
 
 // isDisabled returns true if extension is explicitly disabled.
-func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
+func (s *Shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 	if shoot.DeletionTimestamp != nil {
 		// don't mutate shoots in deletion
 		return true
@@ -184,7 +188,7 @@ func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 }
 
 // findExtension returns shoot-falco-service extension.
-func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
+func (s *Shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
 	for i, ext := range shoot.Spec.Extensions {
 		if ext.Type == constants.ExtensionType {
 			return &shoot.Spec.Extensions[i]
@@ -193,7 +197,7 @@ func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1
 	return nil
 }
 
-func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
+func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
 	ext := s.findExtension(shoot)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}
@@ -202,10 +206,10 @@ func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 		}
 		return falcoConfig, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("no Falco config found")
 }
 
-func (s *shoot) updateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
+func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
 	raw, err := s.toRaw(config)
 	if err != nil {
 		return err
@@ -230,7 +234,7 @@ func (s *shoot) updateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *servic
 	return nil
 }
 
-func (s *shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
+func (s *Shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 	encoder, err := s.getEncoder()
 	if err != nil {
 		return nil, err
@@ -243,7 +247,7 @@ func (s *shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (s *shoot) getEncoder() (runtime.Encoder, error) {
+func (s *Shoot) getEncoder() (runtime.Encoder, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

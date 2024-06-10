@@ -88,7 +88,7 @@ func TestExtensionIsDisabled(t *testing.T) {
 		},
 	}
 
-	s := &shoot{}
+	s := &Shoot{}
 	disabled := s.isDisabled(exampleShoot)
 	if disabled {
 		t.Error("Extension is present but not found")
@@ -156,7 +156,7 @@ func TestChooseHighestVersion(t *testing.T) {
 	lowV := falcoversions.FalcoVersion{Version: "0.0.0", Classification: dummyClassification}
 	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{highV, lowV}}
 
-	vers, err := chooseHighestVersion(&falcoVersions, dummyClassification)
+	vers, err := ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err != nil {
 		t.Errorf("Failed to find highest version: %s", err.Error())
 	}
@@ -166,14 +166,14 @@ func TestChooseHighestVersion(t *testing.T) {
 	}
 
 	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{}}
-	_, err = chooseHighestVersion(&falcoVersions, dummyClassification)
+	_, err = ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
 	brokenV := falcoversions.FalcoVersion{Version: "broken", Classification: dummyClassification}
 	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{brokenV}}
-	_, err = chooseHighestVersion(&falcoVersions, dummyClassification)
+	_, err = ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect broken version")
 	}
