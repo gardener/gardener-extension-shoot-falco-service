@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -55,26 +57,22 @@ func (r *Reconciler) ShootPredicate() predicate.Predicate {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			shoot, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
 			if !ok {
-				return false
+				return ok
 			}
 
-			_, ok = e.ObjectOld.(*gardencorev1beta1.Shoot)
+			oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
 			if !ok {
 				return ok
 			}
 
-			// oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
-			// if !ok {
-			// 	return false
-			// }
-
-			// TODO combine with general maintenance
-			// return (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
-			// 	!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
+			maintain := (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
+				!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
 
 			key := "extensions.extensions.gardener.cloud/shoot-falco-service"
 			val, ok := shoot.ObjectMeta.Labels[key]
-			return ok && val == "true"
+
+			maintain = true // TODO remove at some point
+			return maintain && ok && val == "true"
 		},
 	}
 }
