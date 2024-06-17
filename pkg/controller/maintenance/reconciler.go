@@ -77,20 +77,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, fmt.Errorf("the Falco config is empty")
 	}
 
-	if falcoConf.AutoUpdate == nil || !*falcoConf.AutoUpdate {
-		fmt.Println("AutoUpdate disabled")
-		return reconcile.Result{}, nil
-	}
-
 	currentVersion := falcoConf.FalcoVersion
 	availableVersions := falco.FalcoVersions().Falco
-	highestVersion, err := mutator.ChooseHighestVersion(availableVersions, "supported")
+
+	deprecated, err := isVersionDeprecated(currentVersion)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	needToUpdate := *currentVersion != *highestVersion
+	autoUpdate := falcoConf.AutoUpdate != nil && *falcoConf.AutoUpdate
+	forceUpdate := !autoUpdate && deprecated
 
+	var versionToSet *string
+
+	if autoUpdate {
+		fmt.Println("AutoUpdate enabled")
+		versionToSet, err = mutator.ChooseHighestVersion(availableVersions, "supported")
+	} else if forceUpdate {
+		fmt.Println("AutoUpdate disabled but needs forced upgrade")
+		versionToSet, err = mutator.ChooseLowestVersionHigherThanCurrent(currentVersion, availableVersions, "supported")
+	}
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
 
 	// TODO set annotation/label/status that we will do something
 	if !needToUpdate {
@@ -101,7 +112,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 	fmt.Println("We need to set the annotations because we will update")
 
 	// TODO do the update and remove the labels. set success or not
-	falcoConf.FalcoVersion = highestVersion
+	falcoConf.FalcoVersion = versionToSet
 	if err := r.mutator.UpdateFalcoConfig(shoot, falcoConf); err != nil {
 		return reconcile.Result{}, fmt.Errorf("could not update Falco config: %s", err.Error())
 	}
@@ -172,6 +183,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 
 	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
+}
+
+// upgrades to highest supported Falco version
+func isVersionDeprecated(version *string) (bool, error) {
+	for _, availableVersion := range falco.FalcoVersions().Falco.FalcoVersions {
+		if availableVersion.Version == *version {
+			return availableVersion.Classification == "deprecated", nil
+		}
+	}
+	return false, fmt.Errorf("the Falco version %s was not found among possible versions", *version)
+}
+
+// upgrades to lowest supported Falco version
+func forcedUpgradeToLowestSupported() {
+
 }
 
 func findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {

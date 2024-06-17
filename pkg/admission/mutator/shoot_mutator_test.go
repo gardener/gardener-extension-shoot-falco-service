@@ -177,5 +177,36 @@ func TestChooseHighestVersion(t *testing.T) {
 	if err == nil {
 		t.Errorf("Failed to detect broken version")
 	}
+}
+
+func TestChooseLowestVersion(t *testing.T) {
+	dummyClassification := "test"
+	highVersion := "1.2.3"
+	lowVersion := "0.0.0"
+	highV := falcoversions.FalcoVersion{Version: highVersion, Classification: dummyClassification}
+	lowV := falcoversions.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{highV, lowV}}
+
+	vers, err := ChooseLowestVersion(&falcoVersions, dummyClassification)
+	if err != nil {
+		t.Errorf("Failed to find highest version: %s", err.Error())
+	}
+
+	if *vers != lowVersion {
+		t.Errorf("Falsely reported version %s as highest", *vers)
+	}
+
+	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{}}
+	_, err = ChooseLowestVersion(&falcoVersions, dummyClassification)
+	if err == nil {
+		t.Errorf("Failed to detect no version found for classification")
+	}
+
+	brokenV := falcoversions.FalcoVersion{Version: "broken", Classification: dummyClassification}
+	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{brokenV}}
+	_, err = ChooseLowestVersion(&falcoVersions, dummyClassification)
+	if err == nil {
+		t.Errorf("Failed to detect broken version")
+	}
 
 }

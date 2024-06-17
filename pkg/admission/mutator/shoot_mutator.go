@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -120,28 +121,62 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func ChooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
-	var highest *pkgversion.Version = nil
+func sortVersionsWithClassification(versions *falcoversions.FalcoVersions, classification string) (pkgversion.Collection, error) {
+	var sortedVersions pkgversion.Collection
 	for _, v := range versions.FalcoVersions {
 		if v.Classification != classification {
 			continue
 		}
-		incumbent, err := pkgversion.NewVersion(v.Version)
 
+		ver, err := pkgversion.NewVersion(v.Version)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse version: %s", err)
 		}
+		sortedVersions = append(sortedVersions, ver)
+	}
 
-		if highest == nil || incumbent.GreaterThan(highest) {
-			highest = incumbent
+	sort.Sort(sortedVersions)
+	return sortedVersions, nil
+}
+
+func ChooseLowestVersionHigherThanCurrent(version *string, versions *falcoversions.FalcoVersions, classification string) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, classification)
+	if err != nil {
+		return nil, err
+	}
+	if len(sortedVersions) == 0 {
+		return nil, fmt.Errorf("no version with classification %s was found", classification)
+	}
+
+	currentVersion, err := pkgversion.NewVersion(*version)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse current version %s", *version)
+	}
+
+	// if possible return the lowest supported version greater than the current one
+	for _, lowest := range sortedVersions {
+		if lowest.GreaterThan(currentVersion) {
+			newVersionString := lowest.String()
+			return &newVersionString, nil
 		}
 	}
 
-	if highest != nil {
-		highestVersion := highest.String()
-		return &highestVersion, nil
+	// otherwise return the lowest supported version
+	lowest := sortedVersions[0].String()
+	return &lowest, nil
+}
+
+func ChooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, classification)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("no version with classification %s was found", classification)
+	if len(sortedVersions) == 0 {
+		return nil, fmt.Errorf("no version with classification %s was found", classification)
+	}
+
+	highest := sortedVersions[len(sortedVersions)-1].String()
+	return &highest, nil
 }
 
 func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
