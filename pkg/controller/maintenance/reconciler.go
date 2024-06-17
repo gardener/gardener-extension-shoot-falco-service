@@ -44,7 +44,7 @@ type Reconciler struct {
 	Client   client.Client
 	Clock    clock.Clock
 	Recorder record.EventRecorder
-	mutator *mutator.Shoot
+	mutator  *mutator.Shoot
 }
 
 // Reconcile reconciles Shoots and maintains them by updating versions or triggering operations.
@@ -65,124 +65,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, fmt.Errorf("error retrieving object from store: %w", err)
 	}
 
-	// TODO probably not required
-	// maintainedShoot := shoot.DeepCopy()
-
-	// TODO check if we have to do anything
-	falcoConf, err := r.mutator.ExtractFalcoConfig(shoot)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if falcoConf == nil {
-		return reconcile.Result{}, fmt.Errorf("the Falco config is empty")
-	}
-
-	currentVersion := falcoConf.FalcoVersion
-	availableVersions := falco.FalcoVersions().Falco
-
-	deprecated, err := isVersionDeprecated(currentVersion)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	autoUpdate := falcoConf.AutoUpdate != nil && *falcoConf.AutoUpdate
-	forceUpdate := !autoUpdate && deprecated
-
-	var versionToSet *string
-
-	if autoUpdate {
-		fmt.Println("AutoUpdate enabled")
-		versionToSet, err = mutator.ChooseHighestVersion(availableVersions, "supported")
-	} else if forceUpdate {
-		fmt.Println("AutoUpdate disabled but needs forced upgrade")
-		versionToSet, err = mutator.ChooseLowestVersionHigherThanCurrent(currentVersion, availableVersions, "supported")
-	}
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
-
-	// TODO set annotation/label/status that we will do something
-	if !needToUpdate {
-		fmt.Println("Nothing to do")
-		return reconcile.Result{}, err
-	}
-
-	fmt.Println("We need to set the annotations because we will update")
-
-	// TODO do the update and remove the labels. set success or not
-	falcoConf.FalcoVersion = versionToSet
-	if err := r.mutator.UpdateFalcoConfig(shoot, falcoConf); err != nil {
-		return reconcile.Result{}, fmt.Errorf("could not update Falco config: %s", err.Error())
-	}
-
-	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
-	var m = make(map[string]string)
-	m["myAnnotation"] = fmt.Sprintf("helloWorls %d", i)
-	i++
-	shoot.Annotations = m
-
-
-	// for maintenance operations unrelated to machine images and Kubernetes versions
-	// operations := []string{}
-
-	// _ = maintainOperation(shoot)
-	// maintainTasks(shoot, r.Config)
-
-
-
-	// ========================================================================================================================
-	// try to maintain shoot, but don't retry on conflict, because a conflict means that we potentially operated on stale
-	// data (e.g. when calculating the updated k8s version), so rather return error and backoff
-	if err := r.Client.Update(ctx, shoot); err != nil {
-		r.Recorder.Event(shoot, corev1.EventTypeWarning, gardencorev1beta1.ShootMaintenanceFailed, err.Error())
-		return reconcile.Result{}, fmt.Errorf("update failed: %w", err)
-	}
-
-	// if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
-	patch := client.MergeFrom(shoot.DeepCopy())
-	shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
-
-	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-		return reconcile.Result{}, fmt.Errorf("patch failed: %w", err)
-	}
-	// }
-
-	fmt.Println("We are done with something")
-	// return reconcile.Result{RequeueAfter: time.Second}, nil
-	return reconcile.Result{}, nil
-
-
-	for _, ext := range shoot.Spec.Extensions {
-		if ext.Type == constants.ExtensionType {
-			//return reconcile.Result{RequeueAfter: time.Second}, nil
-			return reconcile.Result{RequeueAfter: time.Second}, nil
-		}
-	}
-	return reconcile.Result{}, nil
-
-	// TODO Check whether Falco Extension is deployed. Oherwise do not continue
-
 	if shoot.DeletionTimestamp != nil {
 		log.V(1).Info("Skipping Shoot because it is marked for deletion")
 		return reconcile.Result{}, nil
 	}
 
-	requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
+	// TODO skipped for testing
+	// requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
 
-	if !mustMaintainNow(shoot, r.Clock) {
-		log.V(1).Info("Skipping Shoot because it doesn't need to be maintained now")
-		log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
-		return reconcile.Result{RequeueAfter: requeueAfter}, nil
-	}
-
-	// if err := r.reconcile(ctx, log, shoot); err != nil {
-	// 	return reconcile.Result{}, err
+	// if !mustMaintainNow(shoot, r.Clock) {
+	// 	log.V(1).Info("Skipping Shoot because it doesn't need to be maintained now")
+	// 	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+	// 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	// }
 
-	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
-	return reconcile.Result{RequeueAfter: requeueAfter}, nil
+	if err := r.reconcile(ctx, log, shoot); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+	// return reconcile.Result{RequeueAfter: requeueAfter}, nil
+	return reconcile.Result{}, nil
 }
 
 // upgrades to highest supported Falco version
@@ -193,11 +96,6 @@ func isVersionDeprecated(version *string) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("the Falco version %s was not found among possible versions", *version)
-}
-
-// upgrades to lowest supported Falco version
-func forcedUpgradeToLowestSupported() {
-
 }
 
 func findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
@@ -232,134 +130,114 @@ type updateResult struct {
 func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gardencorev1beta1.Shoot) error {
 	log.Info("Maintaining Shoot")
 
+	// TODO do we need to dopy here or not?
+	maintainedShoot := shoot.DeepCopy()
+
+	// TODO check if we have to do anything
+	falcoConf, err := r.mutator.ExtractFalcoConfig(maintainedShoot)
+	if err != nil {
+		return err
+	}
+	if falcoConf == nil {
+		return fmt.Errorf("the Falco config is empty")
+	}
+
+	currentVersion := falcoConf.FalcoVersion
+	availableVersions := falco.FalcoVersions().Falco
+
+	deprecated, err := isVersionDeprecated(currentVersion)
+	if err != nil {
+		return err
+	}
+
+	autoUpdate := falcoConf.AutoUpdate != nil && *falcoConf.AutoUpdate
+	forceUpdate := !autoUpdate && deprecated
+
+	var versionToSet *string
+
+	if autoUpdate {
+		fmt.Println("AutoUpdate enabled")
+		versionToSet, err = mutator.ChooseHighestVersion(availableVersions, "supported")
+	} else if forceUpdate {
+		fmt.Println("AutoUpdate disabled but needs forced upgrade")
+		versionToSet, err = mutator.ChooseLowestVersionHigherThanCurrent(currentVersion, availableVersions, "supported")
+	}
+	if err != nil {
+		return err
+	}
+
+	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
+
+	// TODO set annotation/label/status that we will do something
+	if !needToUpdate {
+		fmt.Println("Nothing to do")
+		return err
+	}
+
+	fmt.Println("We need to set the annotations because we will update")
+
+	// TODO do the update and remove the labels. set success or not
+	falcoConf.FalcoVersion = versionToSet
+	if err := r.mutator.UpdateFalcoConfig(maintainedShoot, falcoConf); err != nil {
+		return fmt.Errorf("could not update Falco config: %s", err.Error())
+	}
+
+	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
+	var m = make(map[string]string)
+	m["myAnnotation"] = fmt.Sprintf("helloWorls %d", i)
+	i++
+	maintainedShoot.Annotations = m
+
 	var (
-		maintainedShoot = shoot.DeepCopy()
+		// maintainedShoot = shoot.DeepCopy()
 		// for maintenance operations unrelated to machine images and Kubernetes versions
 		operations []string
 		// err        error
 	)
 
-	// workerToKubernetesUpdate := make(map[string]updateResult)
-	// workerToMachineImageUpdate := make(map[string]updateResult)
-
-	// cloudProfile := &gardencorev1beta1.CloudProfile{}
-	// if err = r.Client.Get(ctx, client.ObjectKey{Name: shoot.Spec.CloudProfileName}, cloudProfile); err != nil {
-	// 	return err
-	// }
-
-	if !v1beta1helper.IsWorkerless(shoot) {
-		return nil
-		// workerToMachineImageUpdate, err = maintainMachineImages(log, maintainedShoot, cloudProfile)
-		// if err != nil {
-		// 	// continue execution to allow the kubernetes version update
-		// 	log.Error(err, "Failed to maintain Shoot machine images")
-		// }
-	}
-
 	// TODO possibly point of obtaining current Falco version and checking auto-update
 
-	// kubernetesControlPlaneUpdate, err := maintainKubernetesVersion(log, maintainedShoot.Spec.Kubernetes.Version, maintainedShoot.Spec.Maintenance.AutoUpdate.KubernetesVersion, cloudProfile, func(v string) (string, error) {
-	// 	maintainedShoot.Spec.Kubernetes.Version = v
-	// 	return v, nil
-	// })
-	// if err != nil {
-	// 	// continue execution to allow the machine image version update and Kubernetes updates to worker pools
-	// 	log.Error(err, "Failed to maintain Shoot kubernetes version")
-	// }
-
-	// oldShootKubernetesVersion, err := semver.NewVersion(shoot.Spec.Kubernetes.Version)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// shootKubernetesVersion, err := semver.NewVersion(maintainedShoot.Spec.Kubernetes.Version)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// Reset the `EnableStaticTokenKubeconfig` value to false, when shoot cluster is updated to  k8s version >= 1.27.
-	// if versionutils.ConstraintK8sLess127.Check(oldShootKubernetesVersion) && versionutils.ConstraintK8sGreaterEqual127.Check(shootKubernetesVersion) {
-	// 	if ptr.Deref(maintainedShoot.Spec.Kubernetes.EnableStaticTokenKubeconfig, false) {
-	// 		maintainedShoot.Spec.Kubernetes.EnableStaticTokenKubeconfig = ptr.To(false)
-
-	// 		reason := "EnableStaticTokenKubeconfig is set to false. Reason: The static token kubeconfig can no longer be enabled for Shoot clusters using Kubernetes version 1.27 and higher"
-	// 		operations = append(operations, reason)
-	// 	}
-
-	// 	reasonsForIncreasingMaxWorkers := ensureSufficientMaxWorkers(maintainedShoot, fmt.Sprintf("Maximum number of workers of a worker group must be greater or equal to its number of zones for updating Kubernetes to %q", shootKubernetesVersion.String()))
-	// 	operations = append(operations, reasonsForIncreasingMaxWorkers...)
-	// }
-
-	// Now it's time to update worker pool kubernetes version if specified
-	// for i, pool := range maintainedShoot.Spec.Provider.Workers {
-	// 	if pool.Kubernetes == nil || pool.Kubernetes.Version == nil {
-	// 		continue
-	// 	}
-
-	// 	workerLog := log.WithValues("worker", pool.Name)
-	// 	workerKubernetesUpdate, err := maintainKubernetesVersion(workerLog, *pool.Kubernetes.Version, maintainedShoot.Spec.Maintenance.AutoUpdate.KubernetesVersion, cloudProfile, func(v string) (string, error) {
-	// 		workerPoolSemver, err := semver.NewVersion(v)
-	// 		if err != nil {
-	// 			return "", err
-	// 		}
-	// 		// If during autoupdate a worker pool kubernetes gets forcefully updated to the next minor which might be higher than the same minor of the shoot, take this
-	// 		if workerPoolSemver.GreaterThan(shootKubernetesVersion) {
-	// 			workerPoolSemver = shootKubernetesVersion
-	// 		}
-	// 		v = workerPoolSemver.String()
-	// 		maintainedShoot.Spec.Provider.Workers[i].Kubernetes.Version = &v
-	// 		return v, nil
-	// 	})
-	// 	if err != nil {
-	// 		// continue execution to allow other maintenance activities to continue
-	// 		workerLog.Error(err, "Could not maintain Kubernetes version for worker pool")
-	// 	}
-
-	// 	if workerKubernetesUpdate != nil {
-	// 		result := updateResult{
-	// 			reason: workerKubernetesUpdate.reason,
-	// 		}
-	// 		result.isSuccessful = workerKubernetesUpdate.isSuccessful
-	// 		result.description = workerKubernetesUpdate.description
-	// 		workerToKubernetesUpdate[pool.Name] = result
-	// 	}
-	// }
-
-	// if reasons := maintainFeatureGatesForShoot(maintainedShoot); len(reasons) > 0 {
-	// 	operations = append(operations, reasons...)
-	// }
-
-	// if reasons := maintainAdmissionPluginsForShoot(maintainedShoot); len(reasons) > 0 {
-	// 	operations = append(operations, reasons...)
-	// }
-
-	// Set the swap behavior to `LimitedSwap`, when the shoot cluster and/or worker pool is updated to k8s version >= 1.30.
-	// {
-	// 	if versionutils.ConstraintK8sLess130.Check(oldShootKubernetesVersion) &&
-	// 		versionutils.ConstraintK8sGreaterEqual130.Check(shootKubernetesVersion) &&
-	// 		maintainedShoot.Spec.Kubernetes.Kubelet != nil {
-	// 		operations = append(operations, setLimitedSwap(maintainedShoot.Spec.Kubernetes.Kubelet, "spec.kubernetes.kubelet.memorySwap.swapBehavior")...)
-	// 	}
-
-	// 	for i := range maintainedShoot.Spec.Provider.Workers {
-	// 		if maintainedShoot.Spec.Provider.Workers[i].Kubernetes != nil && maintainedShoot.Spec.Provider.Workers[i].Kubernetes.Kubelet != nil {
-	// 			kubeletVersion := ptr.Deref(maintainedShoot.Spec.Provider.Workers[i].Kubernetes.Version, shoot.Spec.Kubernetes.Version)
-	// 			kubeletSemverVersion, err := semver.NewVersion(kubeletVersion)
-	// 			if err != nil {
-	// 				return fmt.Errorf("error parsing kubelet version for worker pool %q: %w", maintainedShoot.Spec.Provider.Workers[i].Name, err)
-	// 			}
-
-	// 			if versionutils.ConstraintK8sGreaterEqual130.Check(kubeletSemverVersion) {
-	// 				operations = append(operations, setLimitedSwap(maintainedShoot.Spec.Provider.Workers[i].Kubernetes.Kubelet, fmt.Sprintf("spec.provider.workers[%d].kubernetes.kubelet.meomrySwap.swapBehavior", i))...)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
+	// Now we start doing someting??
 	operation := maintainOperation(maintainedShoot)
 	if operation != "" {
 		operations = append(operations, fmt.Sprintf("Added %q operation annotation", operation))
 	}
+
+	patch := client.MergeFrom(shoot.DeepCopy())
+
+	shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
+		Description:   "we are updating something for falco",
+		TriggeredTime: metav1.Time{Time: r.Clock.Now()},
+		State:         gardencorev1beta1.LastOperationStateProcessing,
+	}
+
+	// First dry run the update call to check if it can be executed successfully (maintenance might yield a Shoot configuration that is rejected by the ApiServer).
+	// If the dry run fails, the shoot maintenance is marked as failed and is retried only in
+	// next maintenance window.
+	if err := r.Client.Update(ctx, maintainedShoot.DeepCopy(), &client.UpdateOptions{
+		DryRun: []string{metav1.DryRunAll},
+	}); err != nil {
+		// If shoot maintenance is triggered by `gardener.cloud/operation=maintain` annotation and if it fails in dry run,
+		// `maintain` operation annotation needs to be removed so that if reason for failure is fixed and maintenance is triggered
+		// again via `maintain` operation annotation then it should not fail with the reason that annotation is already present.
+		// Removal of annotation during shoot status patch is possible cause only spec is kept in original form during status update
+		// https://github.com/gardener/gardener/blob/a2f7de0badaae6170d7b9b84c163b8cab43a84d2/pkg/apiserver/registry/core/shoot/strategy.go#L258-L267
+		if hasMaintainNowAnnotation(shoot) {
+			delete(shoot.Annotations, v1beta1constants.GardenerOperation)
+		}
+		shoot.Status.LastMaintenance.Description = "Maintenance failed"
+		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
+		shoot.Status.LastMaintenance.FailureReason = ptr.To(fmt.Sprintf("Updates to the Shoot failed to be applied: %s", err.Error()))
+		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
+			return err
+		}
+
+		log.Info("Shoot maintenance failed", "reason", err)
+		return nil
+	}
+
+	shoot.Spec = *maintainedShoot.Spec.DeepCopy()
+	shoot.Annotations = maintainedShoot.Annotations
 
 	// TODO might need later
 	// requirePatch := len(operations) > 0 || kubernetesControlPlaneUpdate != nil || len(workerToKubernetesUpdate) > 0 || len(workerToMachineImageUpdate) > 0
@@ -421,7 +299,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	// }
 
 	// update shoot spec changes in maintenance call
-	shoot.Spec = *maintainedShoot.Spec.DeepCopy()
+	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
 	_ = maintainOperation(shoot)
 	// maintainTasks(shoot, r.Config)
 
