@@ -211,6 +211,10 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 		State:         gardencorev1beta1.LastOperationStateProcessing,
 	}
 
+	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
+		return err
+	}
+
 	// First dry run the update call to check if it can be executed successfully (maintenance might yield a Shoot configuration that is rejected by the ApiServer).
 	// If the dry run fails, the shoot maintenance is marked as failed and is retried only in
 	// next maintenance window.
@@ -239,65 +243,6 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	shoot.Spec = *maintainedShoot.Spec.DeepCopy()
 	shoot.Annotations = maintainedShoot.Annotations
 
-	// TODO might need later
-	// requirePatch := len(operations) > 0 || kubernetesControlPlaneUpdate != nil || len(workerToKubernetesUpdate) > 0 || len(workerToMachineImageUpdate) > 0
-	// if requirePatch {
-	// 	patch := client.MergeFrom(shoot.DeepCopy())
-
-	// 	// make sure to include both successful and failed maintenance operations
-	// 	description, failureReason := buildMaintenanceMessages(
-	// 		kubernetesControlPlaneUpdate,
-	// 		workerToKubernetesUpdate,
-	// 		workerToMachineImageUpdate,
-	// 	)
-
-	// 	// append also other maintenance operation
-	// 	if len(operations) > 0 {
-	// 		description = fmt.Sprintf("%s, %s", description, strings.Join(operations, ", "))
-	// 	}
-
-	// 	shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
-	// 		Description:   description,
-	// 		TriggeredTime: metav1.Time{Time: r.Clock.Now()},
-	// 		State:         gardencorev1beta1.LastOperationStateProcessing,
-	// 	}
-
-	// 	// if any maintenance operation failed, set the status to 'Failed' and retry in the next maintenance cycle
-	// 	if failureReason != "" {
-	// 		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
-	// 		shoot.Status.LastMaintenance.FailureReason = &failureReason
-	// 	}
-
-	// 	// First dry run the update call to check if it can be executed successfully (maintenance might yield a Shoot configuration that is rejected by the ApiServer).
-	// 	// If the dry run fails, the shoot maintenance is marked as failed and is retried only in
-	// 	// next maintenance window.
-	// 	if err := r.Client.Update(ctx, maintainedShoot.DeepCopy(), &client.UpdateOptions{
-	// 		DryRun: []string{metav1.DryRunAll},
-	// 	}); err != nil {
-	// 		// If shoot maintenance is triggered by `gardener.cloud/operation=maintain` annotation and if it fails in dry run,
-	// 		// `maintain` operation annotation needs to be removed so that if reason for failure is fixed and maintenance is triggered
-	// 		// again via `maintain` operation annotation then it should not fail with the reason that annotation is already present.
-	// 		// Removal of annotation during shoot status patch is possible cause only spec is kept in original form during status update
-	// 		// https://github.com/gardener/gardener/blob/a2f7de0badaae6170d7b9b84c163b8cab43a84d2/pkg/apiserver/registry/core/shoot/strategy.go#L258-L267
-	// 		if hasMaintainNowAnnotation(shoot) {
-	// 			delete(shoot.Annotations, v1beta1constants.GardenerOperation)
-	// 		}
-	// 		shoot.Status.LastMaintenance.Description = "Maintenance failed"
-	// 		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
-	// 		shoot.Status.LastMaintenance.FailureReason = ptr.To(fmt.Sprintf("Updates to the Shoot failed to be applied: %s", err.Error()))
-	// 		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-	// 			return err
-	// 		}
-
-	// 		log.Info("Shoot maintenance failed", "reason", err)
-	// 		return nil
-	// 	}
-
-	// 	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	// update shoot spec changes in maintenance call
 	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
 	_ = maintainOperation(shoot)
@@ -312,6 +257,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 
 	if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
 		patch := client.MergeFrom(shoot.DeepCopy())
+		shoot.Status.LastMaintenance.Description = "We are done with falco maintenance"
 		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
 
 		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
@@ -320,7 +266,6 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	}
 
 	// TODO need to add checks for Falco
-
 	// make sure to report (partial) maintenance failures
 	// if kubernetesControlPlaneUpdate != nil {
 	// 	if kubernetesControlPlaneUpdate.isSuccessful {
@@ -330,6 +275,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	// 	}
 	// }
 
+	// TODO Do we need an event here to record a maintenance event?
 	// r.recordMaintenanceEventsForPool(workerToKubernetesUpdate, shoot, gardencorev1beta1.ShootEventK8sVersionMaintenance, "Kubernetes")
 	// r.recordMaintenanceEventsForPool(workerToMachineImageUpdate, shoot, gardencorev1beta1.ShootEventImageVersionMaintenance, "Machine image")
 
