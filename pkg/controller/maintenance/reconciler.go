@@ -169,13 +169,6 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	// i++
 	// maintainedShoot.Annotations = m
 
-	var operations []string
-
-	operation := maintainOperation(maintainedShoot)
-	if operation != "" {
-		operations = append(operations, fmt.Sprintf("Added %q operation annotation", operation))
-	}
-
 	patch := client.MergeFrom(shoot.DeepCopy())
 
 	shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
