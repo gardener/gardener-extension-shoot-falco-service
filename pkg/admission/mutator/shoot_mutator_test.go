@@ -179,34 +179,34 @@ func TestChooseHighestVersion(t *testing.T) {
 	}
 }
 
-func TestChooseLowestVersion(t *testing.T) {
+func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 	dummyClassification := "test"
 	highVersion := "1.2.3"
+	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
 	highV := falcoversions.FalcoVersion{Version: highVersion, Classification: dummyClassification}
-	lowV := falcoversions.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	lowV := falcoversions.FalcoVersion{Version: midVersion, Classification: dummyClassification}
 	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{highV, lowV}}
 
-	vers, err := ChooseLowestVersion(&falcoVersions, dummyClassification)
+	vers, err := ChooseLowestVersionHigherThanCurrent(&lowVersion, &falcoVersions, dummyClassification)
 	if err != nil {
-		t.Errorf("Failed to find highest version: %s", err.Error())
+		t.Errorf("Failed to find lowest version higher than current: %s", err.Error())
 	}
 
-	if *vers != lowVersion {
-		t.Errorf("Falsely reported version %s as highest", *vers)
+	if *vers != midVersion {
+		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
 	}
 
 	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{}}
-	_, err = ChooseLowestVersion(&falcoVersions, dummyClassification)
+	_, err = ChooseLowestVersionHigherThanCurrent(&lowVersion, &falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
 	brokenV := falcoversions.FalcoVersion{Version: "broken", Classification: dummyClassification}
 	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{brokenV}}
-	_, err = ChooseLowestVersion(&falcoVersions, dummyClassification)
+	_, err = ChooseLowestVersionHigherThanCurrent(&highVersion, &falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect broken version")
 	}
-
 }
