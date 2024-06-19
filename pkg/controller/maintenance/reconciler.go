@@ -7,12 +7,10 @@ package maintenance
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,18 +24,14 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
-	"github.com/gardener/gardener/pkg/controllermanager/apis/config"
 	"github.com/gardener/gardener/pkg/controllerutils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
-	admissionpluginsvalidation "github.com/gardener/gardener/pkg/utils/validation/admissionplugins"
-	featuresvalidation "github.com/gardener/gardener/pkg/utils/validation/features"
 )
 
-var i int = 0
+// TODO used for internal debugging when setting annotation
+// var i int = 0
 
 // Reconciler reconciles Shoots and maintains them by updating versions or triggering operations.
 type Reconciler struct {
@@ -49,8 +43,6 @@ type Reconciler struct {
 
 // Reconcile reconciles Shoots and maintains them by updating versions or triggering operations.
 func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	fmt.Println("Hello i am the reconvilr and i run")
-
 	log := logf.FromContext(ctx)
 
 	ctx, cancel := controllerutils.GetMainReconciliationContext(ctx, controllerutils.DefaultReconciliationTimeout)
@@ -83,6 +75,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, err
 	}
 
+	// TODO skipped for testing
 	// log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 	// return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	return reconcile.Result{}, nil
@@ -98,15 +91,6 @@ func isVersionDeprecated(version *string) (bool, error) {
 	return false, fmt.Errorf("the Falco version %s was not found among possible versions", *version)
 }
 
-func findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
-	for i, ext := range shoot.Spec.Extensions {
-		if ext.Type == constants.ExtensionType {
-			return &shoot.Spec.Extensions[i]
-		}
-	}
-	return nil
-}
-
 func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.Time) {
 	var (
 		now             = time.Now()
@@ -118,6 +102,7 @@ func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.T
 	return duration, nextMaintenance
 }
 
+// TODO this can probably be removed
 // updateResult represents the result of a Kubernetes or Machine image maintenance operation
 // Such maintenance operations can fail if a version must be updated, but the GCM cannot find a suitable version to update to.
 // Note: the updates might still be rejected by APIServer validation.
@@ -128,7 +113,6 @@ type updateResult struct {
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gardencorev1beta1.Shoot) error {
-	log.Info("Maintaining Shoot")
 
 	// TODO do we need to dopy here or not?
 	maintainedShoot := shoot.DeepCopy()
@@ -156,10 +140,10 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	var versionToSet *string
 
 	if autoUpdate {
-		fmt.Println("AutoUpdate enabled")
+		log.Info("Falco AutoUpdate enabled")
 		versionToSet, err = mutator.ChooseHighestVersion(availableVersions, "supported")
 	} else if forceUpdate {
-		fmt.Println("AutoUpdate disabled but needs forced upgrade")
+		log.Info("Falco AutoUpdate disabled but needs forced upgrade")
 		versionToSet, err = mutator.ChooseLowestVersionHigherThanCurrent(currentVersion, availableVersions, "supported")
 	}
 	if err != nil {
@@ -168,13 +152,10 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 
 	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
 
-	// TODO set annotation/label/status that we will do something
 	if !needToUpdate {
-		fmt.Println("Nothing to do")
-		return err
+		log.Info("Do not need to update Falco version")
+		return nil
 	}
-
-	fmt.Println("We need to set the annotations because we will update")
 
 	// TODO do the update and remove the labels. set success or not
 	falcoConf.FalcoVersion = versionToSet
@@ -182,22 +163,14 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 		return fmt.Errorf("could not update Falco config: %s", err.Error())
 	}
 
-	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
-	var m = make(map[string]string)
-	m["myAnnotation"] = fmt.Sprintf("helloWorls %d", i)
-	i++
-	maintainedShoot.Annotations = m
+	// TODO can be used for debugging to see number of changes to shoot spec
+	// var m = make(map[string]string)
+	// m["myAnnotation"] = fmt.Sprintf("helloWorls %d", i)
+	// i++
+	// maintainedShoot.Annotations = m
 
-	var (
-		// maintainedShoot = shoot.DeepCopy()
-		// for maintenance operations unrelated to machine images and Kubernetes versions
-		operations []string
-		// err        error
-	)
+	var operations []string
 
-	// TODO possibly point of obtaining current Falco version and checking auto-update
-
-	// Now we start doing someting??
 	operation := maintainOperation(maintainedShoot)
 	if operation != "" {
 		operations = append(operations, fmt.Sprintf("Added %q operation annotation", operation))
@@ -206,7 +179,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	patch := client.MergeFrom(shoot.DeepCopy())
 
 	shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
-		Description:   "we are updating something for falco",
+		Description:   fmt.Sprintf("Updating Falco version from %s to %s", *currentVersion, *versionToSet),
 		TriggeredTime: metav1.Time{Time: r.Clock.Now()},
 		State:         gardencorev1beta1.LastOperationStateProcessing,
 	}
@@ -229,7 +202,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 		if hasMaintainNowAnnotation(shoot) {
 			delete(shoot.Annotations, v1beta1constants.GardenerOperation)
 		}
-		shoot.Status.LastMaintenance.Description = "Maintenance failed"
+		shoot.Status.LastMaintenance.Description = "Falco maintenance failed"
 		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
 		shoot.Status.LastMaintenance.FailureReason = ptr.To(fmt.Sprintf("Updates to the Shoot failed to be applied: %s", err.Error()))
 		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
@@ -243,10 +216,9 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	shoot.Spec = *maintainedShoot.Spec.DeepCopy()
 	shoot.Annotations = maintainedShoot.Annotations
 
+	// TODO this is required for the annotations??
 	// update shoot spec changes in maintenance call
-	// shoot.Spec = *maintainedShoot.Spec.DeepCopy()
 	_ = maintainOperation(shoot)
-	// maintainTasks(shoot, r.Config)
 
 	// try to maintain shoot, but don't retry on conflict, because a conflict means that we potentially operated on stale
 	// data (e.g. when calculating the updated k8s version), so rather return error and backoff
@@ -257,7 +229,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 
 	if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
 		patch := client.MergeFrom(shoot.DeepCopy())
-		shoot.Status.LastMaintenance.Description = "We are done with falco maintenance"
+		shoot.Status.LastMaintenance.Description = fmt.Sprintf("Succesfully updated Falco version from %s to %s", *currentVersion, *versionToSet)
 		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
 
 		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
@@ -265,7 +237,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 		}
 	}
 
-	// TODO need to add checks for Falco
+	// TODO need to add reports for Falco??
 	// make sure to report (partial) maintenance failures
 	// if kubernetesControlPlaneUpdate != nil {
 	// 	if kubernetesControlPlaneUpdate.isSuccessful {
@@ -379,162 +351,6 @@ func maintainOperation(shoot *gardencorev1beta1.Shoot) string {
 	return operation
 }
 
-func maintainTasks(shoot *gardencorev1beta1.Shoot, config config.ShootMaintenanceControllerConfiguration) {
-	controllerutils.AddTasks(shoot.Annotations,
-		v1beta1constants.ShootTaskDeployInfrastructure,
-		v1beta1constants.ShootTaskDeployDNSRecordInternal,
-		v1beta1constants.ShootTaskDeployDNSRecordExternal,
-		v1beta1constants.ShootTaskDeployDNSRecordIngress,
-	)
-
-	if ptr.Deref(config.EnableShootControlPlaneRestarter, false) {
-		controllerutils.AddTasks(shoot.Annotations, v1beta1constants.ShootTaskRestartControlPlanePods)
-	}
-
-	if ptr.Deref(config.EnableShootCoreAddonRestarter, false) {
-		controllerutils.AddTasks(shoot.Annotations, v1beta1constants.ShootTaskRestartCoreAddons)
-	}
-}
-
-// maintainMachineImages updates the machine images of a Shoot's worker pools if necessary
-func maintainMachineImages(log logr.Logger, shoot *gardencorev1beta1.Shoot, cloudProfile *gardencorev1beta1.CloudProfile) (map[string]updateResult, error) {
-	maintenanceResults := make(map[string]updateResult)
-
-	controlPlaneVersion, err := semver.NewVersion(shoot.Spec.Kubernetes.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, worker := range shoot.Spec.Provider.Workers {
-		workerImage := worker.Machine.Image
-		workerLog := log.WithValues("worker", worker.Name, "image", workerImage.Name, "version", workerImage.Version)
-
-		machineImageFromCloudProfile, err := determineMachineImage(cloudProfile, workerImage)
-		if err != nil {
-			return nil, err
-		}
-
-		kubeletVersion, err := v1beta1helper.CalculateEffectiveKubernetesVersion(controlPlaneVersion, worker.Kubernetes)
-		if err != nil {
-			return nil, err
-		}
-
-		filteredMachineImageVersionsFromCloudProfile := filterForArchitecture(&machineImageFromCloudProfile, worker.Machine.Architecture)
-		filteredMachineImageVersionsFromCloudProfile = filterForCRI(filteredMachineImageVersionsFromCloudProfile, worker.CRI)
-		filteredMachineImageVersionsFromCloudProfile = filterForKubeleteVersionConstraint(filteredMachineImageVersionsFromCloudProfile, kubeletVersion)
-
-		// first check if the machine image version should be updated
-		shouldBeUpdated, reason, isExpired := shouldMachineImageVersionBeUpdated(workerImage, filteredMachineImageVersionsFromCloudProfile, *shoot.Spec.Maintenance.AutoUpdate.MachineImageVersion)
-		if !shouldBeUpdated {
-			continue
-		}
-
-		updatedMachineImageVersion, err := determineMachineImageVersion(workerImage, filteredMachineImageVersionsFromCloudProfile, isExpired)
-		if err != nil {
-			log.Error(err, "Maintenance of machine image failed", "workerPool", worker.Name, "machineImage", workerImage.Name)
-			maintenanceResults[worker.Name] = updateResult{
-				description:  fmt.Sprintf("failed to update machine image %q: %s", workerImage.Name, err.Error()),
-				reason:       reason,
-				isSuccessful: false,
-			}
-			continue
-		}
-		// current version is already the latest
-		if updatedMachineImageVersion == "" {
-			continue
-		}
-
-		workerLog.Info("MachineImage will be updated", "newVersion", updatedMachineImageVersion, "reason", reason)
-		maintenanceResults[worker.Name] = updateResult{
-			description:  fmt.Sprintf("Updated machine image %q from %q to %q", workerImage.Name, *workerImage.Version, updatedMachineImageVersion),
-			reason:       reason,
-			isSuccessful: true,
-		}
-
-		// update the machine image version
-		shoot.Spec.Provider.Workers[i].Machine.Image.Version = &updatedMachineImageVersion
-	}
-
-	return maintenanceResults, nil
-}
-
-// maintainKubernetesVersion updates the Kubernetes version if necessary and returns the reason why an update was done
-func maintainKubernetesVersion(log logr.Logger, kubernetesVersion string, autoUpdate bool, profile *gardencorev1beta1.CloudProfile, updateFunc func(string) (string, error)) (*updateResult, error) {
-	shouldBeUpdated, reason, isExpired, err := shouldKubernetesVersionBeUpdated(kubernetesVersion, autoUpdate, profile)
-	if err != nil {
-		return nil, err
-	}
-	if !shouldBeUpdated {
-		return nil, nil
-	}
-
-	updatedKubernetesVersion, err := determineKubernetesVersion(kubernetesVersion, profile, isExpired)
-	if err != nil {
-		return &updateResult{
-			description:  fmt.Sprintf("could not determine higher suitable version than %q: %v", kubernetesVersion, err),
-			reason:       reason,
-			isSuccessful: false,
-		}, err
-	}
-	// current version is already the latest
-	if updatedKubernetesVersion == "" {
-		return nil, nil
-	}
-
-	// In case the updatedKubernetesVersion for workerpool is higher than the controlplane version, actualUpdatedKubernetesVersion is set to controlplane version
-	actualUpdatedKubernetesVersion, err := updateFunc(updatedKubernetesVersion)
-	if err != nil {
-		return &updateResult{
-			description:  err.Error(),
-			reason:       reason,
-			isSuccessful: false,
-		}, err
-	}
-
-	log.Info("Kubernetes version will be updated", "version", kubernetesVersion, "newVersion", actualUpdatedKubernetesVersion, "reason", reason)
-	return &updateResult{
-		description:  fmt.Sprintf("Updated Kubernetes version from %q to %q", kubernetesVersion, actualUpdatedKubernetesVersion),
-		reason:       reason,
-		isSuccessful: true,
-	}, nil
-}
-
-func determineKubernetesVersion(kubernetesVersion string, profile *gardencorev1beta1.CloudProfile, isExpired bool) (string, error) {
-	getHigherVersionAutoUpdate := v1beta1helper.GetLatestVersionForPatchAutoUpdate
-	getHigherVersionForceUpdate := v1beta1helper.GetVersionForForcefulUpdateToConsecutiveMinor
-
-	version, err := determineVersionForStrategy(profile.Spec.Kubernetes.Versions, kubernetesVersion, getHigherVersionAutoUpdate, getHigherVersionForceUpdate, isExpired)
-	if err != nil {
-		return "", err
-	}
-	return version, nil
-}
-
-func shouldKubernetesVersionBeUpdated(kubernetesVersion string, autoUpdate bool, profile *gardencorev1beta1.CloudProfile) (shouldBeUpdated bool, reason string, isExpired bool, error error) {
-	versionExistsInCloudProfile, version, err := v1beta1helper.KubernetesVersionExistsInCloudProfile(profile, kubernetesVersion)
-	if err != nil {
-		return false, "", false, err
-	}
-
-	var updateReason string
-	if !versionExistsInCloudProfile {
-		updateReason = "Version does not exist in CloudProfile"
-		return true, updateReason, true, nil
-	}
-
-	if ExpirationDateExpired(version.ExpirationDate) {
-		updateReason = "Kubernetes version expired - force update required"
-		return true, updateReason, true, nil
-	}
-
-	if autoUpdate {
-		updateReason = "Automatic update of Kubernetes version configured"
-		return true, updateReason, false, nil
-	}
-
-	return false, "", false, nil
-}
-
 func mustMaintainNow(shoot *gardencorev1beta1.Shoot, clock clock.Clock) bool {
 	return hasMaintainNowAnnotation(shoot) || gardenerutils.IsNowInEffectiveShootMaintenanceTimeWindow(shoot, clock)
 }
@@ -567,349 +383,10 @@ func getOperation(shoot *gardencorev1beta1.Shoot) string {
 	return operation
 }
 
-func filterForArchitecture(machineImageFromCloudProfile *gardencorev1beta1.MachineImage, arch *string) *gardencorev1beta1.MachineImage {
-	filteredMachineImages := gardencorev1beta1.MachineImage{
-		Name:           machineImageFromCloudProfile.Name,
-		UpdateStrategy: machineImageFromCloudProfile.UpdateStrategy,
-		Versions:       []gardencorev1beta1.MachineImageVersion{},
-	}
-
-	for _, cloudProfileVersion := range machineImageFromCloudProfile.Versions {
-		if slices.Contains(cloudProfileVersion.Architectures, *arch) {
-			filteredMachineImages.Versions = append(filteredMachineImages.Versions, cloudProfileVersion)
-		}
-	}
-
-	return &filteredMachineImages
-}
-
-func filterForCRI(machineImageFromCloudProfile *gardencorev1beta1.MachineImage, workerCRI *gardencorev1beta1.CRI) *gardencorev1beta1.MachineImage {
-	if workerCRI == nil {
-		return filterForCRI(machineImageFromCloudProfile, &gardencorev1beta1.CRI{Name: gardencorev1beta1.CRINameContainerD})
-	}
-
-	filteredMachineImages := gardencorev1beta1.MachineImage{
-		Name:           machineImageFromCloudProfile.Name,
-		UpdateStrategy: machineImageFromCloudProfile.UpdateStrategy,
-		Versions:       []gardencorev1beta1.MachineImageVersion{},
-	}
-
-	for _, cloudProfileVersion := range machineImageFromCloudProfile.Versions {
-		criFromCloudProfileVersion, found := findCRIByName(workerCRI.Name, cloudProfileVersion.CRI)
-		if !found {
-			continue
-		}
-
-		if !areAllWorkerCRsPartOfCloudProfileVersion(workerCRI.ContainerRuntimes, criFromCloudProfileVersion.ContainerRuntimes) {
-			continue
-		}
-
-		filteredMachineImages.Versions = append(filteredMachineImages.Versions, cloudProfileVersion)
-	}
-
-	return &filteredMachineImages
-}
-
-func filterForKubeleteVersionConstraint(machineImageFromCloudProfile *gardencorev1beta1.MachineImage, kubeletVersion *semver.Version) *gardencorev1beta1.MachineImage {
-	filteredMachineImages := gardencorev1beta1.MachineImage{
-		Name:           machineImageFromCloudProfile.Name,
-		UpdateStrategy: machineImageFromCloudProfile.UpdateStrategy,
-		Versions:       []gardencorev1beta1.MachineImageVersion{},
-	}
-
-	for _, cloudProfileVersion := range machineImageFromCloudProfile.Versions {
-		if cloudProfileVersion.KubeletVersionConstraint != nil {
-			// CloudProfile cannot contain an invalid kubeletVersionConstraint
-			constraint, _ := semver.NewConstraint(*cloudProfileVersion.KubeletVersionConstraint)
-			if !constraint.Check(kubeletVersion) {
-				continue
-			}
-		}
-
-		filteredMachineImages.Versions = append(filteredMachineImages.Versions, cloudProfileVersion)
-	}
-
-	return &filteredMachineImages
-}
-
-func findCRIByName(wanted gardencorev1beta1.CRIName, cris []gardencorev1beta1.CRI) (gardencorev1beta1.CRI, bool) {
-	for _, cri := range cris {
-		if cri.Name == wanted {
-			return cri, true
-		}
-	}
-	return gardencorev1beta1.CRI{}, false
-}
-
-func areAllWorkerCRsPartOfCloudProfileVersion(workerCRs []gardencorev1beta1.ContainerRuntime, crsFromCloudProfileVersion []gardencorev1beta1.ContainerRuntime) bool {
-	if workerCRs == nil {
-		return true
-	}
-	for _, workerCr := range workerCRs {
-		if !isWorkerCRPartOfCloudProfileVersionCRs(workerCr, crsFromCloudProfileVersion) {
-			return false
-		}
-	}
-	return true
-}
-
-func isWorkerCRPartOfCloudProfileVersionCRs(wanted gardencorev1beta1.ContainerRuntime, cloudProfileVersionCRs []gardencorev1beta1.ContainerRuntime) bool {
-	for _, cr := range cloudProfileVersionCRs {
-		if wanted.Type == cr.Type {
-			return true
-		}
-	}
-	return false
-}
-
-func determineMachineImage(cloudProfile *gardencorev1beta1.CloudProfile, shootMachineImage *gardencorev1beta1.ShootMachineImage) (gardencorev1beta1.MachineImage, error) {
-	machineImagesFound, machineImageFromCloudProfile := v1beta1helper.DetermineMachineImageForName(cloudProfile, shootMachineImage.Name)
-	if !machineImagesFound {
-		return gardencorev1beta1.MachineImage{}, fmt.Errorf("failure while determining the default machine image in the CloudProfile: no machineImage with name %q (specified in shoot) could be found in the cloudProfile %q", shootMachineImage.Name, cloudProfile.Name)
-	}
-
-	return machineImageFromCloudProfile, nil
-}
-
-func shouldMachineImageVersionBeUpdated(shootMachineImage *gardencorev1beta1.ShootMachineImage, machineImage *gardencorev1beta1.MachineImage, autoUpdate bool) (shouldBeUpdated bool, reason string, isExpired bool) {
-	versionExistsInCloudProfile, versionIndex := v1beta1helper.ShootMachineImageVersionExists(*machineImage, *shootMachineImage)
-
-	var updateReason string
-	if !versionExistsInCloudProfile {
-		updateReason = "Version does not exist in CloudProfile"
-		return true, updateReason, true
-	}
-
-	if ExpirationDateExpired(machineImage.Versions[versionIndex].ExpirationDate) {
-		updateReason = fmt.Sprintf("Machine image version expired - force update required (image update strategy: %s)", *machineImage.UpdateStrategy)
-		return true, updateReason, true
-	}
-
-	if autoUpdate {
-		updateReason = fmt.Sprintf("Automatic update of the machine image version is configured (image update strategy: %s)", *machineImage.UpdateStrategy)
-		return true, updateReason, false
-	}
-
-	return false, "", false
-}
-
-// GetHigherVersion takes a slice of versions and returns if higher suitable version could be found, the version or an error
-type GetHigherVersion func(versions []gardencorev1beta1.ExpirableVersion, currentVersion string) (bool, string, error)
-
-func determineMachineImageVersion(shootMachineImage *gardencorev1beta1.ShootMachineImage, machineImage *gardencorev1beta1.MachineImage, isExpired bool) (string, error) {
-	var (
-		getHigherVersionAutoUpdate  GetHigherVersion
-		getHigherVersionForceUpdate GetHigherVersion
-	)
-
-	if *machineImage.UpdateStrategy == gardencorev1beta1.UpdateStrategyPatch {
-		getHigherVersionAutoUpdate = v1beta1helper.GetLatestVersionForPatchAutoUpdate
-		getHigherVersionForceUpdate = v1beta1helper.GetVersionForForcefulUpdateToNextHigherMinor
-	} else if *machineImage.UpdateStrategy == gardencorev1beta1.UpdateStrategyMinor {
-		getHigherVersionAutoUpdate = v1beta1helper.GetLatestVersionForMinorAutoUpdate
-		getHigherVersionForceUpdate = v1beta1helper.GetVersionForForcefulUpdateToNextHigherMajor
-	} else {
-		// auto-update strategy: "major"
-		getHigherVersionAutoUpdate = v1beta1helper.GetOverallLatestVersionForAutoUpdate
-		// cannot force update the overall latest version if it is expired
-		getHigherVersionForceUpdate = func(_ []gardencorev1beta1.ExpirableVersion, _ string) (bool, string, error) {
-			return false, "", fmt.Errorf("either the machine image %q is reaching end of life and migration to another machine image is required or there is a misconfiguration in the CloudProfile. If it is the latter, make sure the machine image in the CloudProfile has at least one version that is not expired, not in preview and greater or equal to the current Shoot image version %q", shootMachineImage.Name, *shootMachineImage.Version)
-		}
-	}
-
-	version, err := determineVersionForStrategy(
-		v1beta1helper.ToExpirableVersions(machineImage.Versions),
-		*shootMachineImage.Version,
-		getHigherVersionAutoUpdate,
-		getHigherVersionForceUpdate,
-		isExpired)
-	if err != nil {
-		return version, fmt.Errorf("failed to determine the target version for maintenance of machine image %q with strategy %q: %w", machineImage.Name, *machineImage.UpdateStrategy, err)
-	}
-
-	return version, nil
-}
-
-func determineVersionForStrategy(expirableVersions []gardencorev1beta1.ExpirableVersion, currentVersion string, getHigherVersionAutoUpdate GetHigherVersion, getHigherVersionForceUpdate GetHigherVersion, isCurrentVersionExpired bool) (string, error) {
-	higherQualifyingVersionFound, latestVersionForMajor, err := getHigherVersionAutoUpdate(expirableVersions, currentVersion)
-	if err != nil {
-		return "", fmt.Errorf("failed to determine a higher patch version for automatic update: %w", err)
-	}
-
-	if higherQualifyingVersionFound {
-		return latestVersionForMajor, nil
-	}
-
-	// The current version is already up-to date
-	//  - Kubernetes version / Auto update strategy "patch": the latest patch version for the current minor version
-	//  - Auto update strategy "minor": the latest patch and minor version for the current major version
-	//  - Auto update strategy "major": the latest overall version
-	if !isCurrentVersionExpired {
-		return "", nil
-	}
-
-	// The version is already the latest version according to the strategy, but is expired. Force update.
-	forceUpdateVersionAvailable, versionForForceUpdate, err := getHigherVersionForceUpdate(expirableVersions, currentVersion)
-	if err != nil {
-		return "", fmt.Errorf("failed to determine version for forceful update: %w", err)
-	}
-
-	// Unable to force update
-	//  - Kubernetes version: no consecutive minor version available (e.g. shoot is on 1.24.X, but there is only 1.26.X, available and not 1.25.X)
-	//  - Auto update strategy "patch": no higher next minor version available (e.g. shoot is on 1.0.X, but there is only 2.2.X, available and not 1.X.X)
-	//  - Auto update strategy "minor": no higher next major version available (e.g. shoot is on 576.3.0, but there is no higher major version available)
-	//  - Auto update strategy "major": already on latest overall version, but the latest version is expired. EOL for image or CloudProfile misconfiguration.
-	if !forceUpdateVersionAvailable {
-		return "", fmt.Errorf("cannot perform forceful update of expired version %q. No suitable version found in CloudProfile - this is most likely a misconfiguration of the CloudProfile", currentVersion)
-	}
-
-	return versionForForceUpdate, nil
-}
-
 // ExpirationDateExpired returns if now is equal or after the given expirationDate
 func ExpirationDateExpired(timestamp *metav1.Time) bool {
 	if timestamp == nil {
 		return false
 	}
 	return time.Now().UTC().After(timestamp.Time) || time.Now().UTC().Equal(timestamp.Time)
-}
-
-// ensureSufficientMaxWorkers ensures that the number of max workers of a worker group is greater or equal to its number of zones
-func ensureSufficientMaxWorkers(shoot *gardencorev1beta1.Shoot, reason string) []string {
-	var reasonsForUpdate []string
-
-	for i, worker := range shoot.Spec.Provider.Workers {
-		if !v1beta1helper.SystemComponentsAllowed(&worker) {
-			continue
-		}
-
-		if int(worker.Maximum) >= len(worker.Zones) {
-			continue
-		}
-		newMaximum := int32(len(worker.Zones))
-		reasonsForUpdate = append(reasonsForUpdate, fmt.Sprintf("Maximum of worker-pool %q upgraded from %d to %d. Reason: %s", worker.Name, worker.Maximum, newMaximum, reason))
-		shoot.Spec.Provider.Workers[i].Maximum = newMaximum
-	}
-
-	return reasonsForUpdate
-}
-
-// setLimitedSwap sets the swap behavior to `LimitedSwap` if it's currently set to `UnlimitedSwap`
-func setLimitedSwap(kubelet *gardencorev1beta1.KubeletConfig, reason string) []string {
-	var reasonsForUpdate []string
-
-	if kubelet.MemorySwap != nil &&
-		kubelet.MemorySwap.SwapBehavior != nil &&
-		*kubelet.MemorySwap.SwapBehavior == gardencorev1beta1.UnlimitedSwap {
-		kubelet.MemorySwap.SwapBehavior = ptr.To(gardencorev1beta1.LimitedSwap)
-		reasonsForUpdate = append(reasonsForUpdate, reason+" is set to 'LimitedSwap'. Reason: 'UnlimitedSwap' cannot be used for Kubernetes version 1.30 and higher.")
-	}
-
-	return reasonsForUpdate
-}
-
-func maintainFeatureGatesForShoot(shoot *gardencorev1beta1.Shoot) []string {
-	var reasons []string
-
-	if shoot.Spec.Kubernetes.KubeAPIServer != nil && shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates != nil {
-		if reason := maintainFeatureGates(&shoot.Spec.Kubernetes.KubeAPIServer.KubernetesConfig, shoot.Spec.Kubernetes.Version, "spec.kubernetes.kubeAPIServer.featureGates"); len(reason) > 0 {
-			reasons = append(reasons, reason...)
-		}
-	}
-
-	if shoot.Spec.Kubernetes.KubeControllerManager != nil && shoot.Spec.Kubernetes.KubeControllerManager.FeatureGates != nil {
-		if reason := maintainFeatureGates(&shoot.Spec.Kubernetes.KubeControllerManager.KubernetesConfig, shoot.Spec.Kubernetes.Version, "spec.kubernetes.kubeControllerManager.featureGates"); len(reason) > 0 {
-			reasons = append(reasons, reason...)
-		}
-	}
-
-	if shoot.Spec.Kubernetes.KubeScheduler != nil && shoot.Spec.Kubernetes.KubeScheduler.FeatureGates != nil {
-		if reason := maintainFeatureGates(&shoot.Spec.Kubernetes.KubeScheduler.KubernetesConfig, shoot.Spec.Kubernetes.Version, "spec.kubernetes.kubeScheduler.featureGates"); len(reason) > 0 {
-			reasons = append(reasons, reason...)
-		}
-	}
-
-	if shoot.Spec.Kubernetes.KubeProxy != nil && shoot.Spec.Kubernetes.KubeProxy.FeatureGates != nil {
-		if reason := maintainFeatureGates(&shoot.Spec.Kubernetes.KubeProxy.KubernetesConfig, shoot.Spec.Kubernetes.Version, "spec.kubernetes.kubeProxy.featureGates"); len(reason) > 0 {
-			reasons = append(reasons, reason...)
-		}
-	}
-
-	if shoot.Spec.Kubernetes.Kubelet != nil && shoot.Spec.Kubernetes.Kubelet.FeatureGates != nil {
-		if reason := maintainFeatureGates(&shoot.Spec.Kubernetes.Kubelet.KubernetesConfig, shoot.Spec.Kubernetes.Version, "spec.kubernetes.kubelet.featureGates"); len(reason) > 0 {
-			reasons = append(reasons, reason...)
-		}
-	}
-
-	for i := range shoot.Spec.Provider.Workers {
-		if shoot.Spec.Provider.Workers[i].Kubernetes != nil && shoot.Spec.Provider.Workers[i].Kubernetes.Kubelet != nil {
-			kubeletVersion := ptr.Deref(shoot.Spec.Provider.Workers[i].Kubernetes.Version, shoot.Spec.Kubernetes.Version)
-
-			if reason := maintainFeatureGates(&shoot.Spec.Provider.Workers[i].Kubernetes.Kubelet.KubernetesConfig, kubeletVersion, fmt.Sprintf("spec.provider.workers[%d].kubernetes.kubelet.featureGates", i)); len(reason) > 0 {
-				reasons = append(reasons, reason...)
-			}
-		}
-	}
-
-	return reasons
-}
-
-// IsFeatureGateSupported is an alias for featuresvalidation.IsFeatureGateSupported. Exposed for testing purposes.
-var IsFeatureGateSupported = featuresvalidation.IsFeatureGateSupported
-
-func maintainFeatureGates(kubernetes *gardencorev1beta1.KubernetesConfig, version, fieldPath string) []string {
-	var (
-		reasons             []string
-		validFeatureGates   = make(map[string]bool, len(kubernetes.FeatureGates))
-		removedFeatureGates []string
-	)
-
-	for fg, enabled := range kubernetes.FeatureGates {
-		// err should never be non-nil, because the feature gates are part of the existing spec and are already validated by the GAPI server
-		if supported, err := IsFeatureGateSupported(fg, version); err == nil && supported {
-			validFeatureGates[fg] = enabled
-		} else {
-			removedFeatureGates = append(removedFeatureGates, fg)
-		}
-	}
-
-	kubernetes.FeatureGates = validFeatureGates
-
-	if len(removedFeatureGates) > 0 {
-		slices.Sort(removedFeatureGates)
-		reasons = append(reasons, fmt.Sprintf("Removed feature gates from %q because they are not supported in Kubernetes version %q: %s", fieldPath, version, strings.Join(removedFeatureGates, ", ")))
-	}
-
-	return reasons
-}
-
-// IsAdmissionPluginSupported is an alias for admissionpluginsvalidation.IsAdmissionPluginSupported. Exposed for testing purposes.
-var IsAdmissionPluginSupported = admissionpluginsvalidation.IsAdmissionPluginSupported
-
-func maintainAdmissionPluginsForShoot(shoot *gardencorev1beta1.Shoot) []string {
-	var (
-		reasons                 []string
-		removedAdmissionPlugins []string
-	)
-
-	if shoot.Spec.Kubernetes.KubeAPIServer != nil && shoot.Spec.Kubernetes.KubeAPIServer.AdmissionPlugins != nil {
-		validAdmissionPlugins := []gardencorev1beta1.AdmissionPlugin{}
-		for _, plugin := range shoot.Spec.Kubernetes.KubeAPIServer.AdmissionPlugins {
-			// err should never be non-nil, because the admission plugins are part of the existing spec and are already validated by the GAPI server
-			if supported, err := IsAdmissionPluginSupported(plugin.Name, shoot.Spec.Kubernetes.Version); err == nil && supported {
-				validAdmissionPlugins = append(validAdmissionPlugins, plugin)
-			} else {
-				removedAdmissionPlugins = append(removedAdmissionPlugins, plugin.Name)
-			}
-		}
-
-		shoot.Spec.Kubernetes.KubeAPIServer.AdmissionPlugins = validAdmissionPlugins
-
-		if len(removedAdmissionPlugins) > 0 {
-			slices.Sort(removedAdmissionPlugins)
-			reasons = append(reasons, fmt.Sprintf("Removed admission plugins from %q because they are not supported in Kubernetes version %q: %s", "spec.kubernetes.kubeAPIServer.admissionPlugins", shoot.Spec.Kubernetes.Version, strings.Join(removedAdmissionPlugins, ", ")))
-		}
-	}
-
-	return reasons
 }
