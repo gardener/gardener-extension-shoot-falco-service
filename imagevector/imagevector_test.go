@@ -5,6 +5,8 @@
 package imagevector
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/gardener/gardener/pkg/utils/imagevector"
@@ -25,8 +27,11 @@ func init() {
 // Test whether there are images for all Falco versions
 func TestForImageIntegrity(t *testing.T) {
 	var found bool = false
+	js, _ := json.Marshal(iv)
+	fmt.Println(string(js))
 	for _, fv := range versions.Falco.FalcoVersions {
 		for _, image := range iv {
+			fmt.Printf("    image: %s:%s:%s\n", image.Name, *image.Version, *image.Tag)
 			if *image.Version == fv.Version && image.Name == "falco" {
 				found = true
 			}
