@@ -68,9 +68,6 @@ spec:
         {{- include "falco.securityContext" . | nindent 8 }}
       args:
         - /usr/bin/falco
-        {{- if and .Values.driver.enabled (eq .Values.driver.kind "modern-bpf") }}
-        - --modern-bpf
-        {{- end }}
         {{- if .Values.gvisor.enabled }}
         - --gvisor-config
         - /gvisor-config/pod-init.json
