@@ -122,12 +122,12 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			},
 		},
 		"falcocerts": map[string]interface{}{
-			"server_ca_crt": secrets.EncodeCertificate(cas.ServerCaCert),
-			"client_ca_crt": secrets.EncodeCertificate(cas.ClientCaCert),
-			"server_crt":    secrets.EncodeCertificate(certs.ServerCert),
-			"server_key":    secrets.EncodePrivateKey(certs.ServerKey),
-			"client_crt":    secrets.EncodeCertificate(certs.ClientCert),
-			"client_key":    secrets.EncodePrivateKey(certs.ClientKey),
+			"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
+			"client_ca_crt": string(secrets.EncodeCertificate(cas.ClientCaCert)),
+			"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
+			"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
+			"client_crt":    string(secrets.EncodeCertificate(certs.ClientCert)),
+			"client_key":    string(secrets.EncodePrivateKey(certs.ClientKey)),
 		},
 		"falco": map[string]interface{}{
 			"http_output": map[string]interface{}{
@@ -167,9 +167,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"tlsserver": map[string]interface{}{
 					"deploy":        true,
 					"mutualtls":     false,
-					"server_key":    secrets.EncodePrivateKey(certs.ServerKey),
-					"server_crt":    secrets.EncodeCertificate(certs.ServerCert),
-					"server_ca_crt": secrets.EncodeCertificate(cas.ServerCaCert),
+					"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
+					"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
+					"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
 				},
 				"customfields": customFields,
 			},
@@ -177,7 +177,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		"customRules": customRules,
 	}
 
-	if falcoServiceConfig.CustomWebhook == nil {
+	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled != nil || !*falcoServiceConfig.CustomWebhook.Enabled {
 		// Gardener managed event store
 		ingestorAddress := c.config.Falco.IngestorURL
 		// ok to generate new token on each reconcile
