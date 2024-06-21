@@ -35,17 +35,13 @@ type FalcoCas struct {
 }
 
 type FalcoCertificates struct {
-	ServerCaKey string
-	ServerCaCrt string
-	ServerKey   string
-	ServerCrt   string
-	ClientCaKey string
-	ClientCaCrt string
-	ClientKey   string
-	ClientCrt   string
+	ServerKey  *rsa.PrivateKey
+	ServerCert *x509.Certificate
+	ClientKey  *rsa.PrivateKey
+	ClientCert *x509.Certificate
 }
 
-func GenerateCertificate(commonName string) (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateCACertificate(commonName string, customLifetime time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 
 	key, err := rsa.GenerateKey(rand.Reader, keyBitSize)
 	if err != nil {
@@ -55,7 +51,6 @@ func GenerateCertificate(commonName string) (*rsa.PrivateKey, *x509.Certificate,
 	if err != nil {
 		return nil, nil, err
 	}
-
 	caKeyUsage := x509.KeyUsageCertSign | x509.KeyUsageCRLSign
 	cert := &x509.Certificate{
 		SerialNumber: serial,
@@ -64,7 +59,7 @@ func GenerateCertificate(commonName string) (*rsa.PrivateKey, *x509.Certificate,
 		},
 		SignatureAlgorithm: x509.SHA384WithRSA,
 		NotBefore:          time.Now(),
-		NotAfter:           time.Now().Add(constants.DefaultCertificateLifetime),
+		NotAfter:           time.Now().Add(customLifetime),
 
 		KeyUsage:              caKeyUsage,
 		BasicConstraintsValid: true,
@@ -81,25 +76,31 @@ func GenerateCertificate(commonName string) (*rsa.PrivateKey, *x509.Certificate,
 	return key, newCert, nil
 }
 
-func CaNeedsRenewal(certs *FalcoCas) bool {
-	expiration := time.Now().Add(constants.DefaultCertificateRenewAfter)
-	serverCaExpired := expiration.After(certs.ServerCaCert.NotAfter)
-	clientCaExpired := expiration.After(certs.ClientCaCert.NotAfter)
-	return serverCaExpired || clientCaExpired
+func caNeedsRenewal(cert *x509.Certificate, maxAge time.Duration) bool {
+	certAge := time.Since(cert.NotBefore)
+	return certAge >= maxAge
 }
 
-func GenerateFalcoCas(clusterName string) (*FalcoCas, error) {
+func CaNeedsRenewal(certs *FalcoCas, maxAge time.Duration) bool {
+	return caNeedsRenewal(certs.ServerCaCert, maxAge) || caNeedsRenewal(certs.ClientCaCert, maxAge)
+}
+
+func CertsNeedRenewal(certs *FalcoCertificates, maxAge time.Duration) bool {
+	return caNeedsRenewal(certs.ServerCert, maxAge) || caNeedsRenewal(certs.ClientCert, maxAge)
+}
+
+func GenerateFalcoCas(clusterName string, lifetime time.Duration) (*FalcoCas, error) {
 
 	falcoCas := FalcoCas{}
 
-	skey, sca, err := GenerateCertificate("ca-falco-falcosidekick-" + clusterName)
+	skey, sca, err := generateCACertificate("ca-falco-falcosidekick-"+clusterName, lifetime)
 	if err != nil {
 		return nil, err
 	}
 	falcoCas.ServerCaKey = skey
 	falcoCas.ServerCaCert = sca
 
-	ckey, cca, err := GenerateCertificate("ca-falco-falco-" + clusterName)
+	ckey, cca, err := generateCACertificate("ca-falco-falco-"+clusterName, lifetime)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +109,20 @@ func GenerateFalcoCas(clusterName string) (*FalcoCas, error) {
 	return &falcoCas, nil
 }
 
-func GenerateKeysAndCerts(cas *FalcoCas, namespace string) (*FalcoCertificates, error) {
+func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duration) (*FalcoCertificates, error) {
 
+	var certs FalcoCertificates
 	serverKey, err := rsa.GenerateKey(rand.Reader, keyBitSize)
 	if err != nil {
 		return nil, err
 	}
+	certs.ServerKey = serverKey
+
 	clientKey, err := rsa.GenerateKey(rand.Reader, keyBitSize)
 	if err != nil {
 		return nil, err
 	}
+	certs.ClientKey = clientKey
 
 	serverCrtSerialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
@@ -131,7 +136,7 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string) (*FalcoCertificates, 
 		},
 		SignatureAlgorithm: x509.SHA384WithRSA,
 		NotBefore:          time.Now(),
-		NotAfter:           time.Now().Add(time.Hour * 720),
+		NotAfter:           time.Now().Add(lifetime),
 
 		KeyUsage:              serverCaUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -143,6 +148,11 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string) (*FalcoCertificates, 
 	if err != nil {
 		return nil, err
 	}
+	serverCrt, err := x509.ParseCertificate(serverCrtDerBytes)
+	if err != nil {
+		return nil, err
+	}
+	certs.ServerCert = serverCrt
 
 	clientCrtSerialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
@@ -156,7 +166,7 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string) (*FalcoCertificates, 
 		},
 		SignatureAlgorithm: x509.SHA384WithRSA,
 		NotBefore:          time.Now(),
-		NotAfter:           time.Now().Add(time.Hour * 720),
+		NotAfter:           time.Now().Add(lifetime),
 
 		KeyUsage:              clientCaUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -168,143 +178,123 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string) (*FalcoCertificates, 
 	if err != nil {
 		return nil, err
 	}
-
-	serverCaKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(cas.ServerCaKey),
-		},
-	)
-	serverCaCrtPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cas.ServerCaCert.Raw,
-		},
-	)
-	serverKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(serverKey),
-		},
-	)
-	serverCrtPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: serverCrtDerBytes,
-		},
-	)
-
-	clientCaKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(cas.ClientCaKey),
-		},
-	)
-	clientCaCrtPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cas.ClientCaCert.Raw,
-		},
-	)
-	clientKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(clientKey),
-		},
-	)
-	clientCrtPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: clientCrtDerBytes,
-		},
-	)
-	return &FalcoCertificates{
-		ServerCaKey: string(serverCaKeyPEM),
-		ServerCaCrt: string(serverCaCrtPEM),
-		ServerKey:   string(serverKeyPEM),
-		ServerCrt:   string(serverCrtPEM),
-
-		ClientCaKey: string(clientCaKeyPEM),
-		ClientCaCrt: string(clientCaCrtPEM),
-		ClientKey:   string(clientKeyPEM),
-		ClientCrt:   string(clientCrtPEM),
-	}, nil
+	clientCrt, err := x509.ParseCertificate(clientCrtDerBytes)
+	if err != nil {
+		return nil, err
+	}
+	certs.ClientCert = clientCrt
+	return &certs, nil
 }
 
-func LoadCertificatesFromSecret(certs *corev1.Secret) (*FalcoCas, error) {
+func DecodePrivateKey(key []byte) (*rsa.PrivateKey, error) {
 	var block *pem.Block
-	block, _ = pem.Decode(certs.Data[constants.FalcoServerCaKey])
+	block, _ = pem.Decode(key)
 	if block.Type != "RSA PRIVATE KEY" {
 		return nil, fmt.Errorf("failed to decode server ca key")
 	}
-	serverCaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	block, _ = pem.Decode(certs.Data[constants.FalcoServerCaCert])
-	if block.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("failed to decode server ca certificate")
-	}
-	serverCaCert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	block, _ = pem.Decode(certs.Data[constants.FalcoClientCaKey])
-	if block.Type != "RSA PRIVATE KEY" {
-		return nil, fmt.Errorf("failed to decode client ca key")
-	}
-	clientCaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	block, _ = pem.Decode(certs.Data[constants.FalcoClientCaCert])
-	if block.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("failed to decode server ca certificate")
-	}
-	clientCaCert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	return &FalcoCas{
-		ServerCaKey:  serverCaKey,
-		ServerCaCert: serverCaCert,
-		ClientCaKey:  clientCaKey,
-		ClientCaCert: clientCaCert,
-	}, nil
+	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }
 
-func StoreFalcoCasInSecret(cas *FalcoCas, certs *corev1.Secret) {
+func DecodeCertificate(cert []byte) (*x509.Certificate, error) {
+	var block *pem.Block
+	block, _ = pem.Decode(cert)
+	if block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("failed to decode server ca certificate")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
 
-	serverCaKeyPEM := pem.EncodeToMemory(
+func EncodePrivateKey(key *rsa.PrivateKey) []byte {
+	return pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(cas.ServerCaKey),
+			Bytes: x509.MarshalPKCS1PrivateKey(key),
 		},
 	)
+}
 
-	serverCaCrtPEM := pem.EncodeToMemory(
+func EncodeCertificate(cert *x509.Certificate) []byte {
+	return pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "CERTIFICATE",
-			Bytes: cas.ServerCaCert.Raw,
+			Bytes: cert.Raw,
 		},
 	)
-	clientCaKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(cas.ClientCaKey),
+}
+
+func LoadCertificatesFromSecret(certs *corev1.Secret) (*FalcoCas, *FalcoCertificates, error) {
+
+	allKeys := []string{
+		constants.FalcoServerCaKey,
+		constants.FalcoServerCaCert,
+		constants.FalcoClientCaKey,
+		constants.FalcoClientCaCert,
+		constants.FalcoServerKey,
+		constants.FalcoServerCert,
+		constants.FalcoClientKey,
+		constants.FalcoClientCert,
+	}
+	for _, k := range allKeys {
+		if _, ok := certs.Data[k]; !ok {
+			return nil, nil, fmt.Errorf("stored secret does not contain expected key %s", k)
+		}
+	}
+	serverCaKey, err := DecodePrivateKey(certs.Data[constants.FalcoServerCaKey])
+	if err != nil {
+		return nil, nil, err
+	}
+	serverCaCert, err := DecodeCertificate(certs.Data[constants.FalcoServerCaCert])
+	if err != nil {
+		return nil, nil, err
+	}
+	clientCaKey, err := DecodePrivateKey(certs.Data[constants.FalcoClientCaKey])
+	if err != nil {
+		return nil, nil, err
+	}
+	clientCaCert, err := DecodeCertificate(certs.Data[constants.FalcoClientCaCert])
+	if err != nil {
+		return nil, nil, err
+	}
+	serverKey, err := DecodePrivateKey(certs.Data[constants.FalcoServerKey])
+	if err != nil {
+		return nil, nil, err
+	}
+	serverCert, err := DecodeCertificate(certs.Data[constants.FalcoServerCert])
+	if err != nil {
+		return nil, nil, err
+	}
+	clientKey, err := DecodePrivateKey(certs.Data[constants.FalcoClientKey])
+	if err != nil {
+		return nil, nil, err
+	}
+	clientCert, err := DecodeCertificate(certs.Data[constants.FalcoClientCert])
+	if err != nil {
+		return nil, nil, err
+	}
+	return &FalcoCas{
+			ServerCaKey:  serverCaKey,
+			ServerCaCert: serverCaCert,
+			ClientCaKey:  clientCaKey,
+			ClientCaCert: clientCaCert,
 		},
-	)
-	clientCaCrtPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cas.ClientCaCert.Raw,
-		},
-	)
-	certs.Data = map[string][]byte{
-		constants.FalcoServerCaKey:  serverCaKeyPEM,
-		constants.FalcoServerCaCert: serverCaCrtPEM,
-		constants.FalcoClientCaKey:  clientCaKeyPEM,
-		constants.FalcoClientCaCert: clientCaCrtPEM,
+		&FalcoCertificates{
+			ServerKey:  serverKey,
+			ServerCert: serverCert,
+			ClientKey:  clientKey,
+			ClientCert: clientCert,
+		}, nil
+}
+
+func StoreFalcoCasInSecret(cas *FalcoCas, certs *FalcoCertificates, secret *corev1.Secret) {
+	secret.Data = map[string][]byte{
+		constants.FalcoServerCaKey:  EncodePrivateKey(cas.ServerCaKey),
+		constants.FalcoServerCaCert: EncodeCertificate(cas.ServerCaCert),
+		constants.FalcoClientCaKey:  EncodePrivateKey(cas.ClientCaKey),
+		constants.FalcoClientCaCert: EncodeCertificate(cas.ClientCaCert),
+		constants.FalcoServerKey:    EncodePrivateKey(certs.ServerKey),
+		constants.FalcoServerCert:   EncodeCertificate(certs.ServerCert),
+		constants.FalcoClientKey:    EncodePrivateKey(certs.ClientKey),
+		constants.FalcoClientCert:   EncodeCertificate(certs.ClientCert),
 	}
 }
 

@@ -60,25 +60,14 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 
 func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]interface{}, error) {
 
-	// ok to generate new token on each reconcile
-	token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
-
-	certs, err := c.getFalcoCaCertificates(ctx, log, cluster, namespace)
-	if err != nil {
-		return nil, err
-	}
-	log.Info("Generating Falco client- and server certifictes for cluster " + cluster.Shoot.Name + " in namespace " + namespace)
-	certificates, err := secrets.GenerateKeysAndCerts(certs, constants.NamespaceKubeSystem)
+	cas, certs, err := c.getFalcoCertificates(ctx, log, cluster, namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	// images
-	falcoVersion, err := c.getDefaultFalcoVersion()
-	if err != nil {
-		return nil, err
-	}
-	falcoImage, err := c.getImageForVersion("falco", falcoVersion)
+	falcoVersion := falcoServiceConfig.FalcoVersion
+	falcoImage, err := c.getImageForVersion("falco", *falcoVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -92,13 +81,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err != nil {
 		return nil, err
 	}
-
-	ingestorAddress := c.config.Falco.IngestorURL
-
-	customHeadersMap := map[string]string{
-		"Authorization": "Bearer " + token,
-	}
-	customHeaders := serializeCustomHeaders(customHeadersMap)
 
 	customFieldsMap := map[string]string{
 		"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
@@ -140,12 +122,12 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			},
 		},
 		"falcocerts": map[string]interface{}{
-			"server_ca_crt": certificates.ServerCaCrt,
-			"client_ca_crt": certificates.ClientCaCrt,
-			"server_crt":    certificates.ServerCrt,
-			"server_key":    certificates.ServerKey,
-			"client_crt":    certificates.ClientCrt,
-			"client_key":    certificates.ClientKey,
+			"server_ca_crt": secrets.EncodeCertificate(cas.ServerCaCert),
+			"client_ca_crt": secrets.EncodeCertificate(cas.ClientCaCert),
+			"server_crt":    secrets.EncodeCertificate(certs.ServerCert),
+			"server_key":    secrets.EncodePrivateKey(certs.ServerKey),
+			"client_crt":    secrets.EncodeCertificate(certs.ClientCert),
+			"client_key":    secrets.EncodePrivateKey(certs.ClientKey),
 		},
 		"falco": map[string]interface{}{
 			"http_output": map[string]interface{}{
@@ -185,35 +167,60 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"tlsserver": map[string]interface{}{
 					"deploy":        true,
 					"mutualtls":     false,
-					"server_key":    certificates.ServerKey,
-					"server_crt":    certificates.ServerCrt,
-					"server_ca_crt": certificates.ServerCaCrt,
+					"server_key":    secrets.EncodePrivateKey(certs.ServerKey),
+					"server_crt":    secrets.EncodeCertificate(certs.ServerCert),
+					"server_ca_crt": secrets.EncodeCertificate(cas.ServerCaCert),
 				},
 				"customfields": customFields,
-				"webhook": map[string]interface{}{
-					"address":       ingestorAddress,
-					"customheaders": customHeaders,
-				},
 			},
 		},
 		"customRules": customRules,
 	}
+
+	if falcoServiceConfig.CustomWebhook == nil {
+		// Gardener managed event store
+		ingestorAddress := c.config.Falco.IngestorURL
+		// ok to generate new token on each reconcile
+		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
+		customHeadersMap := map[string]string{
+			"Authorization": "Bearer " + token,
+		}
+		customHeaders := serializeCustomHeaders(customHeadersMap)
+		webhook := map[string]string{
+			"address":       ingestorAddress,
+			"customheaders": customHeaders,
+		}
+		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		config["webhook"] = webhook
+	} else {
+		// user has defined a custom location, we just pass it
+		customWebhook := falcoServiceConfig.CustomWebhook
+		webhook := map[string]string{
+			"address": *customWebhook.Address,
+		}
+		if customWebhook.CustomHeaders != nil {
+			webhook["customHeaders"] = *customWebhook.CustomHeaders
+		}
+		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		config["webhook"] = webhook
+	}
+
 	if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoRules, falcoVersion)
+		r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
 		if err != nil {
 			return nil, err
 		}
 		falcoChartValues["falcoRules"] = r
 	}
 	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, falcoVersion)
+		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
 		if err != nil {
 			return nil, err
 		}
 		falcoChartValues["falcoIncubatingRules"] = r
 	}
 	if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, falcoVersion)
+		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -276,18 +283,24 @@ func (c *ConfigBuilder) getImageForVersion(name string, version string) (string,
 	return "", fmt.Errorf("no images found for %s version %s", name, version)
 }
 
-func (c *ConfigBuilder) storeFalcoCas(ctx context.Context, namespace string, cas *secrets.FalcoCas) error {
-	certs := corev1.Secret{
+func (c *ConfigBuilder) storeFalcoCas(ctx context.Context, namespace string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates) error {
+	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.FalcoCertificatesSecretName,
 			Namespace: namespace,
 		},
 	}
-	secrets.StoreFalcoCasInSecret(cas, &certs)
-	return c.client.Create(ctx, &certs)
+	secrets.StoreFalcoCasInSecret(cas, certs, &secret)
+	err := c.client.Update(ctx, &secret)
+	if err != nil {
+		// secret might not exist, create it
+		return c.client.Create(ctx, &secret)
+	} else {
+		return nil
+	}
 }
 
-func (c *ConfigBuilder) loadFalcoCertificates(ctx context.Context, namespace string) (*secrets.FalcoCas, error) {
+func (c *ConfigBuilder) loadFalcoCertificates(ctx context.Context, namespace string) (*secrets.FalcoCas, *secrets.FalcoCertificates, error) {
 	certs := &corev1.Secret{}
 	err := c.client.Get(ctx,
 		client.ObjectKey{
@@ -295,29 +308,57 @@ func (c *ConfigBuilder) loadFalcoCertificates(ctx context.Context, namespace str
 			Name:      constants.FalcoCertificatesSecretName},
 		certs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return secrets.LoadCertificatesFromSecret(certs)
 }
 
-func (c *ConfigBuilder) getFalcoCaCertificates(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string) (*secrets.FalcoCas, error) {
+func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string) (*secrets.FalcoCas, *secrets.FalcoCertificates, error) {
 
-	certs, err := c.loadFalcoCertificates(ctx, namespace)
+	cas, certs, err := c.loadFalcoCertificates(ctx, namespace)
 	if err != nil {
-		log.Info("Cannot load Falco certificates from secret: " + err.Error())
+		log.Info("cannot load Falco certificates from secret: " + err.Error())
 	}
-	if err != nil || secrets.CaNeedsRenewal(certs) {
-		log.Info("Generating new falco ca certificates for cluster " + cluster.Shoot.Name + " in namespace " + namespace)
-		certs, err = secrets.GenerateFalcoCas(cluster.Shoot.Name)
+	if err != nil {
+		// need to generate everything
+		cas, err = secrets.GenerateFalcoCas(cluster.Shoot.Name, constants.DefaultCALifetime)
 		if err != nil {
-			return nil, err
+			return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 		}
-		err = c.storeFalcoCas(ctx, namespace, certs)
+		certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, constants.DefaultCertificateLifetime)
 		if err != nil {
-			return nil, err
+			return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
+		}
+		err = c.storeFalcoCas(ctx, namespace, cas, certs)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		// check whether CA and/or certificates are expired and re-generate as needed
+		renewed := false
+		if secrets.CaNeedsRenewal(cas, constants.DefaultCARenewAfter) {
+			renewed = true
+			cas, err = secrets.GenerateFalcoCas(cluster.Shoot.Name, constants.DefaultCALifetime)
+			if err != nil {
+				return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
+			}
+		}
+		if renewed || secrets.CertsNeedRenewal(certs, constants.DefaultCertificateRenewAfter) {
+			renewed = true
+			certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, constants.DefaultCertificateLifetime)
+			if err != nil {
+				return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
+			}
+		}
+		if renewed {
+			err = c.storeFalcoCas(ctx, namespace, cas, certs)
+			if err != nil {
+				return nil, nil, err
+			}
+
 		}
 	}
-	return certs, nil
+	return cas, certs, nil
 }
 
 func serializeCustomHeaders(customHeadersMap map[string]string) string {

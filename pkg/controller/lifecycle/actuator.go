@@ -17,6 +17,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	managedresources "github.com/gardener/gardener/pkg/utils/managedresources"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -115,7 +116,11 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 	log.Info("Deleting falco resources for shoot " + cluster.Shoot.Name)
 	err = a.deleteShootResources(ctx, log, namespace)
 	if err != nil {
-		return fmt.Errorf("unable to delete Falco from shoot %s: %w", cluster.Shoot.Name, err)
+		return fmt.Errorf("error deleting Falco from shoot %s: %w", cluster.Shoot.Name, err)
+	}
+	err = a.deleteSeedResources(ctx, log, namespace)
+	if err != nil {
+		return fmt.Errorf("error deleting Falco seed resources for shoot %s: %w", cluster.Shoot.Name, err)
 	}
 	return nil
 }
@@ -137,6 +142,16 @@ func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, na
 	}
 	log.Info(fmt.Sprintf("Successfully deleted managed resource  %s/%s", namespace, constants.ManagedResourceNameFalco))
 	return nil
+}
+
+func (a *actuator) deleteSeedResources(ctx context.Context, _ logr.Logger, namespace string) error {
+	certs := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.FalcoCertificatesSecretName,
+			Namespace: namespace,
+		},
+	}
+	return a.client.Delete(ctx, certs)
 }
 
 // Restore the Extension resource.
