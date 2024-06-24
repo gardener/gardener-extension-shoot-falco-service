@@ -199,7 +199,7 @@ func DecodeCertificate(cert []byte) (*x509.Certificate, error) {
 	var block *pem.Block
 	block, _ = pem.Decode(cert)
 	if block.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("failed to decode server ca certificate")
+		return nil, fmt.Errorf("private key is of the wrong type, must be \"RSA PRIVATE KEY\", but is: %s", block.Type)
 	}
 	return x509.ParseCertificate(block.Bytes)
 }

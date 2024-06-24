@@ -6,7 +6,6 @@ package imagevector
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/gardener/gardener/pkg/utils/imagevector"
@@ -28,12 +27,12 @@ func init() {
 func TestForImageIntegrity(t *testing.T) {
 	var found bool = false
 	js, _ := json.Marshal(iv)
-	fmt.Println(string(js))
+	t.Log(string(js))
 	for _, fv := range versions.Falco.FalcoVersions {
 		for _, image := range iv {
-			fmt.Printf("    image: %s:%s:%s\n", image.Name, *image.Version, *image.Tag)
 			if *image.Version == fv.Version && image.Name == "falco" {
 				found = true
+				break
 			}
 		}
 		if !found {
@@ -45,10 +44,33 @@ func TestForImageIntegrity(t *testing.T) {
 		for _, image := range iv {
 			if *image.Version == fv.Version && image.Name == "falcosidekick" {
 				found = true
+				break
 			}
 		}
 		if !found {
 			t.Errorf("no images found for %s version %s", "falcosidekick", fv.Version)
+		}
+	}
+	for _, image := range iv {
+		found = false
+		t.Logf("    image: %s:%s:%s\n", image.Name, *image.Version, *image.Tag)
+		for _, fv := range versions.Falco.FalcoVersions {
+			if *image.Version == fv.Version && image.Name == "falco" {
+				found = true
+				t.Log("Found")
+				break
+			}
+		}
+		for _, fv := range versions.FalcoSidekickVersions.FalcosidekickVersions {
+			if *image.Version == fv.Version && image.Name == "falcosidekick" {
+				found = true
+				t.Log("Found sidekick")
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("no version maintained for image %s version %s", image.Name, *image.Version)
 		}
 	}
 }
