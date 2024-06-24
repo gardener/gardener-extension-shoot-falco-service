@@ -369,32 +369,39 @@ func serializeCustomHeaders(customHeadersMap map[string]string) string {
 	return customHeaders[:len(customHeaders)-1]
 }
 
-func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRulesFile, error) {
-
+func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, error) {
 	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}
-	allConfigMaps := map[string]string{}
+	allConfigMaps := make(map[string]string)
 	for _, r := range cluster.Shoot.Spec.Resources {
 		if r.ResourceRef.Kind == "ConfigMap" && r.ResourceRef.APIVersion == "v1" {
 			allConfigMaps[r.Name] = r.ResourceRef.Name
 		}
 	}
-	selectedConfigMaps := map[string]string{}
+	selectedConfigMaps := make(map[string]string)
 	for _, ruleRef := range falcoServiceConfig.Gardener.RuleRefs {
 		if configMapName, ok := allConfigMaps[ruleRef.Ref]; ok {
 			selectedConfigMaps[ruleRef.Ref] = configMapName
 		} else {
-			return nil, fmt.Errorf("no resource for curstom rule ref %s found", ruleRef)
+			return nil, fmt.Errorf("no resource for custom rule ref %s found", ruleRef)
 		}
 	}
-	return c.loadRuleConfig(ctx, log, namespace, &selectedConfigMaps)
+	return selectedConfigMaps, nil
 }
 
-func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps *map[string]string) ([]customRulesFile, error) {
+func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRulesFile, error) {
+	selectedConfigMaps, err := c.extractCustomRules(cluster, falcoServiceConfig)
+	if err != nil {
+		return nil, err
+	}
+	return c.loadRuleConfig(ctx, log, namespace, selectedConfigMaps)
+}
+
+func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps map[string]string) ([]customRulesFile, error) {
 	ruleFiles := map[string]string{}
-	for ruleRef, configMapName := range *selectedConfigMaps {
+	for ruleRef, configMapName := range selectedConfigMaps {
 		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
 		configMap := corev1.ConfigMap{}
 		refConfigMapName := "ref-" + configMapName
