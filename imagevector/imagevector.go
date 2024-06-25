@@ -28,7 +28,6 @@ var (
 func init() {
 
 	var err error
-	os.Setenv("IMAGEVECTOR_OVERWRITE", "/home/ccloud/go/src/github.com/gardener/gardener-extension-shoot-falco-service/example/imagevector-override.yaml")
 	imageVector, err = imagevector.Read([]byte(imagesYAML))
 	runtime.Must(err)
 
