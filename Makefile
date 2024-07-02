@@ -143,6 +143,10 @@ test-clean:
 .PHONY: verify
 verify: check format test
 
+.PHONY: generate-profile
+generate-profile:
+	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml >falco/FalcoProfile.yaml
+
 .PHONY: verify-extended
-verify-extended: check-generate check format # test
+verify-extended: check-generate check format generate-profile # test
 #verify-extended: check-generate check format test test-cov test-clean

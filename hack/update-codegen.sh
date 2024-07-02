@@ -21,6 +21,26 @@ export GO111MODULE=off
 
 rm -f $GOPATH/bin/*-gen
 
+# profile
+
+bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+  deepcopy,defaulter \
+  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
+  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
+  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
+  "profile:v1alpha1" \
+  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
+
+bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+  conversion \
+  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
+  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
+  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
+  "profile:v1alpha1" \
+  --extra-peer-dirs=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile,github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime,github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1 \
+  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
+
+
 bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
   deepcopy,defaulter \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \

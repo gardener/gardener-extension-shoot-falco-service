@@ -5,15 +5,19 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GroupName is the group name use in this package
-const GroupName = "falco.extensions.config.gardener.cloud"
+const GroupName = "falco.gardener.cloud"
+
+const GroupVersion = "v1alpha1"
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
 
 // Resource takes an unqualified resource and returns a Group qualified GroupResource
 func Resource(resource string) schema.GroupResource {
@@ -22,6 +26,7 @@ func Resource(resource string) schema.GroupResource {
 
 // Kind takes an unqualified kind and returns a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
+	fmt.Println("Registering kind: " + kind)
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
 
@@ -42,7 +47,8 @@ func init() {
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Configuration{},
+		&FalcoProfile{},
+		&FalcoProfileList{},
 	)
 	return nil
 }

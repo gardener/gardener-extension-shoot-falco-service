@@ -1249,3 +1249,12 @@
   output: Fileless execution via memfd_create (container_start_ts=%container.start_ts proc_cwd=%proc.cwd evt_res=%evt.res proc_sname=%proc.sname gparent=%proc.aname[2] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
   priority: CRITICAL
   tags: [maturity_stable, host, container, process, mitre_defense_evasion, T1620]
+
+# ---------------------------------------------------------------------------
+# additional rules in order to avoid false positives in Gardener managed 
+# Kubernetes clusters
+
+- rule: Clear Log Activities
+  append: true
+  condition: >
+    and not (proc.exepath = /opt/bin/valitail or fd.name=/var/log/positions.yaml-new)
