@@ -1254,7 +1254,7 @@
 # additional rules in order to avoid false positives in Gardener managed 
 # Kubernetes clusters
 
-- rule: Clear Log Activities
-  append: true
+# Clear Log Activities
+- macro: allowed_clear_log_files
   condition: >
-    and not (proc.exepath = /opt/bin/valitail or fd.name=/var/log/positions.yaml-new)
+    proc.exepath = /opt/bin/valitail or fd.name=/var/log/positions.yaml-new
