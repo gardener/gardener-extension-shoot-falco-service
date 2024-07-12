@@ -14,7 +14,7 @@ spec:
       tag: 0.37.1
       version: 0.37.1
     - architecture: amd64
-      repository: falcosecurity/falco-distroless
+      repository: falcosecurity/falco
       tag: 0.38.0
       version: 0.38.0
     - architecture: amd64

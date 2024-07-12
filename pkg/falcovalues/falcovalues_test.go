@@ -165,7 +165,7 @@ var (
 					Name:      "ref-rules1",
 				},
 				Data: map[string]string{
-					"dummyrules.json": "# dummy rules 1",
+					"dummyrules.yaml": "# dummy rules 1",
 				},
 			},
 			{
@@ -174,7 +174,7 @@ var (
 					Name:      "ref-rules2",
 				},
 				Data: map[string]string{
-					"dummyrules.json": "# dummy rules 2",
+					"dummyrules.yaml": "# dummy rules 2",
 				},
 			},
 			{
@@ -183,7 +183,7 @@ var (
 					Name:      "ref-rules3",
 				},
 				Data: map[string]string{
-					"dummyrules-other.json": "# dummy rules 3",
+					"dummyrules-other.yaml": "# dummy rules 3",
 				},
 			},
 		},
@@ -233,7 +233,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		}
 		res, err := configBuilder.loadRuleConfig(context.TODO(), logger, "shoot--test--foo", selectedConfigs)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(Equal("duplicate rule file dummyrules.json"))
+		Expect(err.Error()).To(Equal("duplicate rule file dummyrules.yaml"))
 		Expect(res).To(BeNil())
 
 		selectedConfigs = map[string]string{
@@ -244,15 +244,15 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(err).To(BeNil())
 		Expect(len(res)).To(Equal(2))
 		cr1 := customRulesFile{
-			Filename: "dummyrules-other.json",
+			Filename: "dummyrules-other.yaml",
 			Content:  "# dummy rules 3",
 		}
 		cr2 := customRulesFile{
-			Filename: "dummyrules.json",
+			Filename: "dummyrules.yaml",
 			Content:  "# dummy rules 1",
 		}
 		cr3 := customRulesFile{
-			Filename: "dummyrulesfdsfa-other.json",
+			Filename: "dummyrulesfdsfa-other.yaml",
 			Content:  "# dummy rules",
 		}
 		Expect(res).To(ContainElement(cr1))
@@ -283,21 +283,36 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 		Expect(err).To(BeNil())
 		fmt.Println((release.ChartName))
-		// for _, mf := range release.Manifests {
-		// 	fmt.Println(mf.Name + " " + mf.Head.Kind)
-		// 	// fmt.Println(mf.Content)
-		// }
+		for _, mf := range release.Manifests {
+			fmt.Println(mf.Name + " " + mf.Head.Kind)
+			fmt.Println(mf.Content)
+		}
 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
 		Expect(customRules).NotTo(BeNil())
 		m := make(map[interface{}]interface{})
+
+		falcoConfigmap := getManifest((release), "falco/templates/falco-configmap.yaml")
+		fc := corev1.ConfigMap{}
+		err = yaml.Unmarshal([]byte(falcoConfigmap.Content), &fc)
+		Expect(err).To(BeNil())
+		//		Expect(fc.Data["falco.yaml"]).To(ContainSubstring("- /etc/falco/rules.d/dummyrules.yaml"))
+		falcoYaml := make(map[string]interface{})
+
+		err = yaml.Unmarshal([]byte(fc.Data["falco.yaml"]), &falcoYaml)
+		Expect(err).To(BeNil())
+		rules := falcoYaml["rules_file"].([]interface{})
+		Expect(len(rules)).To(Equal(2))
+		Expect(rules[0]).To(Equal("/etc/falco/rules.d/falco_rules.yaml"))
+		Expect(rules[1]).To(Equal("/etc/falco/rules.d/dummyrules.yaml"))
+
 		err = yaml.Unmarshal([]byte(customRules.Content), &m)
 		Expect(err).To(BeNil())
 
 		data := m["data"].(map[string]interface{})
-		rules := data["dummyrules.json"].(string)
-		Expect(rules).To(Equal("# dummy rules 1"))
+		rulesFile := data["dummyrules.yaml"].(string)
+		Expect(rulesFile).To(Equal("# dummy rules 1"))
 
-		// fmt.Println((customRules.Content))
+		fmt.Println((customRules.Content))
 	})
 
 })
