@@ -77,7 +77,12 @@ func (p *FalcoProfileManager) GetFalcoImageForVersion(version string) *Image {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	i := p.falcoImages[version]
-	return &i
+	return &Image{
+		Repository:   i.Repository,
+		Tag:          i.Tag,
+		Architectrue: i.Architectrue,
+		Version:      i.Version,
+	}
 }
 
 func (p *FalcoProfileManager) StartWatch() {
