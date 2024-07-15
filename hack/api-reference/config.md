@@ -9,13 +9,10 @@
 <p>Package v1alpha1 contains the falco extension configuration.</p>
 </p>
 Resource Types:
-<ul><li>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Configuration">Configuration</a>
-</li></ul>
-<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Configuration">Configuration
+<ul></ul>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile
 </h3>
 <p>
-<p>Configuration contains information about the falco extension configuration</p>
 </p>
 <table>
 <thead>
@@ -27,58 +24,67 @@ Resource Types:
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-falco.extensions.config.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>Configuration</code></td>
-</tr>
-<tr>
-<td>
-<code>falco</code></br>
+<code>metadata</code></br>
 <em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Falco">
-Falco
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
 </td>
 <td>
-<p>Falco extension configuration</p>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
 </td>
 </tr>
 <tr>
 <td>
-<code>healthCheckConfig</code></br>
+<code>spec</code></br>
 <em>
-<a href="https://github.com/gardener/gardener/extensions/pkg/apis/config">
-github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1.HealthCheckConfig
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Spec">
+Spec
 </a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>HealthCheckConfig is the config for the health check controller.</p>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>versions</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Versions">
+Versions
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Images">
+Images
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
 </table>
-<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Falco">Falco
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcoVersion">FalcoVersion
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Configuration">Configuration</a>)
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Versions">Versions</a>)
 </p>
 <p>
-<p>Falco extension configuration</p>
 </p>
 <table>
 <thead>
@@ -90,83 +96,100 @@ github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1.HealthCheckConf
 <tbody>
 <tr>
 <td>
-<code>priorityClassName</code></br>
+<code>classification</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>PriorityClass to use for Falco shoot deployment</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>certificateLifetime</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#duration-v1-meta">
-Kubernetes meta/v1.Duration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Lifetime of the CA certificates</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>certificateRenewAfter</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#duration-v1-meta">
-Kubernetes meta/v1.Duration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Renew CA certificates after this duration</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tokenLifetime</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#duration-v1-meta">
-Kubernetes meta/v1.Duration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Token lifetime</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tokenIssuerPrivateKey</code></br>
+<code>expirationDate</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Private key for token issuer</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>ingestorURL</code></br>
+<code>version</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Ingestor URL</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rulesVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
 </table>
-<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Version">Version
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcosidekickVersion">FalcosidekickVersion
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Versions">Versions</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>classification</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>expirationDate</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.ImageSpec">ImageSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Images">Images</a>)
+</p>
 <p>
 </p>
 <table>
@@ -185,32 +208,162 @@ string
 </em>
 </td>
 <td>
-<p>Falco version</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>classification</code></br>
+<code>architecture</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Classification: [preview|supported|deprecated]</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>expiryDate</code></br>
+<code>repository</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#time-v1-meta">
-Kubernetes meta/v1.Time
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>tag</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Images">Images
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Spec">Spec</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>falco</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.ImageSpec">
+[]ImageSpec
 </a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>date when Falco version is going to expire</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>falcosidekick</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.ImageSpec">
+[]ImageSpec
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Spec">Spec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>versions</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Versions">
+Versions
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Images">
+Images
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Versions">Versions
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Spec">Spec</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>falco</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcoVersion">
+[]FalcoVersion
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>falcosidekick</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcosidekickVersion">
+[]FalcosidekickVersion
+</a>
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>

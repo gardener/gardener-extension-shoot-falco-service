@@ -1,0 +1,47 @@
+apiVersion: falco.gardener.cloud/v1alpha1
+kind: FalcoProfile
+metadata:
+  name: falco
+spec:
+  images:
+    falco:
+    - architecture: amd64
+      repository: falcosecurity/falco-distroless
+      tag: 0.37.0
+      version: 0.37.0
+    - architecture: amd64
+      repository: falcosecurity/falco-distroless
+      tag: 0.37.1
+      version: 0.37.1
+    - architecture: amd64
+      repository: falcosecurity/falco
+      tag: 0.38.0
+      version: 0.38.0
+    - architecture: amd64
+      repository: falcosecurity/falco-distroless
+      tag: 0.38.1
+      version: 0.38.1
+    falcosidekick:
+    - architecture: amd64
+      repository: falcosecurity/falcosidekick
+      tag: 2.28.0
+      version: 2.28.0
+  versions:
+    falco:
+    - classification: deprecated
+      expirationDate: '2024-05-20T23:59:59Z'
+      rulesVersion: 3.0.1
+      version: 0.37.0
+    - classification: deprecated
+      rulesVersion: 3.0.1
+      version: 0.37.1
+    - classification: supported
+      rulesVersion: 3.0.1
+      version: 0.38.0
+    - classification: supported
+      rulesVersion: 3.0.1
+      version: 0.38.1
+    falcosidekick:
+    - classification: supported
+      version: 2.28.0
+

@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/gardener/pkg/logger"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
 	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/component-base/version"
 	"k8s.io/component-base/version/verflag"
@@ -30,6 +31,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/cmd"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/lifecycle"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 const Name = "gardener-extension-shoot-falco-service"
@@ -117,6 +119,11 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed creating garden cluster object: %w", err)
 			}
+			dynamicGardenCluster, err := dynamic.NewForConfig(gardenRESTConfig)
+			if err != nil {
+				return fmt.Errorf("failed creating dynamic garden cluster object: %w", err)
+			}
+
 			log.Info("adding garden cluster to manager")
 			if err := mgr.Add(gardenCluster); err != nil {
 				return fmt.Errorf("failed adding garden cluster to manager: %w", err)
@@ -141,6 +148,9 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err := heartbeat.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add healtbeat controller to manager: %w", err)
 			}
+
+			fpm := profile.NewFalcoProfileManager(dynamicGardenCluster)
+			go fpm.StartWatch()
 
 			if err := mgr.Start(ctx); err != nil {
 				return fmt.Errorf("error running manager: %w", err)

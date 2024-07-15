@@ -109,16 +109,20 @@ func GenerateFalcoCas(clusterName string, lifetime time.Duration) (*FalcoCas, er
 	return &falcoCas, nil
 }
 
+func GeneratePrivateKey() (*rsa.PrivateKey, error) {
+	return rsa.GenerateKey(rand.Reader, keyBitSize)
+}
+
 func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duration) (*FalcoCertificates, error) {
 
 	var certs FalcoCertificates
-	serverKey, err := rsa.GenerateKey(rand.Reader, keyBitSize)
+	serverKey, err := GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
 	certs.ServerKey = serverKey
 
-	clientKey, err := rsa.GenerateKey(rand.Reader, keyBitSize)
+	clientKey, err := GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
