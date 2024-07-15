@@ -17,6 +17,7 @@ import (
 	gardenerhealthz "github.com/gardener/gardener/pkg/healthz"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	componentbaseconfig "k8s.io/component-base/config"
@@ -31,6 +32,7 @@ import (
 	admissioncmd "github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/cmd"
 	profileiinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/install"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 // AdmissionName is the name of the admission component.
@@ -147,6 +149,20 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 					return err
 				}
 			}
+
+			var dynamicClient *dynamic.DynamicClient
+			if sourceClusterConfig != nil {
+				dynamicClient, err = dynamic.NewForConfig(sourceClusterConfig)
+			} else {
+				dynamicClient, err = dynamic.NewForConfig(mgr.GetConfig())
+			}
+
+			if err != nil {
+				return err
+			}
+
+			fpm := profile.NewFalcoProfileManager(dynamicClient)
+			go fpm.StartWatch()
 
 			log.Info("Setting up webhook server")
 			if _, err := webhookOptions.Completed().AddToManager(ctx, mgr, sourceCluster); err != nil {
