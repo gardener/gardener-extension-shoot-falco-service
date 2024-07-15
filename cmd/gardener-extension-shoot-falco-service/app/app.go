@@ -140,6 +140,10 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			}
 			falcoConfig := falcoCtrlOpts.Completed()
 			falcoConfig.Apply(&lifecycle.DefaultAddOptions.ServiceConfig)
+
+			fpm := profile.NewFalcoProfileManager(dynamicGardenCluster)
+			go fpm.StartWatch()
+
 			if err := lifecycle.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)
 			}
@@ -148,9 +152,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err := heartbeat.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add healtbeat controller to manager: %w", err)
 			}
-
-			fpm := profile.NewFalcoProfileManager(dynamicGardenCluster)
-			go fpm.StartWatch()
 
 			if err := mgr.Start(ctx); err != nil {
 				return fmt.Errorf("error running manager: %w", err)

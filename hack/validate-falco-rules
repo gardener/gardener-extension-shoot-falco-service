@@ -29,7 +29,7 @@ program_output:
   keep_alive: false
   program: 'jq ''{text: .output}'' | curl -d @- -X POST https://hooks.slack.com/services/XXX'
 rule_matching: first
-rules_file:
+rules_files:
 - /etc/falco/falco_rules.yaml
 - /etc/falco/falco-incubating_rules.yaml
 - /etc/falco/falco-sandbox_rules.yaml

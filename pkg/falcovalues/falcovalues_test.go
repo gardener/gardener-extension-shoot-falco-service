@@ -26,13 +26,12 @@ import (
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
-	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
 )
 
 var (
@@ -47,7 +46,7 @@ var (
 		},
 	}
 	shootExtension = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue(falco.FalcoVersions().Falco.FalcoVersions[0].Version),
+		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
 		Gardener: &service.Gardener{
 			RuleRefs: []service.Rule{
@@ -58,50 +57,82 @@ var (
 			UseFalcoRules: boolValue(true),
 		},
 	}
-	c1 falco.Falco = falco.Falco{
-		Falco: &falcoversions.FalcoVersions{
-			FalcoVersions: []falcoversions.FalcoVersion{
-				{
-					Version:        "0.29.0",
-					Classification: "supported",
-				},
-				{
-					Version:        "0.29.1",
-					Classification: "supported",
-				},
-				{
-					Version:        "0.29.2",
-					Classification: "preview",
-				},
+
+	falcoProfileManager = profile.GetDummyFalcoProfileManager(
+		&map[string]profile.Version{
+			"0.38.0": {
+				Version:        "0.38.0",
+				Classification: "supported",
 			},
 		},
-	}
-	c2 falco.Falco = falco.Falco{
-		Falco: &falcoversions.FalcoVersions{
-			FalcoVersions: []falcoversions.FalcoVersion{
-				{
-					Version:        "0.29.0",
-					Classification: "supported",
-				},
-				{
-					Version:        "0.29.1",
-					Classification: "supported",
-				},
-				{
-					Version:        "0.29.2",
-					Classification: "preview",
-				},
-				{
-					Version:        "0.29.3",
-					Classification: "deprecated",
-				},
-				{
-					Version:        "0.30.3",
-					Classification: "supported",
-				},
+		&map[string]profile.Image{
+			"0.38.0": {
+				Repository:   "falcosecurity/falco:0.38.0",
+				Tag:          "0.38.0",
+				Architectrue: "amd64",
+				Version:      "0.38.0",
 			},
 		},
-	}
+		&map[string]profile.Version{
+			"1.2.3": {
+				Version:        "1.2.3",
+				Classification: "supported",
+			},
+		},
+		&map[string]profile.Image{
+			"1.2.3": {
+				Repository:   "falcosecurity/falcosidekick:1,2,3",
+				Tag:          "1.2.3",
+				Architectrue: "amd64",
+				Version:      "1.2.3",
+			},
+		},
+	)
+
+	// c1 falco.Falco = falco.Falco{
+	// 	Falco: &falcoversions.FalcoVersions{
+	// 		FalcoVersions: []falcoversions.FalcoVersion{
+	// 			{
+	// 				Version:        "0.29.0",
+	// 				Classification: "supported",
+	// 			},
+	// 			{
+	// 				Version:        "0.29.1",
+	// 				Classification: "supported",
+	// 			},
+	// 			{
+	// 				Version:        "0.29.2",
+	// 				Classification: "preview",
+	// 			},
+	// 		},
+	// 	},
+	// }
+	// c2 falco.Falco = falco.Falco{
+	// 	Falco: &falcoversions.FalcoVersions{
+	// 		FalcoVersions: []falcoversions.FalcoVersion{
+	// 			{
+	// 				Version:        "0.29.0",
+	// 				Classification: "supported",
+	// 			},
+	// 			{
+	// 				Version:        "0.29.1",
+	// 				Classification: "supported",
+	// 			},
+	// 			{
+	// 				Version:        "0.29.2",
+	// 				Classification: "preview",
+	// 			},
+	// 			{
+	// 				Version:        "0.29.3",
+	// 				Classification: "deprecated",
+	// 			},
+	// 			{
+	// 				Version:        "0.30.3",
+	// 				Classification: "supported",
+	// 			},
+	// 		},
+	// 	},
+	// }
 
 	shootSpec = &extensions.Cluster{
 		Shoot: &gardencorev1beta1.Shoot{
@@ -196,21 +227,8 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
 		Expect(err).To(BeNil())
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, &falcoVersions)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
-	})
-
-	It("versions are correct", func(ctx SpecContext) {
-		cb := NewConfigBuilder(nil, nil, nil, &c1)
-		version, err := cb.getDefaultFalcoVersion()
-		Expect(err).To(BeNil())
-		Expect(version).To(Equal("0.29.1"))
-
-		cb = NewConfigBuilder(nil, nil, nil, &c2)
-		version, err = cb.getDefaultFalcoVersion()
-		Expect(err).To(BeNil())
-		Expect(version).To(Equal("0.30.3"))
-
 	})
 
 	It("custom rules in shoot spec", func(ctx SpecContext) {

@@ -9,23 +9,39 @@ gardener-extension-shoot-falco-service:
         ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
       version:
         preprocess: 'inject-commit-hash'
-      publish:
-        dockerimages:
-          gardener-extension-shoot-falco-service:
-            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/shoot-falco-service
-            dockerfile: 'Dockerfile'
-            target: gardener-extension-shoot-falco-service
-          gardener-extension-admission-shoot-falco-service:
-            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/admission-shoot-falco-service
-            dockerfile: 'Dockerfile'
-            target: gardener-extension-admission-shoot-falco-service
   jobs:
+    verify:
+      steps:
+        verify:
+          image: 'europe-docker.pkg.dev/gardener-project/releases/ci-infra/golang-test:v20240610-b76771f-1.22'
+        verify-falco-rules: ~          
+    create_update_pull_requests:
+      repo:
+        trigger: false
+        disable_ci_skip: true
+      traits:
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases
+        update_component_deps: ~
+        cronjob:
+          interval: '10m'
+        version: ~
     head-update:
       traits:
         draft_release: ~
         component_descriptor:
           ocm_repository_mappings:
             - repository: europe-docker.pkg.dev/gardener-project/releases
+        publish:
+          dockerimages:
+            gardener-extension-shoot-falco-service:
+              image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/shoot-falco-service
+              dockerfile: 'Dockerfile'
+              target: gardener-extension-shoot-falco-service
+            gardener-extension-admission-shoot-falco-service:
+              image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/admission-shoot-falco-service
+              dockerfile: 'Dockerfile'
+              target: gardener-extension-admission-shoot-falco-service
     pull-request:
       traits:
         pull-request: ~
