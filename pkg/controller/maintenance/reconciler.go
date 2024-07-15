@@ -28,6 +28,7 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 // TODO used for internal debugging when setting annotation
@@ -127,7 +128,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	}
 
 	currentVersion := falcoConf.FalcoVersion
-	availableVersions := falco.FalcoVersions().Falco
+	availableVersions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
 
 	deprecated, err := isVersionDeprecated(currentVersion)
 	if err != nil {
