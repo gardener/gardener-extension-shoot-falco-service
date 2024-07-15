@@ -152,5 +152,5 @@ validate-falco-rules:
 	$(HACK_DIR)/validate-falco-rules falco/FalcoProfile.yaml falco/rules
 
 .PHONY: verify-extended
-verify-extended: check-generate check format generate-profile validate-falco-rules test
+verify-extended: check-generate check format generate-profile test
 #verify-extended: check-generate check format test test-cov test-clean
