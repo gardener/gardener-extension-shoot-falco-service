@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+uname                       := $(shell uname)
+
 ENSURE_GARDENER_MOD         := $(shell go get github.com/gardener/gardener@$$(go list -m -f "{{.Version}}" github.com/gardener/gardener))
 GARDENER_HACK_DIR           := $(shell go list -m -f "{{.Dir}}" github.com/gardener/gardener)/hack
 EXTENSION_PREFIX            := gardener-extension
@@ -21,7 +23,12 @@ IGNORE_OPERATION_ANNOTATION := true
 
 WEBHOOK_CONFIG_PORT    := 8443
 WEBHOOK_CONFIG_MODE    := url
-WEBHOOK_CONFIG_URL     := host.docker.internal:$(WEBHOOK_CONFIG_PORT)
+ifeq ($(uname),Darwin)
+  WEBHOOK_CONFIG_URL     := host.docker.internal:$(WEBHOOK_CONFIG_PORT)
+else
+  localip                := $(shell ip route get 1.2.3.4 | awk '{print $$7}')
+  WEBHOOK_CONFIG_URL     := $(localip):$(WEBHOOK_CONFIG_PORT)
+endif
 EXTENSION_NAMESPACE    :=
 WEBHOOK_PARAM := --webhook-config-url=$(WEBHOOK_CONFIG_URL)
 ifeq ($(WEBHOOK_CONFIG_MODE), service)
@@ -49,12 +56,14 @@ start:
 
 .PHONY: start-admission
 start-admission:
-	@LEADER_ELECTION_NAMESPACE=garden go run \
+	LEADER_ELECTION_NAMESPACE=garden go run \
 		-ldflags $(LD_FLAGS) \
 		./cmd/$(EXTENSION_PREFIX)-$(ADMISSION_NAME) \
 		--webhook-config-server-host=0.0.0.0 \
 		--webhook-config-server-port=$(WEBHOOK_CONFIG_PORT) \
 		--webhook-config-mode=$(WEBHOOK_CONFIG_MODE) \
+		--health-bind-address=:8082 \
+		--metrics-bind-address=:8083 \
         $(WEBHOOK_PARAM)
 
 #################################################################
@@ -134,6 +143,14 @@ test-clean:
 .PHONY: verify
 verify: check format test
 
+.PHONY: generate-profile
+generate-profile:
+	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml >falco/FalcoProfile.yaml
+
+.PHONY: validate-falco-rules
+validate-falco-rules:
+	$(HACK_DIR)/validate-falco-rules falco/FalcoProfile.yaml falco/rules
+
 .PHONY: verify-extended
-verify-extended: check-generate check format # test
+verify-extended: check-generate check format generate-profile test
 #verify-extended: check-generate check format test test-cov test-clean

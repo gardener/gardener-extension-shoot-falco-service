@@ -170,8 +170,8 @@ Set appropriate falco rule configuration if rules are managed by the Gardener ex
     {{- if .Values.falcoSandboxRules }}
       {{- $rulesFileList = append $rulesFileList "/etc/falco/rules.d/falco-sandbox_rules.yaml" }}
     {{- end }}
-    {{- range $file, $content :=  .Values.customRules }}
-      {{- $rulesFile := printf "%s%s" "/etc/falco/rules.d/" $file }}
+    {{- range $customRule :=  .Values.customRules }}
+      {{- $rulesFile := printf "%s%s" "/etc/falco/rules.d/" $customRule.filename }}
       {{- $rulesFileList = append $rulesFileList $rulesFile }}
     {{- end }}
     {{- $_ := set .Values.falco "rules_file" $rulesFileList }}

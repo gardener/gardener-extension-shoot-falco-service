@@ -6,9 +6,6 @@ package secrets
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -34,15 +31,7 @@ func NewTokenIssuer(key string, validity int) (*TokenIssuer, error) {
 }
 
 func (t *TokenIssuer) loadKey(keyPEM string) error {
-	block, _ := pem.Decode([]byte(keyPEM))
-	if block == nil {
-		return fmt.Errorf("failed to parse PEM block containing the public key")
-	}
-
-	if block.Type != "RSA PRIVATE KEY" {
-		return fmt.Errorf("private key is of the wrong type, must be \"RSA PRIVATE KEY\", type is:%s", block.Type)
-	}
-	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	key, err := DecodePrivateKey([]byte(keyPEM))
 	if err != nil {
 		return err
 	}

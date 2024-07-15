@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+import sys
+import yaml
+
+# usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> 
+
+if len(sys.argv) != 4:
+    sys.stderr.write("usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions>\n")
+    sys.exit(1)
+
+with open(sys.argv[1]) as f:
+    image_vector = yaml.safe_load(f)
+    falco_image_vector_map = {}
+    falcosidekick_image_vector_map = {}
+    for im in image_vector["images"]:
+        if im["name"] == "falco":
+            falco_image_vector_map[im["version"]] = im
+        if im["name"] == "falcosidekick":
+            falcosidekick_image_vector_map[im["version"]] = im
+
+with open(sys.argv[2]) as f:
+    falco_versions = yaml.safe_load(f)
+
+with open(sys.argv[3]) as f:
+    falcosidekick_versions = yaml.safe_load(f)
+
+# ---------------------------------------------------------------------------
+# validation
+
+has_error = False
+for fv in falco_versions["falcoVersions"]:
+    v = fv["version"]
+    if not v in falco_image_vector_map:
+        has_error = True
+        sys.stderr.write(f"Falco version {v} configured but there is no image for it\n")
+
+for fv in falcosidekick_versions["falcosidekickVersions"]:
+    v = fv["version"]
+    if not v in falcosidekick_image_vector_map:
+        has_error = True
+        sys.stderr.write(f"Falcosidekick version {v} configured but there is no image for it\n")
+
+if has_error:
+    sys.exit(1)
+
+# ---------------------------------------------------------------------------
+# generate falco profile
+
+falco_images = []
+falcosidekick_images = []
+for im in image_vector["images"]:
+    if im["name"] == "falco":
+        falco_images.append({
+            "architecture": "amd64",
+            "repository": im["repository"],
+            "tag": im["tag"],
+            "version": im["version"],
+        })
+    if im["name"] == "falcosidekick":
+        falcosidekick_images.append({
+            "architecture": "amd64",
+            "repository": im["repository"],
+            "tag": im["tag"],
+            "version": im["version"],
+        })
+
+falco_profile = {
+    "apiVersion": "falco.gardener.cloud/v1alpha1",
+    "kind": "FalcoProfile",
+    "metadata": {
+        "name": "falco",
+    },
+    "spec": {
+        "images": {
+            "falco": falco_images,
+            "falcosidekick": falcosidekick_images,
+        },
+        "versions": {
+            "falco": falco_versions["falcoVersions"],
+            "falcosidekick": falcosidekick_versions["falcosidekickVersions"],
+        }
+    }
+}
+print(yaml.dump(falco_profile))    

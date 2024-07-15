@@ -19,7 +19,7 @@ const (
 	ManagedResourceNameFalco = ExtensionServiceName + "-shoot"
 
 	// Name of the Falco certificate secret file in shoot namespace
-	FalcoCertificatesSecretName = "falco-certificates"
+	FalcoCertificatesSecretName = GardenerExtensionServiceName + "-certificates"
 
 	// NamespaceKubeSystem kube-system namespace
 	NamespaceKubeSystem = "kube-system"
@@ -27,14 +27,23 @@ const (
 	// FalcoChartname is the name of the Falco Helm chart to be deployed in shoot clusters
 	FalcoChartname = "falco"
 
-	FalcoServerCaKey  = "ca.key"
-	FalcoServerCaCert = "ca.cert"
+	FalcoServerCaKey  = "server-ca.key"
+	FalcoServerCaCert = "server-ca.cert"
 	FalcoClientCaKey  = "client-ca.key"
 	FalcoClientCaCert = "client-ca.crt"
 
-	DefaultCertificateLifetime   = time.Hour * 24 * 365
-	DefaultCertificateRenewAfter = time.Hour * 24 * 30
-	DefaultTokenLifetime         = time.Hour * 24 * 7
+	FalcoServerKey  = "server.key"
+	FalcoServerCert = "server.crt"
+	FalcoClientKey  = "client.key"
+	FalcoClientCert = "client.crt"
+
+	DefaultCALifetime   = time.Hour * 24 * 365 * 2
+	DefaultCARenewAfter = DefaultCALifetime - 60
+
+	DefaultCertificateLifetime   = time.Hour * 24 * 180
+	DefaultCertificateRenewAfter = DefaultCertificateLifetime - 30
+
+	DefaultTokenLifetime = time.Hour * 24 * 7
 
 	FalcoRules           = "falco_rules.yaml"
 	FalcoIncubatingRules = "falco-incubating_rules.yaml"

@@ -4,5 +4,11 @@
     expirationDate: "2024-05-20T23:59:59Z"
     rulesVersion: 3.0.1
   - version: 0.37.1
+    classification: deprecated
+    rulesVersion: 3.0.1
+  - version: 0.38.0
+    classification: supported
+    rulesVersion: 3.0.1
+  - version: 0.38.1
     classification: supported
     rulesVersion: 3.0.1

@@ -25,11 +25,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	runtimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	admissioncmd "github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/cmd"
+	profileiinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/install"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/maintenance"
 )
@@ -37,7 +37,7 @@ import (
 // AdmissionName is the name of the admission component.
 const AdmissionName = "admission-shoot-falco-service"
 
-var log = logf.Log.WithName("gardener-extension-admission-shoot-falco-service")
+var log = runtimelog.Log.WithName("gardener-extension-admission-shoot-falco-service")
 
 // NewAdmissionCommand creates a new command for running an admission webhook.
 func NewAdmissionCommand(ctx context.Context) *cobra.Command {
@@ -122,6 +122,11 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 			if err := serviceinstall.AddToScheme(mgr.GetScheme()); err != nil {
 				runtimelog.Log.Error(err, "Could not update manager scheme")
+				os.Exit(1)
+			}
+
+			if err := profileiinstall.AddToScheme(mgr.GetScheme()); err != nil {
+				runtimelog.Log.Error(err, "could not update manager scheme")
 				os.Exit(1)
 			}
 
