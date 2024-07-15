@@ -46,9 +46,11 @@ type FalcoProfileManager struct {
 	logger                logr.Logger
 }
 
+var FalcoProfileManagerInstance *FalcoProfileManager
+
 func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager {
 	lg, _ := logger.NewZapLogger(logger.InfoLevel, logger.FormatJSON)
-	return &FalcoProfileManager{
+	FalcoProfileManagerInstance = &FalcoProfileManager{
 		client:                client,
 		falcoProfiles:         make(map[string]*v1alpha1.FalcoProfile),
 		falcoImages:           make(map[string]Image),
@@ -57,6 +59,17 @@ func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager 
 		falcosidekickVersions: make(map[string]Version),
 		mutex:                 sync.Mutex{},
 		logger:                lg,
+	}
+	return FalcoProfileManagerInstance
+}
+
+func GetDummyFalcoProfileManager(falcoVersions *map[string]Version, falcoImages *map[string]Image, falcosidekickVersions *map[string]Version, falcosidekickImages *map[string]Image) *FalcoProfileManager {
+	return &FalcoProfileManager{
+		mutex:                 sync.Mutex{},
+		falcoVersions:         *falcoVersions,
+		falcoImages:           *falcoImages,
+		falcosidekickVersions: *falcosidekickVersions,
+		falcosidekickImages:   *falcosidekickImages,
 	}
 }
 
@@ -68,6 +81,7 @@ func (p *FalcoProfileManager) GetFalcoImageForVersion(version string) *Image {
 }
 
 func (p *FalcoProfileManager) StartWatch() {
+	// TODO fail if watch fails
 	for {
 		err := p.watch()
 		if err != nil {
@@ -109,7 +123,7 @@ func (p *FalcoProfileManager) watch() error {
 }
 
 func (p *FalcoProfileManager) rebuild() {
-	p.logger.Info("Rebuilding FalcoProfile data structures")
+	p.logger.Info("rebuilding FalcoProfile data structures")
 	clear(p.falcoImages)
 	clear(p.falcosidekickImages)
 	for _, profile := range p.falcoProfiles {
@@ -162,6 +176,56 @@ func (p *FalcoProfileManager) deleteEvent(name string) {
 	defer p.mutex.Unlock()
 	delete(p.falcoProfiles, name)
 	p.rebuild()
+}
+
+func (p *FalcoProfileManager) GetFalcoVersions() *map[string]Version {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	versionsCopy := make(map[string]Version, len(p.falcoVersions))
+	for k, v := range p.falcoVersions {
+		versionsCopy[k] = v
+	}
+	return &versionsCopy
+}
+
+func (p *FalcoProfileManager) GetFalcosidekickVersions() *map[string]Version {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	versionsCopy := make(map[string]Version, len(p.falcosidekickVersions))
+	for k, v := range p.falcosidekickVersions {
+		versionsCopy[k] = v
+	}
+	return &versionsCopy
+}
+
+func (p *FalcoProfileManager) GetFalcoImage(version string) *Image {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	i, ok := p.falcoImages[version]
+	if !ok {
+		return nil
+	}
+	return &Image{
+		Repository:   i.Repository,
+		Tag:          i.Tag,
+		Architectrue: i.Architectrue,
+		Version:      i.Version,
+	}
+}
+
+func (p *FalcoProfileManager) GetFalcosidekickImage(version string) *Image {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	i, ok := p.falcosidekickImages[version]
+	if !ok {
+		return nil
+	}
+	return &Image{
+		Repository:   i.Repository,
+		Tag:          i.Tag,
+		Architectrue: i.Architectrue,
+		Version:      i.Version,
+	}
 }
 
 func decodeEvent(obj runtime.Object) (*v1alpha1.FalcoProfile, error) {

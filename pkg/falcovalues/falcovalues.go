@@ -12,7 +12,6 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/pkg/extensions"
-	"github.com/gardener/gardener/pkg/utils/imagevector"
 	"github.com/go-logr/logr"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
@@ -20,10 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
-	images "github.com/gardener/gardener-extension-shoot-falco-service/imagevector"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
@@ -36,11 +35,10 @@ func init() {
 }
 
 type ConfigBuilder struct {
-	client        client.Client
-	config        *config.Configuration
-	tokenIssuer   *secrets.TokenIssuer
-	imageVector   imagevector.ImageVector
-	falcoVersions *falco.Falco
+	client      client.Client
+	config      *config.Configuration
+	tokenIssuer *secrets.TokenIssuer
+	profile     *profile.FalcoProfileManager
 }
 
 type customRulesFile struct {
@@ -48,13 +46,12 @@ type customRulesFile struct {
 	Content  string `json:"content"`
 }
 
-func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, falcoVersions *falco.Falco) *ConfigBuilder {
+func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, profile *profile.FalcoProfileManager) *ConfigBuilder {
 	return &ConfigBuilder{
-		client:        client,
-		config:        config,
-		tokenIssuer:   tokenIssuer,
-		imageVector:   images.ImageVector(),
-		falcoVersions: falcoVersions,
+		client:      client,
+		config:      config,
+		tokenIssuer: tokenIssuer,
+		profile:     profile,
 	}
 }
 
@@ -230,26 +227,26 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 }
 
 // get the latest Falco version tagged as "supported"
-func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
-	var latestVersion string = ""
-	for _, version := range c.falcoVersions.Falco.FalcoVersions {
-		if version.Classification == "supported" {
-			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
-				latestVersion = version.Version
-			}
-		}
-	}
-	if latestVersion != "" {
-		return latestVersion, nil
-	} else {
-		return "", fmt.Errorf("no supported Falco version found")
-	}
-}
+// func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
+// 	var latestVersion string = ""
+// 	for _, version := range c.falcoVersions.Falco.FalcoVersions {
+// 		if version.Classification == "supported" {
+// 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
+// 				latestVersion = version.Version
+// 			}
+// 		}
+// 	}
+// 	if latestVersion != "" {
+// 		return latestVersion, nil
+// 	} else {
+// 		return "", fmt.Errorf("no supported Falco version found")
+// 	}
+// }
 
 // get the latest Falcosidekick version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	var latestVersion string = ""
-	for _, version := range c.falcoVersions.FalcoSidekickVersions.FalcosidekickVersions {
+	for _, version := range *c.profile.GetFalcosidekickVersions() {
 		if version.Classification == "supported" {
 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
 				latestVersion = version.Version
@@ -268,19 +265,24 @@ func (c *ConfigBuilder) getImageForVersion(name string, version string) (string,
 	isDigest := func(tag string) bool {
 		return strings.HasPrefix(tag, "sha256:")
 	}
-
-	for _, image := range c.imageVector {
-		if *image.Version == version && image.Name == name {
-			if isDigest(*image.Tag) {
-				return image.Repository + "@" + *image.Tag, nil
-			} else if *image.Tag != "" {
-				return image.Repository + ":" + *image.Tag, nil
-			} else {
-				return image.Repository, nil
-			}
-		}
+	var image *profile.Image
+	if name == "falco" {
+		image = c.profile.GetFalcoImage(version)
+	} else if name == "falcosidekick" {
+		image = c.profile.GetFalcosidekickImage(version)
+	} else {
+		return "", fmt.Errorf("unknown image name %s", name)
 	}
-	return "", fmt.Errorf("no images found for %s version %s", name, version)
+	if image == nil {
+		return "", fmt.Errorf("no image found for %s version %s", name, version)
+	}
+	if isDigest(image.Tag) {
+		return image.Repository + "@" + image.Tag, nil
+	} else if image.Tag != "" {
+		return image.Repository + ":" + image.Tag, nil
+	} else {
+		return image.Repository, nil
+	}
 }
 
 func (c *ConfigBuilder) storeFalcoCas(ctx context.Context, namespace string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates) error {
