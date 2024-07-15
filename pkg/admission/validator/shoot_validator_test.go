@@ -13,12 +13,12 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
-func getDeprecatedAndSupportedVersions(falcoVersions *falcoversions.FalcoVersions) (*string, *string, error) {
+func getDeprecatedAndSupportedVersions(falcoVersions *map[string]profile.Version) (*string, *string, error) {
 	var deprecated, supported string
-	for _, ver := range falcoVersions.FalcoVersions {
+	for _, ver := range *falcoVersions {
 		if deprecated == "" && ver.Classification == "deprecated" {
 			deprecated = ver.Version
 		}
@@ -149,14 +149,25 @@ func TestVerifyResources(t *testing.T) {
 }
 
 func TestVerifyFalcoVersion(t *testing.T) {
+
+	supportedVersion := "1.2.3"
+	depreatedVersion := "3.2.1"
+	supportedV := profile.Version{Version: supportedVersion, Classification: "supported"}
+	depreatedV := profile.Version{Version: depreatedVersion, Classification: "deprecated"}
+	falcoVersions := map[string]profile.Version{supportedVersion: supportedV, depreatedVersion: depreatedV}
+
+	profile.GetDummyFalcoProfileManager(
+		&falcoVersions,
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+	)
+
 	conf := &service.FalcoServiceConfig{}
 	if err := verifyFalcoVersion(conf); err == nil {
 		t.Fatalf("FalcoVersion is nil but not detected as such")
 	}
 
-	supportedV := falcoversions.FalcoVersion{Version: "1.2.3", Classification: "supported"}
-	depreatedV := falcoversions.FalcoVersion{Version: "3.2.1", Classification: "deprecated"}
-	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{supportedV, depreatedV}}
 	supported, deprecated, err := getDeprecatedAndSupportedVersions(&falcoVersions)
 	if err != nil {
 		t.Fatalf("%s", err.Error())

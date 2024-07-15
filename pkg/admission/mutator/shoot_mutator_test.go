@@ -11,7 +11,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 func TestSetWebhook(t *testing.T) {
@@ -130,7 +130,20 @@ func TestExtensionIsDisabled(t *testing.T) {
 }
 
 func TestSetFalcoVersion(t *testing.T) {
+	versions := &map[string]profile.Version{
+			"0.38.0": {
+				Version:        "0.38.0",
+				Classification: "supported",
+			},
+		}
+
 	falcoConf := &service.FalcoServiceConfig{}
+	profile.GetDummyFalcoProfileManager(
+		versions,
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+	)
 
 	err := setFalcoVersion(falcoConf)
 	if err != nil {
@@ -152,9 +165,13 @@ func TestSetFalcoVersion(t *testing.T) {
 func TestChooseHighestVersion(t *testing.T) {
 	dummyClassification := "test"
 	highVersion := "1.2.3"
-	highV := falcoversions.FalcoVersion{Version: highVersion, Classification: dummyClassification}
-	lowV := falcoversions.FalcoVersion{Version: "0.0.0", Classification: dummyClassification}
-	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{highV, lowV}}
+	lowVersion := "0.0.0"
+	highV := profile.Version{Version: highVersion, Classification: dummyClassification}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+
+	falcoVersions := map[string]profile.Version{lowVersion: lowV, highVersion: highV}
+
+
 
 	vers, err := ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err != nil {
@@ -165,14 +182,14 @@ func TestChooseHighestVersion(t *testing.T) {
 		t.Errorf("Falsely reported version %s as highest", *vers)
 	}
 
-	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{}}
+	falcoVersions = map[string]profile.Version{}
 	_, err = ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
-	brokenV := falcoversions.FalcoVersion{Version: "broken", Classification: dummyClassification}
-	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{brokenV}}
+	brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
+	falcoVersions["broken"] = brokenV
 	_, err = ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect broken version")
@@ -184,9 +201,10 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	highV := falcoversions.FalcoVersion{Version: highVersion, Classification: dummyClassification}
-	lowV := falcoversions.FalcoVersion{Version: midVersion, Classification: dummyClassification}
-	falcoVersions := falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{highV, lowV}}
+	highV := profile.Version{Version: highVersion, Classification: dummyClassification}
+	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
 
 	vers, err := ChooseLowestVersionHigherThanCurrent(&lowVersion, &falcoVersions, dummyClassification)
 	if err != nil {
@@ -197,14 +215,14 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
 	}
 
-	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{}}
+	falcoVersions = map[string]profile.Version{}
 	_, err = ChooseLowestVersionHigherThanCurrent(&lowVersion, &falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
-	brokenV := falcoversions.FalcoVersion{Version: "broken", Classification: dummyClassification}
-	falcoVersions = falcoversions.FalcoVersions{FalcoVersions: []falcoversions.FalcoVersion{brokenV}}
+	brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
+	falcoVersions["broken"] = brokenV
 	_, err = ChooseLowestVersionHigherThanCurrent(&highVersion, &falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect broken version")

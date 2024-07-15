@@ -16,10 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 // NewShootValidator returns a new instance of a shoot validator.
@@ -128,19 +127,21 @@ func verifyResources(falcoConf *service.FalcoServiceConfig) error {
 }
 
 func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
-	if err := verifyFalcoVersionInVersions(falcoConf, falco.FalcoVersions().Falco); err != nil {
+
+	versions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
+	if err := verifyFalcoVersionInVersions(falcoConf, versions); err != nil {
 		return err
 	}
 	return nil
 }
 
-func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, versions *falcoversions.FalcoVersions) error {
+func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, versions *map[string]profile.Version) error {
 	chosenVersion := falcoConf.FalcoVersion
 	if chosenVersion == nil {
 		return fmt.Errorf("falcoVersion is nil")
 	}
 
-	for _, ver := range versions.FalcoVersions {
+	for _, ver := range *versions {
 		if *chosenVersion == ver.Version {
 			if ver.Classification == "deprecated" {
 				return fmt.Errorf("chosen version is marked as deprecated")

@@ -19,11 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils/falcoversions"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 // NewShootMutator returns a new instance of a shoot mutator.
@@ -112,7 +111,7 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 		return nil
 	}
 
-	versions := falco.FalcoVersions().Falco
+	versions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
 	version, err := ChooseHighestVersion(versions, "supported")
 	if err != nil {
 		return err
@@ -121,9 +120,9 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func sortVersionsWithClassification(versions *falcoversions.FalcoVersions, classification string) (pkgversion.Collection, error) {
+func sortVersionsWithClassification(versions *map[string]profile.Version, classification string) (pkgversion.Collection, error) {
 	var sortedVersions pkgversion.Collection
-	for _, v := range versions.FalcoVersions {
+	for _, v := range *versions {
 		if v.Classification != classification {
 			continue
 		}
@@ -139,7 +138,7 @@ func sortVersionsWithClassification(versions *falcoversions.FalcoVersions, class
 	return sortedVersions, nil
 }
 
-func ChooseLowestVersionHigherThanCurrent(version *string, versions *falcoversions.FalcoVersions, classification string) (*string, error) {
+func ChooseLowestVersionHigherThanCurrent(version *string, versions *map[string]profile.Version, classification string) (*string, error) {
 	sortedVersions, err := sortVersionsWithClassification(versions, classification)
 	if err != nil {
 		return nil, err
@@ -166,7 +165,7 @@ func ChooseLowestVersionHigherThanCurrent(version *string, versions *falcoversio
 	return &lowest, nil
 }
 
-func ChooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
+func ChooseHighestVersion(versions *map[string]profile.Version, classification string) (*string, error) {
 	sortedVersions, err := sortVersionsWithClassification(versions, classification)
 	if err != nil {
 		return nil, err
