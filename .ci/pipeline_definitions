@@ -67,6 +67,8 @@ gardener-extension-shoot-falco-service:
             gardener-extension-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/shoot-falco-service
               tag_as_latest: true
+              target: gardener-extension-shoot-falco-service
             gardener-extension-admission-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/admission-shoot-falco-service
               tag_as_latest: true
+              target: gardener-extension-admission-shoot-falco-service
