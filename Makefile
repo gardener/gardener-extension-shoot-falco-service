@@ -149,7 +149,7 @@ generate-profile:
 
 .PHONY: validate-falco-rules
 validate-falco-rules:
-	$(HACK_DIR)/validate-falco-rules falco/FalcoProfile.yaml falco/rules
+	$(HACK_DIR)/validate-falco-rules falco/falco-profile.yaml falco/rules
 
 .PHONY: verify-extended
 verify-extended: check-generate check format generate-profile test
