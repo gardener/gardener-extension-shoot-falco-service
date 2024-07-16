@@ -186,6 +186,9 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if err != nil {
 		return err
 	}
+	if falcoConf == nil {
+		return nil
+	}
 
 	if err = setFalcoVersion(falcoConf); err != nil {
 		return err
@@ -240,7 +243,7 @@ func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 		}
 		return falcoConfig, nil
 	}
-	return nil, fmt.Errorf("no Falco config found")
+	return nil, nil
 }
 
 func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
