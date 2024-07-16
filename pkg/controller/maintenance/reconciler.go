@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/clock"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -170,17 +169,18 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	// i++
 	// maintainedShoot.Annotations = m
 
-	patch := client.MergeFrom(shoot.DeepCopy())
+	// patch := client.MergeFrom(shoot.DeepCopy())
 
-	shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
-		Description:   fmt.Sprintf("Updating Falco version from %s to %s", *currentVersion, *versionToSet),
-		TriggeredTime: metav1.Time{Time: r.Clock.Now()},
-		State:         gardencorev1beta1.LastOperationStateProcessing,
-	}
+	// TODO think about how to mark Falco maintenance progress
+	// shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
+	// 	Description:   fmt.Sprintf("Updating Falco version from %s to %s", *currentVersion, *versionToSet),
+	// 	TriggeredTime: metav1.Time{Time: r.Clock.Now()},
+	// 	State:         gardencorev1beta1.LastOperationStateProcessing,
+	// }
 
-	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-		return err
-	}
+	// if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
+	// 	return err
+	// }
 
 	// First dry run the update call to check if it can be executed successfully (maintenance might yield a Shoot configuration that is rejected by the ApiServer).
 	// If the dry run fails, the shoot maintenance is marked as failed and is retried only in
@@ -193,22 +193,24 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 		// again via `maintain` operation annotation then it should not fail with the reason that annotation is already present.
 		// Removal of annotation during shoot status patch is possible cause only spec is kept in original form during status update
 		// https://github.com/gardener/gardener/blob/a2f7de0badaae6170d7b9b84c163b8cab43a84d2/pkg/apiserver/registry/core/shoot/strategy.go#L258-L267
-		if hasMaintainNowAnnotation(shoot) {
-			delete(shoot.Annotations, v1beta1constants.GardenerOperation)
-		}
-		shoot.Status.LastMaintenance.Description = "Falco maintenance failed"
-		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
-		shoot.Status.LastMaintenance.FailureReason = ptr.To(fmt.Sprintf("Updates to the Shoot failed to be applied: %s", err.Error()))
-		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-			return err
-		}
+
+		// TODO again we will need a mechanism to signal maintenance similiar to this one
+		// if hasMaintainNowAnnotation(shoot) {
+		// 	delete(shoot.Annotations, v1beta1constants.GardenerOperation)
+		// }
+		// shoot.Status.LastMaintenance.Description = "Falco maintenance failed"
+		// shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
+		// shoot.Status.LastMaintenance.FailureReason = ptr.To(fmt.Sprintf("Updates to the Shoot failed to be applied: %s", err.Error()))
+		// if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
+		// 	return err
+		// }
 
 		log.Info("Shoot maintenance failed", "reason", err)
 		return nil
 	}
 
 	shoot.Spec = *maintainedShoot.Spec.DeepCopy()
-	shoot.Annotations = maintainedShoot.Annotations
+	// shoot.Annotations = maintainedShoot.Annotations
 
 	// TODO this is required for the annotations??
 	// update shoot spec changes in maintenance call
@@ -221,15 +223,15 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 		return err
 	}
 
-	if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
-		patch := client.MergeFrom(shoot.DeepCopy())
-		shoot.Status.LastMaintenance.Description = fmt.Sprintf("Succesfully updated Falco version from %s to %s", *currentVersion, *versionToSet)
-		shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
+	// if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
+	// 	patch := client.MergeFrom(shoot.DeepCopy())
+	// 	shoot.Status.LastMaintenance.Description = fmt.Sprintf("Succesfully updated Falco version from %s to %s", *currentVersion, *versionToSet)
+	// 	shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
 
-		if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-			return err
-		}
-	}
+	// 	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	// TODO need to add reports for Falco??
 	// make sure to report (partial) maintenance failures
