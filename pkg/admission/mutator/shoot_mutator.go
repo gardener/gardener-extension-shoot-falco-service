@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -26,14 +27,18 @@ import (
 
 // NewShootMutator returns a new instance of a shoot mutator.
 func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
-	return &shoot{
+	return NewShoot(mgr)
+}
+
+func NewShoot(mgr manager.Manager) *Shoot {
+	return &Shoot{
 		decoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
 		scheme:  mgr.GetScheme(),
 	}
 }
 
 // shoot mutates shoots
-type shoot struct {
+type Shoot struct {
 	decoder runtime.Decoder
 	scheme  *runtime.Scheme
 	lock    sync.Mutex
@@ -41,7 +46,7 @@ type shoot struct {
 }
 
 // Mutate implements extensionswebhook.Mutator.Mutate
-func (s *shoot) Mutate(ctx context.Context, new, _ client.Object) error {
+func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	shoot, ok := new.(*gardencorev1beta1.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
@@ -107,7 +112,7 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	}
 
 	versions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
-	version, err := chooseHighestVersion(versions, "supported")
+	version, err := ChooseHighestVersion(versions, "supported")
 	if err != nil {
 		return err
 	}
@@ -115,36 +120,69 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-// func chooseHighestVersion(versions *falcoversions.FalcoVersions, classification string) (*string, error) {
-func chooseHighestVersion(versions *map[string]profile.Version, classification string) (*string, error) {
-	var highest *pkgversion.Version = nil
+func sortVersionsWithClassification(versions *map[string]profile.Version, classification string) (pkgversion.Collection, error) {
+	var sortedVersions pkgversion.Collection
 	for _, v := range *versions {
 		if v.Classification != classification {
 			continue
 		}
-		incumbent, err := pkgversion.NewVersion(v.Version)
 
+		ver, err := pkgversion.NewVersion(v.Version)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse version: %s", err)
 		}
+		sortedVersions = append(sortedVersions, ver)
+	}
 
-		if highest == nil || incumbent.GreaterThan(highest) {
-			highest = incumbent
+	sort.Sort(sortedVersions)
+	return sortedVersions, nil
+}
+
+func ChooseLowestVersionHigherThanCurrent(version *string, versions *map[string]profile.Version, classification string) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, classification)
+	if err != nil {
+		return nil, err
+	}
+	if len(sortedVersions) == 0 {
+		return nil, fmt.Errorf("no version with classification %s was found", classification)
+	}
+
+	currentVersion, err := pkgversion.NewVersion(*version)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse current version %s", *version)
+	}
+
+	// if possible return the lowest supported version greater than the current one
+	for _, lowest := range sortedVersions {
+		if lowest.GreaterThan(currentVersion) {
+			newVersionString := lowest.String()
+			return &newVersionString, nil
 		}
 	}
 
-	if highest != nil {
-		highestVersion := highest.String()
-		return &highestVersion, nil
-	}
-	return nil, fmt.Errorf("no version with classification %s was found", classification)
+	// otherwise return the lowest supported version
+	lowest := sortedVersions[0].String()
+	return &lowest, nil
 }
 
-func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
+func ChooseHighestVersion(versions *map[string]profile.Version, classification string) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, classification)
+	if err != nil {
+		return nil, err
+	}
+	if len(sortedVersions) == 0 {
+		return nil, fmt.Errorf("no version with classification %s was found", classification)
+	}
+
+	highest := sortedVersions[len(sortedVersions)-1].String()
+	return &highest, nil
+}
+
+func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
 	if s.isDisabled(new) {
 		return nil
 	}
-	falcoConf, err := s.extractFalcoConfig(new)
+	falcoConf, err := s.ExtractFalcoConfig(new)
 	if err != nil {
 		return err
 	}
@@ -163,11 +201,11 @@ func (s *shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	setCustomWebhook(falcoConf)
 
-	return s.updateFalcoConfig(new, falcoConf)
+	return s.UpdateFalcoConfig(new, falcoConf)
 }
 
 // isDisabled returns true if extension is explicitly disabled.
-func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
+func (s *Shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 	if shoot.DeletionTimestamp != nil {
 		// don't mutate shoots in deletion
 		return true
@@ -184,7 +222,7 @@ func (s *shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 }
 
 // findExtension returns shoot-falco-service extension.
-func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
+func (s *Shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
 	for i, ext := range shoot.Spec.Extensions {
 		if ext.Type == constants.ExtensionType {
 			return &shoot.Spec.Extensions[i]
@@ -193,7 +231,7 @@ func (s *shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1
 	return nil
 }
 
-func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
+func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
 	ext := s.findExtension(shoot)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}
@@ -202,10 +240,10 @@ func (s *shoot) extractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 		}
 		return falcoConfig, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("no Falco config found")
 }
 
-func (s *shoot) updateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
+func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
 	raw, err := s.toRaw(config)
 	if err != nil {
 		return err
@@ -230,7 +268,7 @@ func (s *shoot) updateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *servic
 	return nil
 }
 
-func (s *shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
+func (s *Shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 	encoder, err := s.getEncoder()
 	if err != nil {
 		return nil, err
@@ -243,7 +281,7 @@ func (s *shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (s *shoot) getEncoder() (runtime.Encoder, error) {
+func (s *Shoot) getEncoder() (runtime.Encoder, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

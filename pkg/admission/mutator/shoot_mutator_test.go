@@ -88,7 +88,7 @@ func TestExtensionIsDisabled(t *testing.T) {
 		},
 	}
 
-	s := &shoot{}
+	s := &Shoot{}
 	disabled := s.isDisabled(exampleShoot)
 	if disabled {
 		t.Error("Extension is present but not found")
@@ -171,7 +171,8 @@ func TestChooseHighestVersion(t *testing.T) {
 
 	falcoVersions := map[string]profile.Version{lowVersion: lowV, highVersion: highV}
 
-	vers, err := chooseHighestVersion(&falcoVersions, dummyClassification)
+	vers, err := ChooseHighestVersion(&falcoVersions, dummyClassification)
+
 	if err != nil {
 		t.Errorf("Failed to find highest version: %s", err.Error())
 	}
@@ -181,16 +182,48 @@ func TestChooseHighestVersion(t *testing.T) {
 	}
 
 	falcoVersions = map[string]profile.Version{}
-	_, err = chooseHighestVersion(&falcoVersions, dummyClassification)
+	_, err = ChooseHighestVersion(&falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
-	// brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
-	// falcoVersions["broken"] = brokenV
-	// _, err = chooseHighestVersion(&falcoVersions, dummyClassification)
-	// if err == nil {
-	// 	t.Errorf("Failed to detect broken version")
-	// }
+	brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
+	falcoVersions["broken"] = brokenV
+	_, err = ChooseHighestVersion(&falcoVersions, dummyClassification)
+	if err == nil {
+		t.Errorf("Failed to detect broken version")
+	}
+}
 
+func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
+	dummyClassification := "test"
+	highVersion := "1.2.3"
+	midVersion := "1.0.0"
+	lowVersion := "0.0.0"
+	highV := profile.Version{Version: highVersion, Classification: dummyClassification}
+	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+
+	vers, err := ChooseLowestVersionHigherThanCurrent(&lowVersion, &falcoVersions, dummyClassification)
+	if err != nil {
+		t.Errorf("Failed to find lowest version higher than current: %s", err.Error())
+	}
+
+	if *vers != midVersion {
+		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
+	}
+
+	falcoVersions = map[string]profile.Version{}
+	_, err = ChooseLowestVersionHigherThanCurrent(&lowVersion, &falcoVersions, dummyClassification)
+	if err == nil {
+		t.Errorf("Failed to detect no version found for classification")
+	}
+
+	brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
+	falcoVersions["broken"] = brokenV
+	_, err = ChooseLowestVersionHigherThanCurrent(&highVersion, &falcoVersions, dummyClassification)
+	if err == nil {
+		t.Errorf("Failed to detect broken version")
+	}
 }

@@ -32,6 +32,7 @@ import (
 	admissioncmd "github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/cmd"
 	profileiinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/install"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/maintenance"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -179,6 +180,10 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 			if err := mgr.AddReadyzCheck("webhook-server", mgr.GetWebhookServer().StartedChecker()); err != nil {
 				return fmt.Errorf("could not add readycheck of webhook to manager: %w", err)
+			}
+
+			if err := maintenance.AddToManager(ctx, mgr); err != nil {
+				return err
 			}
 
 			return mgr.Start(ctx)
