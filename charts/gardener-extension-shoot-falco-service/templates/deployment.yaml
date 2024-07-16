@@ -15,6 +15,7 @@ metadata:
     helm.sh/chart: gardener-extension-{{ .Values.serviceName }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     high-availability-config.resources.gardener.cloud/type: controller
+    networking.gardener.cloud/to-public-networks: allowed
 spec:
   revisionHistoryLimit: 2
   replicas: {{ .Values.replicaCount }}
