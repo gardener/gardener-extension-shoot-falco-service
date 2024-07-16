@@ -81,7 +81,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 	return reconcile.Result{}, nil
 }
 
-// upgrades to highest supported Falco version
 func isVersionDeprecated(version *string) (bool, error) {
 	for _, availableVersion := range falco.FalcoVersions().Falco.FalcoVersions {
 		if availableVersion.Version == *version {
@@ -90,6 +89,7 @@ func isVersionDeprecated(version *string) (bool, error) {
 	}
 	return false, fmt.Errorf("the Falco version %s was not found among possible versions", *version)
 }
+
 
 func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.Time) {
 	var (
@@ -141,10 +141,10 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 
 	if autoUpdate {
 		log.Info("Falco AutoUpdate enabled")
-		versionToSet, err = mutator.ChooseHighestVersion(availableVersions, "supported")
+		versionToSet, err = mutator.GetAutoUpdateVersion(*availableVersions)
 	} else if forceUpdate {
 		log.Info("Falco AutoUpdate disabled but needs forced upgrade")
-		versionToSet, err = mutator.ChooseLowestVersionHigherThanCurrent(currentVersion, availableVersions, "supported")
+		versionToSet, err = mutator.GetForceUpdateVersion(*currentVersion, *availableVersions)
 	}
 	if err != nil {
 		return err
@@ -250,6 +250,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	log.Info("Shoot maintenance completed")
 	return nil
 }
+
 
 // buildMaintenanceMessages builds a combined message containing the performed maintenance operations over all worker pools. If the maintenance operation failed, the description
 // contains an indication for the failure and the reason the update was triggered. Details for failed maintenance operations are returned in the second return string.
