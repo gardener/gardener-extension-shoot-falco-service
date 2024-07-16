@@ -145,7 +145,7 @@ verify: check format test
 
 .PHONY: generate-profile
 generate-profile:
-	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml >falco/FalcoProfile.yaml
+	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml >falco/falco-profile.yaml
 
 .PHONY: validate-falco-rules
 validate-falco-rules:

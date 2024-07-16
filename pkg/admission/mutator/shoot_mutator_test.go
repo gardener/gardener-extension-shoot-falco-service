@@ -131,11 +131,11 @@ func TestExtensionIsDisabled(t *testing.T) {
 
 func TestSetFalcoVersion(t *testing.T) {
 	versions := &map[string]profile.Version{
-			"0.38.0": {
-				Version:        "0.38.0",
-				Classification: "supported",
-			},
-		}
+		"0.38.0": {
+			Version:        "0.38.0",
+			Classification: "supported",
+		},
+	}
 
 	falcoConf := &service.FalcoServiceConfig{}
 	profile.GetDummyFalcoProfileManager(
@@ -171,9 +171,8 @@ func TestChooseHighestVersion(t *testing.T) {
 
 	falcoVersions := map[string]profile.Version{lowVersion: lowV, highVersion: highV}
 
-
-
 	vers, err := ChooseHighestVersion(&falcoVersions, dummyClassification)
+
 	if err != nil {
 		t.Errorf("Failed to find highest version: %s", err.Error())
 	}
