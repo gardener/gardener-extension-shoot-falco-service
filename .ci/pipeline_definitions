@@ -10,11 +10,6 @@ gardener-extension-shoot-falco-service:
       version:
         preprocess: 'inject-commit-hash'
   jobs:
-    verify:
-      steps:
-        verify:
-          image: 'europe-docker.pkg.dev/gardener-project/releases/ci-infra/golang-test:v20240610-b76771f-1.22'
-        verify-falco-rules: ~          
     create_update_pull_requests:
       repo:
         trigger: false
@@ -48,6 +43,10 @@ gardener-extension-shoot-falco-service:
         component_descriptor:
           ocm_repository_mappings:
             - repository: europe-docker.pkg.dev/gardener-project/releases
+      steps:
+        verify:
+          image: 'europe-docker.pkg.dev/gardener-project/releases/ci-infra/golang-test:v20240610-b76771f-1.22'
+        verify-falco-rules: ~
     release:
       traits:
         version:
