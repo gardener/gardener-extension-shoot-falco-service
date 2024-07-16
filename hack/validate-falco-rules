@@ -11,6 +11,7 @@ import tempfile
 import shutil
 import subprocess
 import time
+import dockerutil
 
 # usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> 
 
@@ -43,10 +44,11 @@ webserver:
 """
 
 def ci_init():
+    dockerutil.launch_dockerd_if_not_running()
     # we need docker in docker in ci build
-    ld = shutil.which("launch-dockerd.sh")
-    if ld is not None:
-        subprocess.run(["launch-dockerd.sh"])
+    #ld = shutil.which("launch-dockerd.sh")
+    #if ld is not None:
+    #    subprocess.run(["launch-dockerd.sh"])
 
 
 def get_image_for_falco_version(falco_profile, version):
