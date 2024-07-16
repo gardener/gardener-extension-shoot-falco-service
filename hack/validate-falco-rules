@@ -103,6 +103,8 @@ if len(sys.argv) != 3:
     sys.stderr.write("usage: validate-falco-rules <falco-profile> <rules-dir>\n")
     sys.exit(1)
 
+ci_init()
+
 with open(sys.argv[1]) as f:
     falco_profile = yaml.safe_load(f)
 
