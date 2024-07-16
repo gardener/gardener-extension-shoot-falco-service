@@ -151,13 +151,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
-			var dynamicClient *dynamic.DynamicClient
-			if sourceClusterConfig != nil {
-				dynamicClient, err = dynamic.NewForConfig(sourceClusterConfig)
-			} else {
-				dynamicClient, err = dynamic.NewForConfig(mgr.GetConfig())
-			}
-
+			dynamicClient, err := dynamic.NewForConfig(mgr.GetConfig())
 			if err != nil {
 				return err
 			}
