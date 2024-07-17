@@ -90,7 +90,6 @@ func isVersionDeprecated(version *string) (bool, error) {
 	return false, fmt.Errorf("the Falco version %s was not found among possible versions", *version)
 }
 
-
 func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.Time) {
 	var (
 		now             = time.Now()
@@ -250,7 +249,6 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	log.Info("Shoot maintenance completed")
 	return nil
 }
-
 
 // buildMaintenanceMessages builds a combined message containing the performed maintenance operations over all worker pools. If the maintenance operation failed, the description
 // contains an indication for the failure and the reason the update was triggered. Details for failed maintenance operations are returned in the second return string.

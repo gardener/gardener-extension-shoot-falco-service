@@ -150,6 +150,7 @@ func chooseHighestVersionLowerThanCurrent(version string, versions map[string]pr
 	if err != nil {
 		return nil, err
 	}
+
 	if len(sortedVersions) == 0 {
 		return nil, fmt.Errorf("no non-expired version was found")
 	}
@@ -166,6 +167,7 @@ func chooseHighestVersionLowerThanCurrent(version string, versions map[string]pr
 			newVersionString := incumbent.String()
 			return &newVersionString, nil
 		}
+		incumbent = lowest
 	}
 
 	incumbentStr := incumbent.String()
