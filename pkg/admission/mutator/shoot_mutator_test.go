@@ -217,7 +217,7 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
 	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
 
-	vers, err := chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
+	vers, err := chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err != nil {
 		t.Errorf("Failed to find lowest version higher than current: %s", err.Error())
 	}
@@ -226,24 +226,29 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
 	}
 
-	vers, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
+	vers, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err != nil {
 		t.Errorf("Failed to find lowest version higher than current: %s", err.Error())
 	}
 
 	if *vers != midVersion {
 		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
+	}
+
+	_, err = chooseLowestVersionHigherThanCurrent(highVersion, falcoVersions, []string{dummyClassification})
+	if err == nil {
+		t.Errorf("Found higher version than even though no higher version is present: %s", highVersion)
 	}
 
 	brokenS := ""
-	_, err = chooseLowestVersionHigherThanCurrent(brokenS, falcoVersions, dummyClassification)
+	_, err = chooseLowestVersionHigherThanCurrent(brokenS, falcoVersions, []string{dummyClassification})
 	if err == nil {
 		t.Errorf("Failed to detect broken current version")
 	}
 
 	// Test for empty versions
 	falcoVersions = map[string]profile.Version{}
-	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
+	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
@@ -252,7 +257,7 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 	brokenS = "broken"
 	brokenV := profile.Version{Version: brokenS, Classification: dummyClassification}
 	falcoVersions[brokenS] = brokenV
-	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
+	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err == nil {
 		t.Errorf("Failed to detect broken version in available version")
 	}
@@ -278,6 +283,78 @@ func TestSortVersionWithClassification(t *testing.T) {
 	sorted, _ = sortVersionsWithClassification(falcoVersions, []string{dummyClassification});
 	if len(sorted) != 1 {
 		t.Errorf("Sort inlcudes expired version")
+	}
+}
+
+func TestGetAutoUpdateVersion(t *testing.T) {
+	dummyClassification := "supported"
+	highVersion := "1.2.3"
+	midVersion := "1.0.0"
+	lowVersion := "0.0.0"
+	highV := profile.Version{Version: highVersion, Classification: "expired", ExpirationDate: &time.Time{}}
+	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+
+	vers, err := GetAutoUpdateVersion(falcoVersions)
+	if err != nil {
+		t.Errorf("Could not get auto update version %s", err.Error())
+	}
+	if vers == nil || *vers != midVersion {
+		t.Errorf("Did not return expected version %s but %v", midVersion, vers)
+	}
+}
+
+func TestGetForceUpdateVersionHigherVersionPresent(t *testing.T) {
+	dummyClassification := "supported"
+	highVersion := "1.2.3"
+	midVersion := "1.0.0"
+	lowVersion := "0.0.0"
+	highV := profile.Version{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+
+	vers, err := GetForceUpdateVersion(lowVersion, falcoVersions)
+	if err != nil {
+		t.Errorf("Could not get auto update version %s", err.Error())
+	}
+	if vers == nil || *vers != midVersion {
+		t.Errorf("Did not return expected version %s but %v", midVersion, vers)
+	}
+}
+
+func TestGetForceUpdateVersionNoHigherVersionPresent(t *testing.T) {
+	dummyClassification := "supported"
+	highVersion := "1.2.3"
+	midVersion := "1.0.0"
+	lowVersion := "0.0.0"
+	highV := profile.Version{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+
+	vers, err := GetForceUpdateVersion(midVersion, falcoVersions)
+	if err != nil {
+		t.Errorf("Could not get auto update version %s", err.Error())
+	}
+	if vers == nil || *vers != lowVersion {
+		t.Errorf("Did not return expected version %s but %v", midVersion, vers)
+	}
+}
+
+func TestGetForceUpdateVersionNoVersionFound(t *testing.T) {
+	dummyClassification := "deprecated"
+	highVersion := "1.2.3"
+	midVersion := "1.0.0"
+	lowVersion := "0.0.0"
+	highV := profile.Version{Version: highVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
+	midV := profile.Version{Version: midVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
+	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+
+	if _, err := GetForceUpdateVersion(midVersion, falcoVersions); err == nil {
+		t.Errorf("Found version for force update by all versions are expired")
 	}
 }
 

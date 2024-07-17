@@ -172,13 +172,13 @@ func chooseHighestVersionLowerThanCurrent(version string, versions map[string]pr
 	return &incumbentStr, nil
 }
 
-func chooseLowestVersionHigherThanCurrent(version string, versions map[string]profile.Version, classification string) (*string, error) {
-	sortedVersions, err := sortVersionsWithClassification(versions, []string{classification})
+func chooseLowestVersionHigherThanCurrent(version string, versions map[string]profile.Version, classifications []string) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, classifications)
 	if err != nil {
 		return nil, err
 	}
 	if len(sortedVersions) == 0 {
-		return nil, fmt.Errorf("no version with classification %s was found", classification)
+		return nil, fmt.Errorf("no version with classification %s was found", classifications)
 	}
 
 	currentVersion, err := pkgversion.NewVersion(version)
@@ -217,13 +217,7 @@ func GetAutoUpdateVersion(versions map[string]profile.Version) (*string, error) 
 }
 
 func GetForceUpdateVersion(version string, versions map[string]profile.Version) (*string, error) {
-	vers, err := chooseLowestVersionHigherThanCurrent(version, versions, "deprecated")
-	if err == nil {
-		return vers, nil
-	}
-
-	// Could not find higher deprecated so look for supported
-	vers, err = chooseLowestVersionHigherThanCurrent(version, versions, "supported")
+	vers, err := chooseLowestVersionHigherThanCurrent(version, versions, []string{"deprecated", "supported"})
 	if err == nil {
 		return vers, nil
 	}
