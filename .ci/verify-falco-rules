@@ -7,7 +7,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-set -x
 
 cd "$(dirname $0)/.."
 
@@ -15,4 +14,8 @@ git config --global user.email "gardener@sap.com"
 git config --global user.name "Gardener CI/CD"
 
 export GOTOOLCHAIN=auto
-make validate-falco-rules
+
+# mot part of the CI/CD image
+# make validate-falco-rules
+
+./hack/validate-falco-rules falco/falco-profile.yaml falco/rules

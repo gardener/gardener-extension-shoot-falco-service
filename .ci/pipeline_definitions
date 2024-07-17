@@ -46,7 +46,8 @@ gardener-extension-shoot-falco-service:
       steps:
         verify:
           image: 'europe-docker.pkg.dev/gardener-project/releases/ci-infra/golang-test:v20240610-b76771f-1.22'
-        verify-falco-rules: ~
+        verify-falco-rules:
+          privilege_mode: privileged
     release:
       traits:
         version:
@@ -66,6 +67,8 @@ gardener-extension-shoot-falco-service:
             gardener-extension-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/shoot-falco-service
               tag_as_latest: true
+              target: gardener-extension-shoot-falco-service
             gardener-extension-admission-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/admission-shoot-falco-service
               tag_as_latest: true
+              target: gardener-extension-admission-shoot-falco-service
