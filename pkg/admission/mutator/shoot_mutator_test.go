@@ -6,6 +6,7 @@ package mutator
 
 import (
 	"testing"
+	"time"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,8 +132,8 @@ func TestExtensionIsDisabled(t *testing.T) {
 
 func TestSetFalcoVersion(t *testing.T) {
 	versions := &map[string]profile.Version{
-		"0.38.0": {
-			Version:        "0.38.0",
+		"0.99.0": {
+			Version:        "0.99.0",
 			Classification: "supported",
 		},
 	}
@@ -156,9 +157,20 @@ func TestSetFalcoVersion(t *testing.T) {
 
 	dummyVersion := "0.0.0"
 	falcoConf.FalcoVersion = &dummyVersion
-	err = setFalcoVersion(falcoConf)
-	if err != nil {
+	if err = setFalcoVersion(falcoConf); err != nil {
 		t.Error("FalcoVersion was set but possibly overwritten")
+	}
+
+	// Test no falco version
+	falcoConf.FalcoVersion = nil
+	profile.GetDummyFalcoProfileManager(
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+	)
+	if err = setFalcoVersion(falcoConf); err == nil {
+		t.Error("Set version even though none was provided")
 	}
 }
 
@@ -214,16 +226,78 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
 	}
 
+	vers, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
+	if err != nil {
+		t.Errorf("Failed to find lowest version higher than current: %s", err.Error())
+	}
+
+	if *vers != midVersion {
+		t.Errorf("Falsely reported version %s as lowest higher than current version %s", *vers, lowVersion)
+	}
+
+	brokenS := ""
+	_, err = chooseLowestVersionHigherThanCurrent(brokenS, falcoVersions, dummyClassification)
+	if err == nil {
+		t.Errorf("Failed to detect broken current version")
+	}
+
+	// Test for empty versions
 	falcoVersions = map[string]profile.Version{}
 	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
-	brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
-	falcoVersions["broken"] = brokenV
-	_, err = chooseLowestVersionHigherThanCurrent(highVersion, falcoVersions, dummyClassification)
+	// Test for broken version in the available versions
+	brokenS = "broken"
+	brokenV := profile.Version{Version: brokenS, Classification: dummyClassification}
+	falcoVersions[brokenS] = brokenV
+	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, dummyClassification)
 	if err == nil {
-		t.Errorf("Failed to detect broken version")
+		t.Errorf("Failed to detect broken version in available version")
 	}
 }
+
+func TestSortVersionWithClassification(t *testing.T) {
+	// Testing non existent classification
+	dummyClassification := "test"
+	lowVersion := "0.0.0"
+	expiredVersion := "1.1.1"
+	expiryDate := time.Time{}
+	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	expV := profile.Version{Version: expiredVersion, Classification: dummyClassification, ExpirationDate: &expiryDate}
+	falcoVersions := map[string]profile.Version{lowVersion: lowV, expiredVersion: expV}
+
+	// Check wrong classification
+	sorted, _ := sortVersionsWithClassification(falcoVersions, []string{"wrong"});
+	if sorted != nil {
+		t.Errorf("Returned sorted versions with non-matching classification")
+	}
+
+	// Check one expired classification
+	sorted, _ = sortVersionsWithClassification(falcoVersions, []string{dummyClassification});
+	if len(sorted) != 1 {
+		t.Errorf("Sort inlcudes expired version")
+	}
+}
+
+// func TestToRaw(t *testing.T) {
+// 	version := "0.0.0"
+// 	update := true
+// 	resources := "resources"
+// 	falcoCtl := service.FalcoCtl{}
+// 	gardener := service.Gardener{}
+// 	webhook := service.Webhook{}
+// 	config := service.FalcoServiceConfig{
+// 		FalcoVersion: &version,
+// 		AutoUpdate: &update,
+// 		Resources: &resources,
+// 		FalcoCtl: &falcoCtl,
+// 		Gardener: &gardener,
+// 		CustomWebhook: &webhook,
+// 	}
+// 	shoot := Shoot{runtime.NoopDecoder{}, runtime.NewScheme(), sync.Mutex{}, nil}
+
+// 	x, err := shoot.toRaw(&config)
+// 	t.Error()
+// }

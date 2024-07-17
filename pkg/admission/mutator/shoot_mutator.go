@@ -194,9 +194,7 @@ func chooseLowestVersionHigherThanCurrent(version string, versions map[string]pr
 		}
 	}
 
-	// otherwise return the lowest supported version
-	lowest := sortedVersions[0].String()
-	return &lowest, nil
+	return nil, fmt.Errorf("no higher version than current version found")
 }
 
 func chooseHighestVersion(versions map[string]profile.Version, classification string) (*string, error) {
