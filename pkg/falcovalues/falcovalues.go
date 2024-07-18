@@ -173,7 +173,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		"customRules": customRules,
 	}
 
-	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled != nil || !*falcoServiceConfig.CustomWebhook.Enabled {
+	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled == nil || !*falcoServiceConfig.CustomWebhook.Enabled {
 		// Gardener managed event store
 		ingestorAddress := c.config.Falco.IngestorURL
 		// ok to generate new token on each reconcile
@@ -182,20 +182,24 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"Authorization": "Bearer " + token,
 		}
 		customHeaders := serializeCustomHeaders(customHeadersMap)
-		webhook := map[string]string{
+		webhook := map[string]interface{}{
 			"address":       ingestorAddress,
 			"customheaders": customHeaders,
+			"checkcerts":    true,
 		}
 		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		config["webhook"] = webhook
 	} else {
 		// user has defined a custom location, we just pass it
 		customWebhook := falcoServiceConfig.CustomWebhook
-		webhook := map[string]string{
+		webhook := map[string]interface{}{
 			"address": *customWebhook.Address,
 		}
 		if customWebhook.CustomHeaders != nil {
-			webhook["customHeaders"] = *customWebhook.CustomHeaders
+			webhook["customheaders"] = *customWebhook.CustomHeaders
+		}
+		if customWebhook.Checkcerts != nil {
+			webhook["checkcerts"] = *customWebhook.Checkcerts
 		}
 		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		config["webhook"] = webhook
