@@ -126,8 +126,8 @@ to the `extensions` section of their shoot manifest:
         # optional, defaults to false
         useFalcoSandboxRules: false
         # references configmaps in project namespace containing custom rules
-        ruleRefs:
-        - ref: rules1
+        customRules:
+        - rules1
       falcoctl:
         # Falcoctl configuration as defined in 
         # https://github.com/falcosecurity/charts/blob/master/charts/falco/values.yaml#L366
