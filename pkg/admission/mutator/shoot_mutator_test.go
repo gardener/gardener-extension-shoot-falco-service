@@ -396,24 +396,3 @@ func TestChooseHighestVersionLowerThanCurrent(t *testing.T) {
 	}
 
 }
-
-// func TestToRaw(t *testing.T) {
-// 	version := "0.0.0"
-// 	update := true
-// 	resources := "resources"
-// 	falcoCtl := service.FalcoCtl{}
-// 	gardener := service.Gardener{}
-// 	webhook := service.Webhook{}
-// 	config := service.FalcoServiceConfig{
-// 		FalcoVersion: &version,
-// 		AutoUpdate: &update,
-// 		Resources: &resources,
-// 		FalcoCtl: &falcoCtl,
-// 		Gardener: &gardener,
-// 		CustomWebhook: &webhook,
-// 	}
-// 	shoot := Shoot{runtime.NoopDecoder{}, runtime.NewScheme(), sync.Mutex{}, nil}
-
-// 	x, err := shoot.toRaw(&config)
-// 	t.Error()
-// }
