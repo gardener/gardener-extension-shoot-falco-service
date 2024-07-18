@@ -173,7 +173,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		"customRules": customRules,
 	}
 
-	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled != nil || !*falcoServiceConfig.CustomWebhook.Enabled {
+	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled == nil || !*falcoServiceConfig.CustomWebhook.Enabled {
 		// Gardener managed event store
 		ingestorAddress := c.config.Falco.IngestorURL
 		// ok to generate new token on each reconcile
@@ -182,20 +182,24 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"Authorization": "Bearer " + token,
 		}
 		customHeaders := serializeCustomHeaders(customHeadersMap)
-		webhook := map[string]string{
+		webhook := map[string]interface{}{
 			"address":       ingestorAddress,
 			"customheaders": customHeaders,
+			"checkcerts":    true,
 		}
 		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		config["webhook"] = webhook
 	} else {
 		// user has defined a custom location, we just pass it
 		customWebhook := falcoServiceConfig.CustomWebhook
-		webhook := map[string]string{
+		webhook := map[string]interface{}{
 			"address": *customWebhook.Address,
 		}
 		if customWebhook.CustomHeaders != nil {
-			webhook["customHeaders"] = *customWebhook.CustomHeaders
+			webhook["customheaders"] = *customWebhook.CustomHeaders
+		}
+		if customWebhook.Checkcerts != nil {
+			webhook["checkcerts"] = *customWebhook.Checkcerts
 		}
 		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		config["webhook"] = webhook
@@ -224,23 +228,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	}
 	return falcoChartValues, nil
 }
-
-// get the latest Falco version tagged as "supported"
-// func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
-// 	var latestVersion string = ""
-// 	for _, version := range c.falcoVersions.Falco.FalcoVersions {
-// 		if version.Classification == "supported" {
-// 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
-// 				latestVersion = version.Version
-// 			}
-// 		}
-// 	}
-// 	if latestVersion != "" {
-// 		return latestVersion, nil
-// 	} else {
-// 		return "", fmt.Errorf("no supported Falco version found")
-// 	}
-// }
 
 // get the latest Falcosidekick version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
