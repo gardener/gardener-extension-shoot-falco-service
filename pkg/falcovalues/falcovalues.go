@@ -95,7 +95,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			{"effect": "NoSchedule", "operator": "Exists"},
 			{"effect": "NoExecute", "operator": "Exists"},
 		},
-		"priorityClassName": c.config.Falco.PriorityClassName,
+		"priorityClassName": *c.config.Falco.PriorityClassName,
 		"driver": map[string]string{
 			"kind": "modern-bpf",
 		},
@@ -158,7 +158,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"image": map[string]string{
 				"image": falcosidekickImage,
 			},
-			"priorityClassName": c.config.Falco.PriorityClassName,
 			"config": map[string]interface{}{
 				"debug": true,
 				"tlsserver": map[string]interface{}{

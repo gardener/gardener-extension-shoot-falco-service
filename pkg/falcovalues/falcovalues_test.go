@@ -18,12 +18,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	yaml "sigs.k8s.io/yaml/goyaml.v3"
+	yaml "sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
@@ -37,7 +38,7 @@ import (
 var (
 	extensionConfiguration = &config.Configuration{
 		Falco: &config.Falco{
-			PriorityClassName:     stringValue("falco-priority"),
+			PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
 			CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
 			CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
 			TokenLifetime:         &metav1.Duration{Duration: constants.DefaultTokenLifetime},
@@ -67,7 +68,7 @@ var (
 		},
 		&map[string]profile.Image{
 			"0.38.0": {
-				Repository:   "falcosecurity/falco:0.38.0",
+				Repository:   "falcosecurity/falco",
 				Tag:          "0.38.0",
 				Architectrue: "amd64",
 				Version:      "0.38.0",
@@ -81,7 +82,7 @@ var (
 		},
 		&map[string]profile.Image{
 			"1.2.3": {
-				Repository:   "falcosecurity/falcosidekick:1,2,3",
+				Repository:   "falcosecurity/falcosidekick",
 				Tag:          "1.2.3",
 				Architectrue: "amd64",
 				Version:      "1.2.3",
@@ -296,6 +297,11 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		_, ok = values["falcoSandboxRules"]
 		Expect(ok).To(BeFalse())
 
+		prioriyClass := values["priorityClassName"].(string)
+		Expect(prioriyClass).To(Equal("falco-test-priority-dummy-classname"))
+
+		// render chart and check if the values are set correctly
+		//
 		renderer, err := util.NewChartRendererForShoot("1.30.2")
 		Expect(err).To(BeNil())
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
@@ -305,31 +311,39 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 			fmt.Println(mf.Name + " " + mf.Head.Kind)
 			fmt.Println(mf.Content)
 		}
+
+		// check custom rules
 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
 		Expect(customRules).NotTo(BeNil())
-		m := make(map[interface{}]interface{})
-
+		m := make(map[string]interface{})
 		falcoConfigmap := getManifest((release), "falco/templates/falco-configmap.yaml")
 		fc := corev1.ConfigMap{}
 		err = yaml.Unmarshal([]byte(falcoConfigmap.Content), &fc)
 		Expect(err).To(BeNil())
-		//		Expect(fc.Data["falco.yaml"]).To(ContainSubstring("- /etc/falco/rules.d/dummyrules.yaml"))
 		falcoYaml := make(map[string]interface{})
-
 		err = yaml.Unmarshal([]byte(fc.Data["falco.yaml"]), &falcoYaml)
 		Expect(err).To(BeNil())
 		rules := falcoYaml["rules_file"].([]interface{})
 		Expect(len(rules)).To(Equal(2))
 		Expect(rules[0]).To(Equal("/etc/falco/rules.d/falco_rules.yaml"))
 		Expect(rules[1]).To(Equal("/etc/falco/rules.d/dummyrules.yaml"))
-
+		fmt.Println(customRules.Content)
 		err = yaml.Unmarshal([]byte(customRules.Content), &m)
 		Expect(err).To(BeNil())
-
 		data := m["data"].(map[string]interface{})
 		rulesFile := data["dummyrules.yaml"].(string)
 		Expect(rulesFile).To(Equal("# dummy rules 1"))
 
+		// check priority class in falco deamonset
+		falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
+		Expect(falcoDaemonset).NotTo(BeNil())
+		ds := appsv1.DaemonSet{}
+		fmt.Println(falcoDaemonset.Content)
+		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
+		Expect(err).To(BeNil())
+		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("falcosecurity/falco:0.38.0"))
+		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
 		fmt.Println((customRules.Content))
 	})
 
