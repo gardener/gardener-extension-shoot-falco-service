@@ -229,23 +229,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	return falcoChartValues, nil
 }
 
-// get the latest Falco version tagged as "supported"
-// func (c *ConfigBuilder) getDefaultFalcoVersion() (string, error) {
-// 	var latestVersion string = ""
-// 	for _, version := range c.falcoVersions.Falco.FalcoVersions {
-// 		if version.Classification == "supported" {
-// 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
-// 				latestVersion = version.Version
-// 			}
-// 		}
-// 	}
-// 	if latestVersion != "" {
-// 		return latestVersion, nil
-// 	} else {
-// 		return "", fmt.Errorf("no supported Falco version found")
-// 	}
-// }
-
 // get the latest Falcosidekick version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	var latestVersion string = ""
