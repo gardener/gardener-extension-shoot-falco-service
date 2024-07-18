@@ -10,13 +10,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
@@ -31,8 +24,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	yaml "sigs.k8s.io/yaml"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
 var (
