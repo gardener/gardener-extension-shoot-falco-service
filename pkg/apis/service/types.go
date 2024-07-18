@@ -58,11 +58,7 @@ type Gardener struct {
 
 	// References to custom rules files
 	// +optional
-	RuleRefs []Rule
-}
-
-type Rule struct {
-	Ref string
+	CustomRules []string
 }
 
 type Webhook struct {

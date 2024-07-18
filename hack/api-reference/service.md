@@ -184,44 +184,14 @@ bool
 </tr>
 <tr>
 <td>
-<code>ruleRefs</code></br>
+<code>customRules</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Rule">
-[]Rule
-</a>
+[]string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>References to custom rules files</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Rule">Rule
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Gardener">Gardener</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>ref</code></br>
-<em>
-string
-</em>
-</td>
-<td>
 </td>
 </tr>
 </tbody>

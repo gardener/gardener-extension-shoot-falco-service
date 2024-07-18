@@ -59,11 +59,7 @@ type Gardener struct {
 
 	// References to custom rules files
 	// +optional
-	RuleRefs []Rule `json:"ruleRefs,omitempty"`
-}
-
-type Rule struct {
-	Ref string `json:"ref,omitempty"`
+	CustomRules []string `json:"customRules,omitempty"`
 }
 
 type Webhook struct {

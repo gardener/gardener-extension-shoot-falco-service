@@ -372,7 +372,7 @@ func serializeCustomHeaders(customHeadersMap map[string]string) string {
 }
 
 func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, error) {
-	if len(falcoServiceConfig.Gardener.RuleRefs) == 0 {
+	if len(falcoServiceConfig.Gardener.CustomRules) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}
@@ -383,11 +383,11 @@ func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoSer
 		}
 	}
 	selectedConfigMaps := make(map[string]string)
-	for _, ruleRef := range falcoServiceConfig.Gardener.RuleRefs {
-		if configMapName, ok := allConfigMaps[ruleRef.Ref]; ok {
-			selectedConfigMaps[ruleRef.Ref] = configMapName
+	for _, customRule := range falcoServiceConfig.Gardener.CustomRules {
+		if configMapName, ok := allConfigMaps[customRule]; ok {
+			selectedConfigMaps[customRule] = configMapName
 		} else {
-			return nil, fmt.Errorf("no resource for custom rule ref %s found", ruleRef)
+			return nil, fmt.Errorf("no resource for custom rule reference %s found", customRule)
 		}
 	}
 	return selectedConfigMaps, nil
