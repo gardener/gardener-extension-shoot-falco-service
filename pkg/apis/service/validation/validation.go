@@ -23,9 +23,9 @@ func ValidateFalcoServiceConfig(config *service.FalcoServiceConfig) field.ErrorL
 		return allErrs
 	}
 	if *config.Resources == "gardener" {
-		ruleRefs := config.Gardener.RuleRefs
+		ruleRefs := config.Gardener.CustomRules
 		for i, rule := range ruleRefs {
-			if rule.Ref == "" {
+			if rule == "" {
 				allErrs = append(allErrs, field.Invalid(field.NewPath("gardener.ruleRefs["+strconv.Itoa(i)+"]"), "", "Rule reference is empty"))
 			}
 		}

@@ -87,8 +87,8 @@ func setGardenerRules(falcoConf *service.FalcoServiceConfig) {
 		falcoConf.Gardener.UseFalcoSandboxRules = &defaultSandRules
 	}
 
-	if falcoConf.Gardener.RuleRefs == nil {
-		falcoConf.Gardener.RuleRefs = []service.Rule{}
+	if falcoConf.Gardener.CustomRules == nil {
+		falcoConf.Gardener.CustomRules = []string{}
 	}
 }
 

@@ -50,11 +50,7 @@ var (
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
 		Gardener: &service.Gardener{
-			RuleRefs: []service.Rule{
-				{
-					Ref: "rules1",
-				},
-			},
+			CustomRules:   []string{"rules1"},
 			UseFalcoRules: boolValue(true),
 		},
 	}
@@ -166,27 +162,13 @@ var (
 	falcoServiceConfig = &apisservice.FalcoServiceConfig{
 		Resources: &resources,
 		Gardener: &apisservice.Gardener{
-			RuleRefs: []apisservice.Rule{
-				{
-					Ref: "rules1",
-				},
-				{
-					Ref: "rules3",
-				},
-			},
+			CustomRules: []string{"rules1", "rules3"},
 		},
 	}
 	falcoServiceConfigBad = &apisservice.FalcoServiceConfig{
 		Resources: &resources,
 		Gardener: &apisservice.Gardener{
-			RuleRefs: []apisservice.Rule{
-				{
-					Ref: "rules1",
-				},
-				{
-					Ref: "rules2",
-				},
-			},
+			CustomRules: []string{"rules1", "rules2"},
 		},
 	}
 	rulesConfigMap = &corev1.ConfigMapList{
