@@ -25,6 +25,8 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
+var ()
+
 // NewShootMutator returns a new instance of a shoot mutator.
 func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
 	return NewShoot(mgr)

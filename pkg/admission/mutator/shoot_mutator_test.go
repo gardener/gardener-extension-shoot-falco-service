@@ -5,14 +5,46 @@
 package mutator
 
 import (
+	"context"
 	"testing"
-
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+var (
+	shootSpec = &gardencorev1beta1.Shoot{
+		Spec: gardencorev1beta1.ShootSpec{
+			Extensions: []gardencorev1beta1.Extension{
+				{
+					Type: "shoot-falco-service",
+					ProviderConfig: &runtime.RawExtension{
+						Raw: []byte(`{"autoUpdate": true}`),
+					},
+				},
+			},
+		},
+	}
+)
+
+func TestMyWebhook(t *testing.T) {
+	s := &Shoot{}
+	mgr, err := ctrl.NewManager(&rest.Config{}, ctrl.Options{})
+	if err != nil {
+		t.Errorf("Error while mutating: %s", err.Error())
+	}
+	s.decoder = serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder()
+	err = s.Mutate(context.TODO(), shootSpec, shootSpec)
+	if err != nil {
+		t.Errorf("Error while mutating: %s", err.Error())
+	}
+}
 
 func TestSetWebhook(t *testing.T) {
 	falcoConf := &service.FalcoServiceConfig{}
