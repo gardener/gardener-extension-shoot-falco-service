@@ -102,7 +102,6 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	// TODO do we need to dopy here or not?
 	maintainedShoot := shoot.DeepCopy()
 
-	// TODO check if we have to do anything
 	falcoConf, err := r.mutator.ExtractFalcoConfig(maintainedShoot)
 	if err != nil {
 		return err
