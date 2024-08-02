@@ -14,9 +14,18 @@ gardener-extension-shoot-falco-service:
         attribute: image.repository
       - ref: ocm-resource:gardener-extension-shoot-falco-service.tag
         attribute: image.tag
-    - &shoot-falco-service-admission
-      name: admission-shoot-falco-service
-      dir: charts/gardener-extension-admission-shoot-falco-service
+    - &shoot-falco-service-admission-application
+      name: admission-shoot-falco-service-application
+      dir: charts/gardener-extension-admission-shoot-falco-service/charts/application
+      registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
+      mappings:
+      - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
+        attribute: global.image.repository
+      - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
+        attribute: global.image.tag
+    - &shoot-falco-service-admission-runtime
+      name: admission-shoot-falco-service-runtime
+      dir: charts/gardener-extension-admission-shoot-falco-service/charts/runtime
       registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
       mappings:
       - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
@@ -60,7 +69,8 @@ gardener-extension-shoot-falco-service:
               target: gardener-extension-admission-shoot-falco-service
           helmcharts:
           - *shoot-falco-service
-          - *shoot-falco-service-admission
+          - *shoot-falco-service-admission-application
+          - *shoot-falco-service-admission-runtime
     pull-request:
       traits:
         pull-request: ~
@@ -99,5 +109,7 @@ gardener-extension-shoot-falco-service:
           helmcharts:
           - <<: *shoot-falco-service
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/gardener/extensions
-          - <<: *shoot-falco-service-admission
+          - <<: *shoot-falco-service-admission-application
+            registry: europe-docker.pkg.dev/gardener-project/releases/charts/gardener/extensions
+          - <<: *shoot-falco-service-admission-runtime
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/gardener/extensions
