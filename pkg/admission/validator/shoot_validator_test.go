@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 
@@ -152,9 +153,11 @@ func TestVerifyFalcoVersion(t *testing.T) {
 
 	supportedVersion := "1.2.3"
 	depreatedVersion := "3.2.1"
+	expiredVersion := "9.9.9"
 	supportedV := profile.Version{Version: supportedVersion, Classification: "supported"}
 	depreatedV := profile.Version{Version: depreatedVersion, Classification: "deprecated"}
-	falcoVersions := map[string]profile.Version{supportedVersion: supportedV, depreatedVersion: depreatedV}
+	expiredV := profile.Version{Version: expiredVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	falcoVersions := map[string]profile.Version{supportedVersion: supportedV, depreatedVersion: depreatedV, expiredVersion: expiredV}
 
 	profile.GetDummyFalcoProfileManager(
 		&falcoVersions,
@@ -179,8 +182,13 @@ func TestVerifyFalcoVersion(t *testing.T) {
 	}
 
 	conf.FalcoVersion = deprecated
+	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
+		t.Fatalf("Deprecated FalcoVersion without expiration is set but detected as invalid")
+	}
+
+	conf.FalcoVersion = &expiredVersion
 	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err == nil {
-		t.Fatalf("Deprecated FalcoVersion is set but accepted as valid")
+		t.Fatalf("Expired FalcoVersion is set but accepted as valid")
 	}
 
 	nonVersion := "0.0.0"
