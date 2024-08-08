@@ -3,6 +3,36 @@
 # SPDX-License-Identifier: Apache-2.0
 
 gardener-extension-shoot-falco-service:
+  templates:
+    helmcharts:
+    - &shoot-falco-service
+      name: shoot-falco-service
+      dir: charts/gardener-extension-shoot-falco-service
+      registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
+      mappings:
+      - ref: ocm-resource:gardener-extension-shoot-falco-service.repository
+        attribute: image.repository
+      - ref: ocm-resource:gardener-extension-shoot-falco-service.tag
+        attribute: image.tag
+    - &shoot-falco-service-admission-application
+      name: admission-shoot-falco-service-application
+      dir: charts/gardener-extension-admission-shoot-falco-service/charts/application
+      registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
+      mappings:
+      - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
+        attribute: global.image.repository
+      - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
+        attribute: global.image.tag
+    - &shoot-falco-service-admission-runtime
+      name: admission-shoot-falco-service-runtime
+      dir: charts/gardener-extension-admission-shoot-falco-service/charts/runtime
+      registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
+      mappings:
+      - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
+        attribute: global.image.repository
+      - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
+        attribute: global.image.tag
+
   base_definition:
     traits:
       component_descriptor:
@@ -37,6 +67,10 @@ gardener-extension-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/admission-shoot-falco-service
               dockerfile: 'Dockerfile'
               target: gardener-extension-admission-shoot-falco-service
+          helmcharts:
+          - *shoot-falco-service
+          - *shoot-falco-service-admission-application
+          - *shoot-falco-service-admission-runtime
     pull-request:
       traits:
         pull-request: ~
@@ -72,3 +106,10 @@ gardener-extension-shoot-falco-service:
               image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/admission-shoot-falco-service
               tag_as_latest: true
               target: gardener-extension-admission-shoot-falco-service
+          helmcharts:
+          - <<: *shoot-falco-service
+            registry: europe-docker.pkg.dev/gardener-project/releases/charts/gardener/extensions
+          - <<: *shoot-falco-service-admission-application
+            registry: europe-docker.pkg.dev/gardener-project/releases/charts/gardener/extensions
+          - <<: *shoot-falco-service-admission-runtime
+            registry: europe-docker.pkg.dev/gardener-project/releases/charts/gardener/extensions
