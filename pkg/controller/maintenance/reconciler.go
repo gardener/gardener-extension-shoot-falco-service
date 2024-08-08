@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -25,13 +24,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
-
-// TODO used for internal debugging when setting annotation
-// var i int = 0
 
 // Reconciler reconciles Shoots and maintains them by updating versions or triggering operations.
 type Reconciler struct {
@@ -62,33 +57,33 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, nil
 	}
 
-	// TODO skipped for testing
-	// requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
-
-	// if !mustMaintainNow(shoot, r.Clock) {
-	// 	log.V(1).Info("Skipping Shoot because it doesn't need to be maintained now")
-	// 	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
-	// 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
-	// }
+	// Disbale for testing
+	requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
+	if !mustMaintainNow(shoot, r.Clock) {
+		log.V(1).Info("Skipping Shoot because it doesn't need to be maintained now")
+		log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+		return reconcile.Result{RequeueAfter: requeueAfter}, nil
+	}
 
 	if err := r.reconcile(ctx, log, shoot); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// TODO skipped for testing
-	// log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
-	// return reconcile.Result{RequeueAfter: requeueAfter}, nil
-	return reconcile.Result{}, nil
+	// Disable for testing
+	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
-// upgrades to highest supported Falco version
-func isVersionDeprecated(version *string) (bool, error) {
-	for _, availableVersion := range falco.FalcoVersions().Falco.FalcoVersions {
-		if availableVersion.Version == *version {
-			return availableVersion.Classification == "deprecated", nil
-		}
+func isVersionExpired(version string, versions map[string]profile.Version) bool {
+	existingVersion, ok := versions[version]
+	if !ok {
+		return true
 	}
-	return false, fmt.Errorf("the Falco version %s was not found among possible versions", *version)
+
+	expired := existingVersion.Classification == "deprecated" &&
+		existingVersion.ExpirationDate != nil &&
+		time.Now().After(*existingVersion.ExpirationDate)
+	return expired
 }
 
 func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.Time) {
@@ -102,22 +97,11 @@ func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.T
 	return duration, nextMaintenance
 }
 
-// TODO this can probably be removed
-// updateResult represents the result of a Kubernetes or Machine image maintenance operation
-// Such maintenance operations can fail if a version must be updated, but the GCM cannot find a suitable version to update to.
-// Note: the updates might still be rejected by APIServer validation.
-type updateResult struct {
-	description  string
-	reason       string
-	isSuccessful bool
-}
-
 func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gardencorev1beta1.Shoot) error {
 
 	// TODO do we need to dopy here or not?
 	maintainedShoot := shoot.DeepCopy()
 
-	// TODO check if we have to do anything
 	falcoConf, err := r.mutator.ExtractFalcoConfig(maintainedShoot)
 	if err != nil {
 		return err
@@ -129,22 +113,16 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	currentVersion := falcoConf.FalcoVersion
 	availableVersions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
 
-	deprecated, err := isVersionDeprecated(currentVersion)
-	if err != nil {
-		return err
-	}
-
+	forceUpdate := isVersionExpired(*currentVersion, *availableVersions)
 	autoUpdate := falcoConf.AutoUpdate != nil && *falcoConf.AutoUpdate
-	forceUpdate := !autoUpdate && deprecated
 
 	var versionToSet *string
-
-	if autoUpdate {
-		log.Info("Falco AutoUpdate enabled")
-		versionToSet, err = mutator.ChooseHighestVersion(availableVersions, "supported")
-	} else if forceUpdate {
-		log.Info("Falco AutoUpdate disabled but needs forced upgrade")
-		versionToSet, err = mutator.ChooseLowestVersionHigherThanCurrent(currentVersion, availableVersions, "supported")
+	if forceUpdate {
+		log.V(1).Info("Falco AutoUpdate disabled but needs forced upgrade")
+		versionToSet, err = mutator.GetForceUpdateVersion(*currentVersion, *availableVersions)
+	} else if autoUpdate {
+		log.V(1).Info("Falco AutoUpdate enabled")
+		versionToSet, err = mutator.GetAutoUpdateVersion(*availableVersions)
 	}
 	if err != nil {
 		return err
@@ -153,7 +131,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
 
 	if !needToUpdate {
-		log.Info("Do not need to update Falco version")
+		log.V(1).Info("Do not need to update Falco version")
 		return nil
 	}
 
@@ -249,73 +227,6 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 
 	log.Info("Shoot maintenance completed")
 	return nil
-}
-
-// buildMaintenanceMessages builds a combined message containing the performed maintenance operations over all worker pools. If the maintenance operation failed, the description
-// contains an indication for the failure and the reason the update was triggered. Details for failed maintenance operations are returned in the second return string.
-func buildMaintenanceMessages(kubernetesControlPlaneUpdate *updateResult, workerToKubernetesUpdate map[string]updateResult, workerToMachineImageUpdate map[string]updateResult) (string, string) {
-	countSuccessfulOperations := 0
-	countFailedOperations := 0
-	description := ""
-	failureReason := ""
-
-	if kubernetesControlPlaneUpdate != nil {
-		if kubernetesControlPlaneUpdate.isSuccessful {
-			countSuccessfulOperations++
-			description = fmt.Sprintf("%s, %s", description, fmt.Sprintf("Control Plane: %s. Reason: %s", kubernetesControlPlaneUpdate.description, kubernetesControlPlaneUpdate.reason))
-		} else {
-			countFailedOperations++
-			description = fmt.Sprintf("%s, %s", description, fmt.Sprintf("Control Plane: Kubernetes version update failed. Reason for update: %s", kubernetesControlPlaneUpdate.reason))
-			failureReason = fmt.Sprintf("%s, Control Plane: Kubernetes maintenance failure due to: %s", failureReason, kubernetesControlPlaneUpdate.description)
-		}
-	}
-
-	for worker, result := range workerToKubernetesUpdate {
-		if result.isSuccessful {
-			countSuccessfulOperations++
-			description = fmt.Sprintf("%s, %s", description, fmt.Sprintf("Worker pool %q: %s. Reason: %s", worker, result.description, result.reason))
-			continue
-		}
-
-		countFailedOperations++
-		description = fmt.Sprintf("%s, %s", description, fmt.Sprintf("Worker pool %q: Kubernetes version maintenance failed. Reason for update: %s", worker, result.reason))
-		failureReason = fmt.Sprintf("%s, Worker pool %q: Kubernetes maintenance failure due to: %s", failureReason, worker, result.description)
-	}
-
-	for worker, result := range workerToMachineImageUpdate {
-		if result.isSuccessful {
-			countSuccessfulOperations++
-			description = fmt.Sprintf("%s, %s", description, fmt.Sprintf("Worker pool %q: %s. Reason: %s", worker, result.description, result.reason))
-			continue
-		}
-
-		countFailedOperations++
-		description = fmt.Sprintf("%s, %s", description, fmt.Sprintf("Worker pool %q: machine image version maintenance failed. Reason for update: %s", worker, result.reason))
-		failureReason = fmt.Sprintf("%s, Worker pool %q: %s", failureReason, worker, result.description)
-	}
-
-	description = strings.TrimPrefix(description, ", ")
-	failureReason = strings.TrimPrefix(failureReason, ", ")
-
-	if countFailedOperations == 0 {
-		return fmt.Sprintf("All maintenance operations successful. %s", description), failureReason
-	}
-
-	return fmt.Sprintf("(%d/%d) maintenance operations successful. %s", countSuccessfulOperations, countSuccessfulOperations+countFailedOperations, description), failureReason
-}
-
-// recordMaintenanceEventsForPool records dedicated events for each failed/succeeded maintenance operation per pool
-func (r *Reconciler) recordMaintenanceEventsForPool(workerToUpdateResult map[string]updateResult, shoot *gardencorev1beta1.Shoot, eventType string, maintenanceType string) {
-	for worker, reason := range workerToUpdateResult {
-		if reason.isSuccessful {
-			r.Recorder.Eventf(shoot, corev1.EventTypeNormal, eventType, "%s", fmt.Sprintf("Worker pool %q: %v. Reason: %s.",
-				worker, reason.description, reason.reason))
-			continue
-		}
-
-		r.Recorder.Eventf(shoot, corev1.EventTypeWarning, eventType, "%s", fmt.Sprintf("Worker pool %q: %s version maintenance failed. Reason for update: %s. Error: %v",
-			worker, maintenanceType, reason.reason, reason.description))
-	}
 }
 
 func maintainOperation(shoot *gardencorev1beta1.Shoot) string {

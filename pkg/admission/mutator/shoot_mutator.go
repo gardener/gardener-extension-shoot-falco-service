@@ -8,8 +8,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
+	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -112,7 +114,7 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	}
 
 	versions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
-	version, err := ChooseHighestVersion(versions, "supported")
+	version, err := chooseHighestVersion(*versions, "supported")
 	if err != nil {
 		return err
 	}
@@ -120,10 +122,15 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func sortVersionsWithClassification(versions *map[string]profile.Version, classification string) (pkgversion.Collection, error) {
+func sortVersionsWithClassification(versions map[string]profile.Version, classifications []string) (pkgversion.Collection, error) {
+	now := time.Now()
 	var sortedVersions pkgversion.Collection
-	for _, v := range *versions {
-		if v.Classification != classification {
+	for _, v := range versions {
+		if !slices.Contains(classifications, v.Classification) {
+			continue
+		}
+
+		if v.ExpirationDate != nil && v.ExpirationDate.Before(now) {
 			continue
 		}
 
@@ -138,18 +145,47 @@ func sortVersionsWithClassification(versions *map[string]profile.Version, classi
 	return sortedVersions, nil
 }
 
-func ChooseLowestVersionHigherThanCurrent(version *string, versions *map[string]profile.Version, classification string) (*string, error) {
-	sortedVersions, err := sortVersionsWithClassification(versions, classification)
+func chooseHighestVersionLowerThanCurrent(version string, versions map[string]profile.Version) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, []string{"supported", "deprecated"})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sortedVersions) == 0 {
+		return nil, fmt.Errorf("no non-expired version was found")
+	}
+
+	currentVersion, err := pkgversion.NewVersion(version)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse current version %s", version)
+	}
+
+	// if possible return higest version lower than current
+	incumbent := sortedVersions[0]
+	for _, lowest := range sortedVersions[1:] {
+		if lowest.GreaterThan(currentVersion) {
+			newVersionString := incumbent.String()
+			return &newVersionString, nil
+		}
+		incumbent = lowest
+	}
+
+	incumbentStr := incumbent.String()
+	return &incumbentStr, nil
+}
+
+func chooseLowestVersionHigherThanCurrent(version string, versions map[string]profile.Version, classifications []string) (*string, error) {
+	sortedVersions, err := sortVersionsWithClassification(versions, classifications)
 	if err != nil {
 		return nil, err
 	}
 	if len(sortedVersions) == 0 {
-		return nil, fmt.Errorf("no version with classification %s was found", classification)
+		return nil, fmt.Errorf("no version with classification %s was found", classifications)
 	}
 
-	currentVersion, err := pkgversion.NewVersion(*version)
+	currentVersion, err := pkgversion.NewVersion(version)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse current version %s", *version)
+		return nil, fmt.Errorf("could not parse current version %s", version)
 	}
 
 	// if possible return the lowest supported version greater than the current one
@@ -160,13 +196,12 @@ func ChooseLowestVersionHigherThanCurrent(version *string, versions *map[string]
 		}
 	}
 
-	// otherwise return the lowest supported version
-	lowest := sortedVersions[0].String()
-	return &lowest, nil
+	return nil, fmt.Errorf("no higher version than current version found")
 }
 
-func ChooseHighestVersion(versions *map[string]profile.Version, classification string) (*string, error) {
-	sortedVersions, err := sortVersionsWithClassification(versions, classification)
+func chooseHighestVersion(versions map[string]profile.Version, classification string) (*string, error) {
+
+	sortedVersions, err := sortVersionsWithClassification(versions, []string{classification})
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +211,25 @@ func ChooseHighestVersion(versions *map[string]profile.Version, classification s
 
 	highest := sortedVersions[len(sortedVersions)-1].String()
 	return &highest, nil
+}
+
+func GetAutoUpdateVersion(versions map[string]profile.Version) (*string, error) {
+	vers, err := chooseHighestVersion(versions, "supported")
+	return vers, err
+}
+
+func GetForceUpdateVersion(version string, versions map[string]profile.Version) (*string, error) {
+	vers, err := chooseLowestVersionHigherThanCurrent(version, versions, []string{"deprecated", "supported"})
+	if err == nil {
+		return vers, nil
+	}
+
+	// Last chance find any version that not expired
+	vers, err = chooseHighestVersionLowerThanCurrent(version, versions)
+	if err == nil {
+		return vers, nil
+	}
+	return nil, fmt.Errorf("no version was found to force update expired version %s", version)
 }
 
 func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
