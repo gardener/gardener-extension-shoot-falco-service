@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -143,7 +144,9 @@ func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, version
 
 	for _, ver := range *versions {
 		if *chosenVersion == ver.Version {
-			if ver.Classification == "deprecated" {
+			if ver.Classification == "deprecated" &&
+				ver.ExpirationDate != nil &&
+				ver.ExpirationDate.Before(time.Now()) {
 				return fmt.Errorf("chosen version is marked as deprecated")
 			}
 			return nil
