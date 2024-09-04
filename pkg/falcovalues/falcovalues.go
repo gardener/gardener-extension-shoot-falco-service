@@ -84,11 +84,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	}
 	customFields := serializeCustomHeaders(customFieldsMap)
 
-	customRules, err := c.getCustomRules(ctx, log, cluster, namespace, falcoServiceConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	falcoChartValues := map[string]interface{}{
 		"clusterId": *cluster.Shoot.Status.ClusterIdentity,
 		"tolerations": []map[string]string{
@@ -139,16 +134,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		"scc": map[string]bool{
 			"create": false,
 		},
-		"falcoctl": map[string]interface{}{
-			"artifact": map[string]interface{}{
-				"install": map[string]interface{}{
-					"enabled": false,
-				},
-				"follow": map[string]bool{
-					"enabled": false,
-				},
-			},
-		},
 		"falcosidekick": map[string]interface{}{
 			"enabled":  true,
 			"fullfqdn": true,
@@ -170,7 +155,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"customfields": customFields,
 			},
 		},
-		"customRules": customRules,
 	}
 
 	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled == nil || !*falcoServiceConfig.CustomWebhook.Enabled {
@@ -205,26 +189,70 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		config["webhook"] = webhook
 	}
 
-	if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
+	if *falcoServiceConfig.Resources == "gardener" {
+		// disable falcoctl
+		falcoctl := map[string]interface{}{
+			"artifact": map[string]interface{}{
+				"install": map[string]interface{}{
+					"enabled": false,
+				},
+				"follow": map[string]bool{
+					"enabled": false,
+				},
+			},
+		}
+		falcoChartValues["falcoctl"] = falcoctl
+
+		if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
+			r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
+			if err != nil {
+				return nil, err
+			}
+			falcoChartValues["falcoRules"] = r
+		}
+		if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
+			r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
+			if err != nil {
+				return nil, err
+			}
+			falcoChartValues["falcoIncubatingRules"] = r
+		}
+		if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
+			r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
+			if err != nil {
+				return nil, err
+			}
+			falcoChartValues["falcoSandboxRules"] = r
+		}
+
+		customRules, err := c.getCustomRules(ctx, log, cluster, namespace, falcoServiceConfig)
 		if err != nil {
 			return nil, err
 		}
-		falcoChartValues["falcoRules"] = r
-	}
-	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
+		falcoChartValues["customRules"] = customRules
+
+	} else if *falcoServiceConfig.Resources == "falcoctl" {
+
+		falcoCtlVersion, err := c.getDefaultFalcoctlVersion()
 		if err != nil {
 			return nil, err
 		}
-		falcoChartValues["falcoIncubatingRules"] = r
-	}
-	if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
+		falcoCtlImage, err := c.getImageForVersion("falcoctl", falcoCtlVersion)
 		if err != nil {
 			return nil, err
 		}
-		falcoChartValues["falcoSandboxRules"] = r
+		falcoctl := map[string]interface{}{
+			"image": falcoCtlImage,
+			"artifact": map[string]interface{}{
+				"install": map[string]interface{}{
+					"enabled": false,
+				},
+				"follow": map[string]bool{
+					"enabled": false,
+				},
+			},
+		}
+		falcoChartValues["falcoctl"] = falcoctl
 	}
 	return falcoChartValues, nil
 }
@@ -246,6 +274,22 @@ func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	}
 }
 
+func (c *ConfigBuilder) getDefaultFalcoctlVersion() (string, error) {
+	var latestVersion string = ""
+	for _, version := range *c.profile.GetFalcoctlVersions() {
+		if version.Classification == "supported" {
+			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
+				latestVersion = version.Version
+			}
+		}
+	}
+	if latestVersion != "" {
+		return latestVersion, nil
+	} else {
+		return "", fmt.Errorf("no supported Falcoctl version found")
+	}
+}
+
 func (c *ConfigBuilder) getImageForVersion(name string, version string) (string, error) {
 
 	isDigest := func(tag string) bool {
@@ -256,6 +300,8 @@ func (c *ConfigBuilder) getImageForVersion(name string, version string) (string,
 		image = c.profile.GetFalcoImage(version)
 	} else if name == "falcosidekick" {
 		image = c.profile.GetFalcosidekickImage(version)
+	} else if name == "falcoctl" {
+		image = c.profile.GetFalcoctlImage(version)
 	} else {
 		return "", fmt.Errorf("unknown image name %s", name)
 	}

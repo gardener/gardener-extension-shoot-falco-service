@@ -40,8 +40,10 @@ type FalcoProfileManager struct {
 	falcoProfiles         map[string]*v1alpha1.FalcoProfile
 	falcoImages           map[string]Image
 	falcosidekickImages   map[string]Image
+	falcoctlImages        map[string]Image
 	falcoVersions         map[string]Version
 	falcosidekickVersions map[string]Version
+	falcoctlVersions      map[string]Version
 	mutex                 sync.Mutex
 	logger                logr.Logger
 }
@@ -55,8 +57,10 @@ func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager 
 		falcoProfiles:         make(map[string]*v1alpha1.FalcoProfile),
 		falcoImages:           make(map[string]Image),
 		falcosidekickImages:   make(map[string]Image),
+		falcoctlImages:        make(map[string]Image),
 		falcoVersions:         make(map[string]Version),
 		falcosidekickVersions: make(map[string]Version),
+		falcoctlVersions:      make(map[string]Version),
 		mutex:                 sync.Mutex{},
 		logger:                lg,
 	}
@@ -132,6 +136,7 @@ func (p *FalcoProfileManager) rebuild() {
 	p.logger.Info("rebuilding FalcoProfile data structures")
 	clear(p.falcoImages)
 	clear(p.falcosidekickImages)
+	clear(p.falcoctlImages)
 	for _, profile := range p.falcoProfiles {
 		for _, q := range profile.Spec.Images.Falco {
 			im := Image{
@@ -166,6 +171,23 @@ func (p *FalcoProfileManager) rebuild() {
 				Version: q.Version,
 			}
 			p.falcosidekickVersions[q.Version] = v
+		}
+		for _, q := range profile.Spec.Images.Falcoctl {
+			im := Image{
+				Repository:   q.Repository,
+				Tag:          q.Tag,
+				Architectrue: q.Architecture,
+				Version:      q.Version,
+			}
+			p.falcoctlImages[q.Version] = im
+		}
+		for _, q := range profile.Spec.Versions.Falcoctl {
+			v := Version{
+				Classification: q.Classification,
+				//ExpirationDate: q.ExpirationDate,
+				Version: q.Version,
+			}
+			p.falcoctlVersions[q.Version] = v
 		}
 	}
 }
@@ -204,6 +226,16 @@ func (p *FalcoProfileManager) GetFalcosidekickVersions() *map[string]Version {
 	return &versionsCopy
 }
 
+func (p *FalcoProfileManager) GetFalcoctlVersions() *map[string]Version {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	versionsCopy := make(map[string]Version, len(p.falcoctlVersions))
+	for k, v := range p.falcoctlVersions {
+		versionsCopy[k] = v
+	}
+	return &versionsCopy
+}
+
 func (p *FalcoProfileManager) GetFalcoImage(version string) *Image {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -232,6 +264,22 @@ func (p *FalcoProfileManager) GetFalcosidekickImage(version string) *Image {
 		Architectrue: i.Architectrue,
 		Version:      i.Version,
 	}
+}
+
+func (p *FalcoProfileManager) GetFalcoctlImage(version string) *Image {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	i, ok := p.falcoctlImages[version]
+	if !ok {
+		return nil
+	}
+	return &Image{
+		Repository:   i.Repository,
+		Tag:          i.Tag,
+		Architectrue: i.Architectrue,
+		Version:      i.Version,
+	}
+
 }
 
 func decodeEvent(obj runtime.Object) (*v1alpha1.FalcoProfile, error) {

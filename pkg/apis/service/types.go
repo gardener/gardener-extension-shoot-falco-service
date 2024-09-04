@@ -39,8 +39,26 @@ type FalcoServiceConfig struct {
 }
 
 type FalcoCtl struct {
+	Indexes      []FalcoCtlIndex
+	AllowedTypes []string
 
-	// TODO
+	Install *Install
+	Follow  *Follow
+}
+
+type FalcoCtlIndex struct {
+	Name *string
+	Url  *string
+}
+
+type Follow struct {
+	Refs  []string
+	Every *string
+}
+
+type Install struct {
+	Refs        []string
+	ResolveDeps *bool
 }
 
 type Gardener struct {
