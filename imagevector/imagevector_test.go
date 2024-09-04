@@ -68,7 +68,13 @@ func TestForImageIntegrity(t *testing.T) {
 				break
 			}
 		}
-
+		for _, fv := range versions.FalcoCtlVersions.FalcoctlVersions {
+			if *image.Version == fv.Version && image.Name == "falcoctl" {
+				found = true
+				t.Log("Found falcoctl")
+				break
+			}
+		}
 		if !found {
 			t.Errorf("no version maintained for image %s version %s", image.Name, *image.Version)
 		}

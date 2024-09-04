@@ -23,37 +23,38 @@ type FalcoProfileList struct {
 }
 type Spec struct {
 	Versions Versions
-
-	Images Images
+	Images   Images
 }
 
 type Versions struct {
-	Falco []FalcoVersion
-
+	Falco         []FalcoVersion
 	Falcosidekick []FalcosidekickVersion
+	Falcoctl      []FalcoctlVersion
 }
 
 type Images struct {
 	Falco         []ImageSpec
 	Falcosidekick []ImageSpec
+	Falcoctl      []ImageSpec
 }
 
 type FalcoVersion struct {
 	Classification string
-
 	ExpirationDate *string
-
-	Version string
-
-	RulesVersion string
+	Version        string
+	RulesVersion   string
 }
 
 type FalcosidekickVersion struct {
 	Classification string
-
 	ExpirationDate *string
+	Version        string
+}
 
-	Version string
+type FalcoctlVersion struct {
+	Classification string
+	ExpirationDate *string
+	Version        string
 }
 
 type ImageSpec struct {
