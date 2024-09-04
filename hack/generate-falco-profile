@@ -7,27 +7,33 @@
 import sys
 import yaml
 
-# usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> 
+# usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> <falcoctl-versions>
 
-if len(sys.argv) != 4:
-    sys.stderr.write("usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions>\n")
+if len(sys.argv) != 5:
+    sys.stderr.write("usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> <falcoctl-versions>\n")
     sys.exit(1)
 
 with open(sys.argv[1]) as f:
     image_vector = yaml.safe_load(f)
     falco_image_vector_map = {}
     falcosidekick_image_vector_map = {}
+    falcoctl_image_vector_map = {}
     for im in image_vector["images"]:
         if im["name"] == "falco":
             falco_image_vector_map[im["version"]] = im
         if im["name"] == "falcosidekick":
             falcosidekick_image_vector_map[im["version"]] = im
+        if im["name"] == "falcoctl":
+            falcoctl_image_vector_map[im["version"]] = im
 
 with open(sys.argv[2]) as f:
     falco_versions = yaml.safe_load(f)
 
 with open(sys.argv[3]) as f:
     falcosidekick_versions = yaml.safe_load(f)
+
+with open(sys.argv[4]) as f:
+    falcoctl_versions = yaml.safe_load(f)
 
 # ---------------------------------------------------------------------------
 # validation
@@ -44,6 +50,12 @@ for fv in falcosidekick_versions["falcosidekickVersions"]:
     if not v in falcosidekick_image_vector_map:
         has_error = True
         sys.stderr.write(f"Falcosidekick version {v} configured but there is no image for it\n")
+
+for fc in falcoctl_versions["falcoctlVersions"]:
+    v = fc["version"]
+    if not v in falcoctl_image_vector_map:
+        has_error = True
+        sys.stderr.write(f"Falcoctl version {v} configured but there is no image for it\n")
 
 if has_error:
     sys.exit(1)
@@ -83,6 +95,7 @@ falco_profile = {
         "versions": {
             "falco": falco_versions["falcoVersions"],
             "falcosidekick": falcosidekick_versions["falcosidekickVersions"],
+            "falcoctl": falcoctl_versions["falcoctlVersions"],
         }
     }
 }

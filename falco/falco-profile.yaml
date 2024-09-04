@@ -41,6 +41,9 @@ spec:
     - classification: supported
       rulesVersion: 3.0.1
       version: 0.38.1
+    falcoctl:
+    - classification: supported
+      version: 0.9.1
     falcosidekick:
     - classification: supported
       version: 2.28.0
