@@ -9,11 +9,9 @@ type FalcoVersions struct {
 }
 
 type FalcoVersion struct {
-	Version string `json:"version"`
-
+	Version        string `json:"version"`
 	Classification string `json:"classification"`
-
-	RulesVersion string `json:"rulesVersion"`
+	RulesVersion   string `json:"rulesVersion"`
 }
 
 type FalcosidekickVersions struct {
@@ -21,7 +19,15 @@ type FalcosidekickVersions struct {
 }
 
 type FalcosidekickVersion struct {
-	Version string `json:"version"`
+	Version        string `json:"version"`
+	Classification string `json:"classification"`
+}
 
+type FalcoctlVersions struct {
+	FalcoctlVersions []FalcoctlVersion `json:"falcoctlVersions"`
+}
+
+type FalcoctlVersion struct {
+	Version        string `json:"version"`
 	Classification string `json:"classification"`
 }
