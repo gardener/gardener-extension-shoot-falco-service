@@ -136,6 +136,54 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcoctlVersion">FalcoctlVersion
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.Versions">Versions</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>classification</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>expirationDate</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcosidekickVersion">FalcosidekickVersion
 </h3>
 <p>
@@ -282,6 +330,18 @@ string
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>falcoctl</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.ImageSpec">
+[]ImageSpec
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Spec">Spec
@@ -360,6 +420,18 @@ Images
 <em>
 <a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcosidekickVersion">
 []FalcosidekickVersion
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>falcoctl</code></br>
+<em>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcoctlVersion">
+[]FalcoctlVersion
 </a>
 </em>
 </td>
