@@ -27,37 +27,38 @@ type FalcoProfileList struct {
 
 type Spec struct {
 	Versions Versions `json:"versions"`
-
-	Images Images `json:"images"`
+	Images   Images   `json:"images"`
 }
 
 type Versions struct {
-	Falco []FalcoVersion `json:"falco"`
-
+	Falco         []FalcoVersion         `json:"falco"`
 	Falcosidekick []FalcosidekickVersion `json:"falcosidekick"`
+	Falcoctl      []FalcoctlVersion      `json:"falcoctl"`
 }
 
 type Images struct {
 	Falco         []ImageSpec `json:"falco"`
 	Falcosidekick []ImageSpec `json:"falcosidekick"`
+	Falcoctl      []ImageSpec `json:"falcoctl"`
 }
 
 type FalcoVersion struct {
-	Classification string `json:"classification"`
-
+	Classification string  `json:"classification"`
 	ExpirationDate *string `json:"expirationDate,omitempty"`
-
-	Version string `json:"version"`
-
-	RulesVersion string `json:"rulesVersion"`
+	Version        string  `json:"version"`
+	RulesVersion   string  `json:"rulesVersion"`
 }
 
 type FalcosidekickVersion struct {
-	Classification string `json:"classification"`
-
+	Classification string  `json:"classification"`
 	ExpirationDate *string `json:"expirationDate,omitempty"`
+	Version        string  `json:"version"`
+}
 
-	Version string `json:"version"`
+type FalcoctlVersion struct {
+	Classification string  `json:"classification"`
+	ExpirationDate *string `json:"expirationDate,omitempty"`
+	Version        string  `json:"version"`
 }
 
 type ImageSpec struct {
