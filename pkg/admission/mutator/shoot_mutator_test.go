@@ -144,6 +144,8 @@ func TestSetFalcoVersion(t *testing.T) {
 		&map[string]profile.Image{},
 		&map[string]profile.Version{},
 		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
 	)
 
 	err := setFalcoVersion(falcoConf)
@@ -164,6 +166,8 @@ func TestSetFalcoVersion(t *testing.T) {
 	// Test no falco version
 	falcoConf.FalcoVersion = nil
 	profile.GetDummyFalcoProfileManager(
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
 		&map[string]profile.Version{},
 		&map[string]profile.Image{},
 		&map[string]profile.Version{},

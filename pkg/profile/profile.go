@@ -67,13 +67,15 @@ func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager 
 	return FalcoProfileManagerInstance
 }
 
-func GetDummyFalcoProfileManager(falcoVersions *map[string]Version, falcoImages *map[string]Image, falcosidekickVersions *map[string]Version, falcosidekickImages *map[string]Image) *FalcoProfileManager {
+func GetDummyFalcoProfileManager(falcoVersions *map[string]Version, falcoImages *map[string]Image, falcosidekickVersions *map[string]Version, falcosidekickImages *map[string]Image, falcoCtlVersions *map[string]Version, falcoCtlImages *map[string]Image) *FalcoProfileManager {
 	FalcoProfileManagerInstance = &FalcoProfileManager{
 		mutex:                 sync.Mutex{},
 		falcoVersions:         *falcoVersions,
 		falcoImages:           *falcoImages,
 		falcosidekickVersions: *falcosidekickVersions,
 		falcosidekickImages:   *falcosidekickImages,
+		falcoctlVersions:      *falcoCtlVersions,
+		falcoctlImages:        *falcoCtlImages,
 	}
 	return FalcoProfileManagerInstance
 }

@@ -30,9 +30,9 @@ import (
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/falcovalues"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/values"
 )
 
 // NewActuator returns an actuator responsible for Extension resources.
@@ -42,7 +42,7 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 	if err != nil {
 		return nil, err
 	}
-	configBuilder := falcovalues.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
+	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
 	return &actuator{
 		client:        mgr.GetClient(),
 		config:        mgr.GetConfig(),
@@ -58,7 +58,7 @@ type actuator struct {
 	config        *rest.Config
 	decoder       runtime.Decoder
 	serviceConfig config.Configuration
-	configBuilder *falcovalues.ConfigBuilder
+	configBuilder *values.ConfigBuilder
 	tokenIssuer   *secrets.TokenIssuer
 }
 

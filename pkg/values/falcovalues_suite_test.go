@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package falcovalues
+package values
 
 import (
 	"testing"
@@ -11,14 +11,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
 var tokenIssuerPrivateKey string
 var configBuilder *ConfigBuilder
 var logger logr.Logger
-var falcoVersions = falco.FalcoVersions()
 
 func TestFalcoValues(t *testing.T) {
 	RegisterFailHandler(Fail)

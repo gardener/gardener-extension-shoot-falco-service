@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package falcovalues
+package values
 
 import (
 	"context"
@@ -191,42 +191,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	}
 
 	if *falcoServiceConfig.Resources == "gardener" {
-		falcoChartValues["resources"] = "gardener"
-		// disable falcoctl
-		falcoctl := map[string]interface{}{
-			"artifact": map[string]interface{}{
-				"install": map[string]interface{}{
-					"enabled": false,
-				},
-				"follow": map[string]bool{
-					"enabled": false,
-				},
-			},
+		if err := c.generateGardenerValues(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+			return nil, err
 		}
-		falcoChartValues["falcoctl"] = falcoctl
-
-		if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
-			r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
-			if err != nil {
-				return nil, err
-			}
-			falcoChartValues["falcoRules"] = r
-		}
-		if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
-			r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
-			if err != nil {
-				return nil, err
-			}
-			falcoChartValues["falcoIncubatingRules"] = r
-		}
-		if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
-			r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
-			if err != nil {
-				return nil, err
-			}
-			falcoChartValues["falcoSandboxRules"] = r
-		}
-
 		customRules, err := c.getCustomRules(ctx, log, cluster, namespace, falcoServiceConfig)
 		if err != nil {
 			return nil, err
@@ -234,72 +201,8 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		falcoChartValues["customRules"] = customRules
 
 	} else if *falcoServiceConfig.Resources == "falcoctl" {
-		falcoChartValues["resources"] = "falcoctl"
-		var installEnabled bool = false
-		var followEnabled bool = false
-
-		fctlConfig := falcoServiceConfig.FalcoCtl
-		falcoCtlVersion, err := c.getDefaultFalcoctlVersion()
-		if err != nil {
+		if err := c.generateFalcoCtlValues(falcoChartValues, falcoServiceConfig); err != nil {
 			return nil, err
-		}
-		falcoCtlImage, err := c.getImageForVersion("falcoctl", falcoCtlVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		indexes := make([]map[string]string, len(fctlConfig.Indexes))
-		for i, r := range fctlConfig.Indexes {
-			idx := map[string]string{
-				"name": *r.Name,
-				"url":  *r.Url,
-			}
-			indexes[i] = idx
-		}
-
-		install := map[string]interface{}{}
-		if fctlConfig.Install != nil {
-			installEnabled = true
-			install["resolveDeps"] = *fctlConfig.Install.ResolveDeps
-			install["refs"] = fctlConfig.Install.Refs
-			install["resolveDeps"] = fctlConfig.Install.ResolveDeps
-		}
-		follow := map[string]interface{}{}
-		if fctlConfig.Follow != nil {
-			followEnabled = true
-			follow["refs"] = fctlConfig.Follow.Refs
-			follow["every"] = fctlConfig.Follow.Every
-		}
-		falcoctl := map[string]interface{}{
-			"image": map[string]interface{}{
-				"image": falcoCtlImage,
-			},
-			"config": map[string]interface{}{
-				"indexes": indexes,
-				"artifact": map[string]interface{}{
-					"allowedTypes": fctlConfig.AllowedTypes,
-				},
-				"install": install,
-				"follow":  follow,
-			},
-			"artifact": map[string]interface{}{
-				"install": map[string]interface{}{
-					"enabled": installEnabled,
-				},
-				"follow": map[string]bool{
-					"enabled": followEnabled,
-				},
-			},
-		}
-		falcoChartValues["falcoctl"] = falcoctl
-
-		// Gardener managed rules spedify very fine gained rules,
-		// falcoctl needs the starndard configuration
-		fconfig := falcoChartValues["falco"].(map[string]interface{})
-		fconfig["rules_files"] = []string{
-			"/etc/falco/falco_rules.yaml",
-			"/etc/falco/falco_rules.local.yaml",
-			"/etc/falco/rules.d",
 		}
 	}
 
@@ -310,6 +213,117 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	fmt.Println(string(strChart[:]))
 	//log.Info("falco chart values", "values", string(strChart[:]))
 	return falcoChartValues, nil
+}
+
+func (c *ConfigBuilder) generateGardenerValues(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+	falcoChartValues["configProvider"] = "gardener"
+	// disable falcoctl
+	falcoctl := map[string]interface{}{
+		"artifact": map[string]interface{}{
+			"install": map[string]interface{}{
+				"enabled": false,
+			},
+			"follow": map[string]bool{
+				"enabled": false,
+			},
+		},
+	}
+	falcoChartValues["falcoctl"] = falcoctl
+
+	if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
+		if err != nil {
+			return err
+		}
+		falcoChartValues["falcoRules"] = r
+	}
+	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
+		if err != nil {
+			return err
+		}
+		falcoChartValues["falcoIncubatingRules"] = r
+	}
+	if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
+		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
+		if err != nil {
+			return err
+		}
+		falcoChartValues["falcoSandboxRules"] = r
+	}
+	return nil
+}
+
+func (c *ConfigBuilder) generateFalcoCtlValues(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
+
+	falcoChartValues["configProvider"] = "falcoctl"
+	var installEnabled bool = false
+	var followEnabled bool = false
+
+	fctlConfig := falcoServiceConfig.FalcoCtl
+	falcoCtlVersion, err := c.getDefaultFalcoctlVersion()
+	if err != nil {
+		return err
+	}
+	falcoCtlImage, err := c.getImageForVersion("falcoctl", falcoCtlVersion)
+	if err != nil {
+		return err
+	}
+
+	indexes := make([]map[string]string, len(fctlConfig.Indexes))
+	for i, r := range fctlConfig.Indexes {
+		idx := map[string]string{
+			"name": *r.Name,
+			"url":  *r.Url,
+		}
+		indexes[i] = idx
+	}
+
+	install := map[string]interface{}{}
+	if fctlConfig.Install != nil {
+		installEnabled = true
+		install["resolveDeps"] = *fctlConfig.Install.ResolveDeps
+		install["refs"] = fctlConfig.Install.Refs
+		install["resolveDeps"] = fctlConfig.Install.ResolveDeps
+	}
+	follow := map[string]interface{}{}
+	if fctlConfig.Follow != nil {
+		followEnabled = true
+		follow["refs"] = fctlConfig.Follow.Refs
+		follow["every"] = fctlConfig.Follow.Every
+	}
+	falcoctl := map[string]interface{}{
+		"image": map[string]interface{}{
+			"image": falcoCtlImage,
+		},
+		"config": map[string]interface{}{
+			"indexes": indexes,
+			"artifact": map[string]interface{}{
+				"allowedTypes": fctlConfig.AllowedTypes,
+			},
+			"install": install,
+			"follow":  follow,
+		},
+		"artifact": map[string]interface{}{
+			"install": map[string]interface{}{
+				"enabled": installEnabled,
+			},
+			"follow": map[string]bool{
+				"enabled": followEnabled,
+			},
+		},
+	}
+	falcoChartValues["falcoctl"] = falcoctl
+
+	// Gardener managed rules spedify very fine gained rules,
+	// falcoctl needs the starndard configuration
+	fconfig := falcoChartValues["falco"].(map[string]interface{})
+	fconfig["rules_files"] = []string{
+		"/etc/falco/falco_rules.yaml",
+		"/etc/falco/falco_rules.local.yaml",
+		"/etc/falco/rules.d",
+	}
+	return nil
 }
 
 // get the latest Falcosidekick version tagged as "supported"
