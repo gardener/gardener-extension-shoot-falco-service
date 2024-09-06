@@ -174,7 +174,7 @@ Set appropriate falco rule configuration if rules are managed by the Gardener ex
       {{- $rulesFile := printf "%s%s" "/etc/falco/rules.d/" $customRule.filename }}
       {{- $rulesFileList = append $rulesFileList $rulesFile }}
     {{- end }}
-    {{- $_ := set .Values.falco "rules_file" $rulesFileList }}
+    {{- $_ := set .Values.falco "rules_files" $rulesFileList }}
 {{- end -}}
 
 {{/*
@@ -312,7 +312,11 @@ be temporary and will stay here until we move this logic to the falcoctl tool.
 
 {{- define "falcoctl.sidecar" -}}
 - name: falcoctl-artifact-follow
+  {{- if ne .Values.falcoctl.image.image "" }}
+  image: {{ .Values.falcoctl.image.image }}
+  {{- else }}
   image: {{ include "falcoctl.image" . }}
+  {{- end }}
   imagePullPolicy: {{ .Values.falcoctl.image.pullPolicy }}
   args:
     - artifact

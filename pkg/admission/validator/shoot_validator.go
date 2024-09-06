@@ -49,6 +49,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 	}
 
 	falcoConf, err := s.extractFalcoConfig(shoot)
+	// falcoConf, err := utils.ExtractFalcoServiceConfig(shoot)
 	if err != nil {
 		return err
 	}

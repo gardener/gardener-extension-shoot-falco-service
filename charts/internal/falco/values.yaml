@@ -360,6 +360,9 @@ falcoctl:
     repository: falcosecurity/falcoctl
     # -- The image tag to pull.
     tag: "0.6.2"
+    # Gardener deployment is based on sha256 references
+    image: ""
+
   artifact:
     # -- Runs "falcoctl artifact install" command as an init container. It is used to install artfacts before
     # Falco starts. It provides them to Falco by using an emptyDir volume.
@@ -468,7 +471,7 @@ falco:
   # desired customizations and rule behaviors are prioritized and applied as
   # intended.
   # -- The location of the rules files that will be consumed by Falco.
-  rules_file: {}
+  rules_files: {}
 
   # [Experimental] `rule_matching`
   #
