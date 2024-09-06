@@ -4,6 +4,9 @@ metadata:
   labels:
     networking.gardener.cloud/to-dns: allowed
     networking.gardener.cloud/to-falcosidekick: allowed
+    {{- if or .Values.falcoctl.artifact.install.enabled .Values.falcoctl.artifact.follow.enabled }}
+    networking.gardener.cloud/to-public-networks: allowed
+    {{- end }}
     {{- include "falco.selectorLabels" . | nindent 4 }}
     {{- with .Values.podLabels }}
       {{- toYaml . | nindent 4 }}

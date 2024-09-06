@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	yaml "sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
@@ -190,6 +191,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	}
 
 	if *falcoServiceConfig.Resources == "gardener" {
+		falcoChartValues["resources"] = "gardener"
 		// disable falcoctl
 		falcoctl := map[string]interface{}{
 			"artifact": map[string]interface{}{
@@ -232,7 +234,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		falcoChartValues["customRules"] = customRules
 
 	} else if *falcoServiceConfig.Resources == "falcoctl" {
+		falcoChartValues["resources"] = "falcoctl"
+		var installEnabled bool = false
+		var followEnabled bool = false
 
+		fctlConfig := falcoServiceConfig.FalcoCtl
 		falcoCtlVersion, err := c.getDefaultFalcoctlVersion()
 		if err != nil {
 			return nil, err
@@ -241,19 +247,68 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		if err != nil {
 			return nil, err
 		}
+
+		indexes := make([]map[string]string, len(fctlConfig.Indexes))
+		for i, r := range fctlConfig.Indexes {
+			idx := map[string]string{
+				"name": *r.Name,
+				"url":  *r.Url,
+			}
+			indexes[i] = idx
+		}
+
+		install := map[string]interface{}{}
+		if fctlConfig.Install != nil {
+			installEnabled = true
+			install["resolveDeps"] = *fctlConfig.Install.ResolveDeps
+			install["refs"] = fctlConfig.Install.Refs
+			install["resolveDeps"] = fctlConfig.Install.ResolveDeps
+		}
+		follow := map[string]interface{}{}
+		if fctlConfig.Follow != nil {
+			followEnabled = true
+			follow["refs"] = fctlConfig.Follow.Refs
+			follow["every"] = fctlConfig.Follow.Every
+		}
 		falcoctl := map[string]interface{}{
-			"image": falcoCtlImage,
+			"image": map[string]interface{}{
+				"image": falcoCtlImage,
+			},
+			"config": map[string]interface{}{
+				"indexes": indexes,
+				"artifact": map[string]interface{}{
+					"allowedTypes": fctlConfig.AllowedTypes,
+				},
+				"install": install,
+				"follow":  follow,
+			},
 			"artifact": map[string]interface{}{
 				"install": map[string]interface{}{
-					"enabled": false,
+					"enabled": installEnabled,
 				},
 				"follow": map[string]bool{
-					"enabled": false,
+					"enabled": followEnabled,
 				},
 			},
 		}
 		falcoChartValues["falcoctl"] = falcoctl
+
+		// Gardener managed rules spedify very fine gained rules,
+		// falcoctl needs the starndard configuration
+		fconfig := falcoChartValues["falco"].(map[string]interface{})
+		fconfig["rules_files"] = []string{
+			"/etc/falco/falco_rules.yaml",
+			"/etc/falco/falco_rules.local.yaml",
+			"/etc/falco/rules.d",
+		}
 	}
+
+	strChart, err := yaml.Marshal(falcoChartValues)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(strChart[:]))
+	//log.Info("falco chart values", "values", string(strChart[:]))
 	return falcoChartValues, nil
 }
 
@@ -274,6 +329,7 @@ func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	}
 }
 
+// get the latest falcoctl version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcoctlVersion() (string, error) {
 	var latestVersion string = ""
 	for _, version := range *c.profile.GetFalcoctlVersions() {

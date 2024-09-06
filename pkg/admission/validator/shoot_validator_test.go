@@ -10,10 +10,60 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
 	"github.com/gardener/gardener/pkg/apis/core"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+)
+
+var (
+	ext string = `
+		{
+			"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+			"autoUpdate": false,
+			"falcoVersion": "0.38.1",
+			"falcoCtl": {
+				"indexes": [
+					{
+						"name": "default",
+						"url": "https://example.com"
+					}
+				],
+				"allowedTypes": [
+					"plugins",
+					"rules"
+				],
+				"install": {
+					"refs": [
+						"a",
+						"b"
+					],
+					"resolveDeps": true
+				},
+				"follow": {
+					"refs": [
+						"c"
+					],
+					"every": "1h"
+				}
+			},
+    	    "kind": "FalcoServiceConfig",
+        	"resources": "falcoctl"
+		}
+    `
+
+	providerConfigFalcoctl *extensionsv1alpha1.Extension = &extensionsv1alpha1.Extension{
+		Spec: extensionsv1alpha1.ExtensionSpec{
+			DefaultSpec: extensionsv1alpha1.DefaultSpec{
+				ProviderConfig: &runtime.RawExtension{
+					Raw: []byte(ext),
+				},
+			},
+		},
+	}
 )
 
 func getDeprecatedAndSupportedVersions(falcoVersions *map[string]profile.Version) (*string, *string, error) {
@@ -219,5 +269,12 @@ func TestVerifyGardenerSet(t *testing.T) {
 	gardenerVal.UseFalcoRules, gardenerVal.UseFalcoIncubatingRules, gardenerVal.UseFalcoSandboxRules = &commonRulesBool, &commonRulesBool, &commonRulesBool
 	if err := verifyGardenerSet(conf); err != nil {
 		t.Fatalf("Gardener rules are not nil but detected as such")
+	}
+}
+
+func TestVerifyFalcoCtlConfig(t *testing.T) {
+	_, err := utils.ExtractFalcoServiceConfig(providerConfigFalcoctl)
+	if err != nil {
+		t.Fatalf("FalcoServiceConfig could not be extracted %v", err)
 	}
 }
