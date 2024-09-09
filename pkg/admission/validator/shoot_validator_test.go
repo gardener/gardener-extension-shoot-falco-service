@@ -161,6 +161,8 @@ func TestVerifyFalcoVersion(t *testing.T) {
 		&map[string]profile.Image{},
 		&map[string]profile.Version{},
 		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
 	)
 
 	conf := &service.FalcoServiceConfig{}

@@ -1,7 +1,7 @@
 ---
 title: Falco Extension - an extension to deploy and manage Falco in shoot clusters
 gep-number: 27
-creation-date: 2024-05-23
+creation-date: 2024-13-09
 status: implementable
 authors:
 - "@marwinski"
@@ -130,7 +130,25 @@ to the `extensions` section of their shoot manifest:
         - rules1
       falcoctl:
         # Falcoctl configuration as defined in 
-        # https://github.com/falcosecurity/charts/blob/master/charts/falco/values.yaml#L366
+        indexes:
+        - name: ...
+          url: ...
+        # allowed values are "plugins" and "rulesfile"
+        allowdTypes:
+        - plugins
+        - rulesfile
+        # optional, install rules and/or plugins during falco pod startup
+        install:
+          resolveDeps: reue|false
+          refs:
+          # list of artifacts to be installed
+          - falco-rules:3
+        follow:
+          # list of artifacts to be updated
+          refs:
+          - falco-rules:3
+          # how often to check for updates
+          every: 6h
       # publish Falco events to other event store (optional)
       customWebhook:
         enabled: true|false
@@ -254,13 +272,40 @@ extensions to the rule set to remediate false positives if necessary.
 deployed if selected and there will be no exceptions by Gardener for 
 false positve events.
 
+The `falco_rules.yaml` rules have been extended to raise no false positive
+events in an empty Kubernetes cluster managed by Gardener.
+
 #### Falcoctl
 
 Users with many clusters requested support for falcoctl [9]. There is 
 extra effort for configuration as an external repository for rules files
 and plug-ins is required for the benefit of controlling rules and 
-plugins centrally. We plan to pass the falcoctl configuration and disable 
-all Gardener managed rules for this use case.
+plugins centrally. This is a sample configuration:
+
+```
+    - providerConfig:
+      type: shoot-falco-service
+        apiVersion: falco.extensions.gardener.cloud/v1alpha1
+        autoUpdate: false
+        falcoCtl:
+          allowedTypes:
+          - rulesfile
+          indexes:
+          - name: falcosecurity
+            url: https://falcosecurity.github.io/falcoctl/index.yaml
+          install:
+            refs:
+            - falco-rules3.1
+            - flaco-incubating-rules:4
+            resolveDeps: true
+        falcoVersion: 0.38.1
+        kind: FalcoServiceConfig
+        resources: falcoctl
+        webhook:
+          enabled: false
+```
+
+If falcoctl is used Gardener will not mange any rules.
 
 #### Falco Event Ingestor
 

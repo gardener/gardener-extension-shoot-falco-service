@@ -41,7 +41,26 @@ type FalcoServiceConfig struct {
 }
 
 type FalcoCtl struct {
-	// TODO
+	Indexes      []FalcoCtlIndex `json:"indexes"`
+	AllowedTypes []string        `json:"allowedTypes"`
+
+	Install *Install `json:"install,omitempty"`
+	Follow  *Follow  `json:"follow,omitempty"`
+}
+
+type FalcoCtlIndex struct {
+	Name *string `json:"name"`
+	Url  *string `json:"url"`
+}
+
+type Follow struct {
+	Refs  []string `json:"refs"`
+	Every *string  `json:"every"`
+}
+
+type Install struct {
+	Refs        []string `json:"refs"`
+	ResolveDeps *bool    `json:"resolveDeps"`
 }
 
 type Gardener struct {
