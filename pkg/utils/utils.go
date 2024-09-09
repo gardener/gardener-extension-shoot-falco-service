@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
-
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
 )
 
 var (

@@ -7,9 +7,8 @@ package utils
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var (
