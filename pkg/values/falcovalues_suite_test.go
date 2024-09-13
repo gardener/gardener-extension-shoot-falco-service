@@ -20,7 +20,7 @@ var logger logr.Logger
 
 func TestFalcoValues(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Fakcovalues chart generation test suite")
+	RunSpecs(t, "Falcovalues chart generation test suite")
 }
 
 var _ = BeforeSuite(func() {
