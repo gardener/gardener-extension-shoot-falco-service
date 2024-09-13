@@ -160,6 +160,12 @@ var (
 			CustomRules: []string{"rules1", "rules2"},
 		},
 	}
+	falcoServiceConfigWrongCustomRules = &apisservice.FalcoServiceConfig{
+		Resources: &resources,
+		Gardener: &apisservice.Gardener{
+			CustomRules: []string{"rules1", "rules_wrong"},
+		},
+	}
 	falcoServiceConfigCustomWebhook = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    &resources,
@@ -443,6 +449,43 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(resolveDeps).To(BeTrue())
 	})
 
+})
+
+var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
+
+	BeforeEach(func() {
+		fakeclient := crfake.NewFakeClient(rulesConfigMap)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+		Expect(err).To(BeNil())
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+	})
+
+	It("can not load custom rules from empty namespace", func(ctx SpecContext) {
+		Expect(configBuilder.getCustomRules(context.TODO(), logger, shootSpec, "", falcoServiceConfig)).Error().ToNot(BeNil())
+	})
+
+	It("can not load faulty custom rules references", func(ctx SpecContext) {
+		Expect(configBuilder.getCustomRules(context.TODO(), logger, shootSpec, "", falcoServiceConfigWrongCustomRules)).Error().ToNot(BeNil())
+	})
+})
+
+var _ = Describe("Getter for Falco rules", Label("falcovalues"), func() {
+
+	BeforeEach(func() {
+		fakeclient := crfake.NewFakeClient(rulesConfigMap)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+		Expect(err).To(BeNil())
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+	})
+
+	It("can identify falco version and rules mismatches", func(ctx SpecContext) {
+		Expect(configBuilder.getFalcoRulesFile(constants.FalcoRules, "999.999.999")).Error().ToNot(BeNil())
+	})
+
+	It("can identify falco a wrong rules file", func(ctx SpecContext) {
+		Expect(configBuilder.getFalcoRulesFile("false_rules_file.yaml", "0.38.0")).Error().ToNot(BeNil())
+	})
 })
 
 func getManifest(release *chartrenderer.RenderedChart, name string) *releaseutil.Manifest {
