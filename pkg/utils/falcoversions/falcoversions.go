@@ -46,6 +46,24 @@ func ValidateFalcosidekickVersionsVector(versions *FalcosidekickVersions) field.
 	return field.ErrorList{}
 }
 
+func ReadFalcoctlVersions(buf []byte) (*FalcoctlVersions, error) {
+	vector := FalcoctlVersions{}
+
+	if err := yaml.Unmarshal(buf, &vector); err != nil {
+		return nil, err
+	}
+
+	if errs := ValidateFalcoctlVersionsVector(&vector); len(errs) > 0 {
+		return nil, errs.ToAggregate()
+	}
+
+	return &vector, nil
+}
+
+func ValidateFalcoctlVersionsVector(versions *FalcoctlVersions) field.ErrorList {
+	return field.ErrorList{}
+}
+
 func GetImageForVersion(images im.ImageVector, image string, version string) *im.ImageSource {
 
 	for _, is := range images {

@@ -8,5 +8,7 @@ metadata:
 data:
   falco.yaml: |-
     {{- include "falco.falcosidekickConfig" . }}
+    {{- if eq .Values.configProvider "gardener" }}
     {{- include "falco.gardenerManagedRules" . }}
+    {{- end }}
     {{- toYaml .Values.falco | nindent 4 }}

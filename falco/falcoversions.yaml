@@ -12,3 +12,6 @@
   - version: 0.38.1
     classification: supported
     rulesVersion: 3.0.1
+  - version: 0.38.2
+    classification: supported
+    rulesVersion: 3.0.1
