@@ -193,7 +193,7 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duratio
 func DecodePrivateKey(key []byte) (*rsa.PrivateKey, error) {
 	var block *pem.Block
 	block, _ = pem.Decode(key)
-	if block.Type != "RSA PRIVATE KEY" {
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
 		return nil, fmt.Errorf("failed to decode server ca key")
 	}
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
