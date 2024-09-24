@@ -57,10 +57,9 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 
 	allErrs := []error{}
 
-	// TODO enable again when testing is done
-	// if err := verifyFalcoVersion(falcoConf); err != nil {
-	// 	allErrs = append(allErrs, err)
-	// }
+	if err := verifyFalcoVersion(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	if err := verifyResources(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
