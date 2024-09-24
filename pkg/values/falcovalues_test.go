@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -448,7 +449,31 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		resolveDeps := install["resolveDeps"].(bool)
 		Expect(resolveDeps).To(BeTrue())
 	})
+})
 
+var _ = Describe("Storing falco cas", Label("falcovalues"), func() {
+
+	BeforeEach(func() {
+		fakeclient := crfake.NewFakeClient(rulesConfigMap)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+		Expect(err).To(BeNil())
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+		dummySecret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.FalcoCertificatesSecretName,
+				Namespace: "dummyNamespace",
+			},
+		}
+		ctx := context.TODO()
+		configBuilder.client.Create(ctx, &dummySecret)
+		cas, _ := secrets.GenerateFalcoCas("name", time.Hour)
+		certs, _ := secrets.GenerateKeysAndCerts(cas, "dummyNamespace", time.Hour)
+	})
+
+	It("errors when loading existing secret with empty certificate", func(ctx SpecContext) {
+		Expect(configBuilder.storeFalcoCas(ctx, "dummyNamespace", &cas, &certs).Error())
+	})
 })
 
 var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
