@@ -54,6 +54,13 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		return err
 	}
 
+	alphaUsage := true
+	if alphaUsage {
+		if ok := verifyProjectEligibility(shoot.Namespace); !ok {
+			return fmt.Errorf("project is not eligible for Falco extension")
+		}
+	}
+
 	allErrs := []error{}
 
 	// TODO enable again when testing is done
@@ -186,4 +193,17 @@ func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConf
 		return falcoConfig, nil
 	}
 	return nil, fmt.Errorf("no FalcoConfig found in extensions")
+}
+
+func verifyProjectEligibility(namespace string) bool {
+	for _, project := range ProjectsInstance.projects {
+		if project.Spec.Namespace != nil && namespace == *project.Spec.Namespace {
+			for annotationKey, annotationVal := range project.Annotations {
+				if annotationKey == "extensions.extensions.gardener.cloud/shoot-falco-service" && annotationVal == "true" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
