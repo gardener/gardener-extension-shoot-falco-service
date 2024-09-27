@@ -55,8 +55,3 @@ const (
 var (
 	AlwaysEnabledProjects = [...]string{"garden"}
 )
-
-
-
-
-
