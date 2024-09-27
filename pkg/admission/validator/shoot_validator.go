@@ -10,7 +10,8 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-
+	"time"
+  
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,10 +66,9 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 
 	allErrs := []error{}
 
-	// TODO enable again when testing is done
-	// if err := verifyFalcoVersion(falcoConf); err != nil {
-	// 	allErrs = append(allErrs, err)
-	// }
+	if err := verifyFalcoVersion(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	if err := verifyResources(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
@@ -153,7 +153,9 @@ func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, version
 
 	for _, ver := range *versions {
 		if *chosenVersion == ver.Version {
-			if ver.Classification == "deprecated" {
+			if ver.Classification == "deprecated" &&
+				ver.ExpirationDate != nil &&
+				ver.ExpirationDate.Before(time.Now()) {
 				return fmt.Errorf("chosen version is marked as deprecated")
 			}
 			return nil
