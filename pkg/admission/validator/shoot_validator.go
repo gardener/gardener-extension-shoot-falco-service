@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -54,7 +56,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		return err
 	}
 
-	alphaUsage := true
+	alphaUsage := false
 	if alphaUsage {
 		if ok := verifyProjectEligibility(shoot.Namespace); !ok {
 			return fmt.Errorf("project is not eligible for Falco extension")
@@ -196,14 +198,24 @@ func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConf
 }
 
 func verifyProjectEligibility(namespace string) bool {
-	for _, project := range ProjectsInstance.projects {
-		if project.Spec.Namespace != nil && namespace == *project.Spec.Namespace {
-			for annotationKey, annotationVal := range project.Annotations {
-				if annotationKey == "extensions.extensions.gardener.cloud/shoot-falco-service" && annotationVal == "true" {
-					return true
-				}
-			}
-		}
+	project, ok := ProjectsInstance.projects[namespace]
+	if !ok {
+		return false
 	}
-	return false
+
+	always := slices.Contains(constants.AlwaysEnabledProjects[:], project.Name)
+	if always {
+		return true
+	}
+
+	val, ok := project.Annotations[constants.ProjectEnableAnnotation]
+	if !ok {
+		return false
+	}
+
+	enabled, err := strconv.ParseBool(val)
+	if err != nil {
+		return false
+	}
+	return enabled
 }

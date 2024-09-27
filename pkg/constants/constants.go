@@ -48,4 +48,15 @@ const (
 	FalcoRules           = "falco_rules.yaml"
 	FalcoIncubatingRules = "falco-incubating_rules.yaml"
 	FalcoSandboxRules    = "falco-sandbox_rules.yaml"
+
+	ProjectEnableAnnotation = "falco.gardener.cloud/enabled"
 )
+
+var (
+	AlwaysEnabledProjects = [...]string{"garden"}
+)
+
+
+
+
+

@@ -73,34 +73,34 @@ func (p *Projects) watch() error {
 			if err != nil {
 				p.logger.Error(err, "error decoding project event")
 			} else {
-				p.deleteEvent(fe.ObjectMeta.Name)
+				p.deleteEvent(*fe.Spec.Namespace)
 			}
 		}
 	}
 	return nil
 }
 
-func (p *Projects) GetProject(name string) *v1beta1.Project {
+func (p *Projects) GetProject(namespace string) *v1beta1.Project {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	project := p.projects[name]
+	project := p.projects[namespace]
 	if project == nil {
 		return nil
 	}
 	return project.DeepCopy()
 }
 
-func (p *Projects) deleteEvent(name string) {
+func (p *Projects) deleteEvent(namespace string) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	delete(p.projects, name)
-	p.logger.Info("project deleted", "name", name)
+	delete(p.projects, namespace)
+	p.logger.Info("project deleted", "namespace", namespace)
 }
 
 func (p *Projects) updateEvent(fe *v1beta1.Project) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.projects[fe.Name] = fe
+	p.projects[*fe.Spec.Namespace] = fe
 	p.logger.Info("project updated", "name", fe.Name)
 }
 
