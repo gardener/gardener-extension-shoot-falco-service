@@ -19,11 +19,11 @@ const (
 	ValidatorPath = "/webhooks/validate"
 )
 
-var logger = log.Log.WithName("shoot-falco-service-validator-webhook")
+var loggerInstance = log.Log.WithName("shoot-falco-service-validator-webhook")
 
 // New creates a new webhook that validates Shoot resources.
 func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
-	logger.Info("Setting up webhook", "name", ValidatorName)
+	loggerInstance.Info("Setting up webhook", "name", ValidatorName)
 
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
 		Provider: "shoot-falco-service",

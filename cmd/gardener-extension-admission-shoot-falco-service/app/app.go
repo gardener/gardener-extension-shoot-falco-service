@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	admissioncmd "github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/cmd"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/validator"
 	profileiinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/install"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/maintenance"
@@ -150,6 +151,14 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 					return err
 				}
 			}
+
+			dynamicClientProjects, err := dynamic.NewForConfig(mgr.GetConfig())
+			if err != nil {
+				return err
+			}
+
+			validator.NewProjects(dynamicClientProjects)
+			go validator.ProjectsInstance.StartProjectWatch()
 
 			dynamicClient, err := dynamic.NewForConfig(mgr.GetConfig())
 			if err != nil {
