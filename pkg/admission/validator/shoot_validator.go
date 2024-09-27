@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"time"
-  
+
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/runtime"
