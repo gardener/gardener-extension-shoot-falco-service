@@ -53,10 +53,16 @@ spec:
         {{- end }}
         - --health-bind-address=:{{ .Values.global.healthPort }}
         - --leader-election-id={{ include "leaderelectionid" . }}
-        {{- if .Values.global.virtualGarden.enabled }}
+        {{- if or .Values.global.virtualGarden.enabled .Values.global.restrictedUsage }}
         env:
+        {{- if .Values.global.virtualGarden.enabled }}
         - name: SOURCE_CLUSTER
           value: enabled
+        {{- end }}
+        {{- if .Values.global.restrictedUsage }}
+        - name: RESTICTED_USAGE
+          value: true
+        {{- end }}
         {{- end }}
         ports:
         - name: webhook-server
