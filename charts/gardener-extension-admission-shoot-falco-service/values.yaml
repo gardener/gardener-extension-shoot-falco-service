@@ -1,4 +1,5 @@
 global:
+  restrictedUsage: false
   virtualGarden:
     enabled: false
     user:

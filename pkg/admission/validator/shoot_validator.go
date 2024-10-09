@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strconv"
 	"time"
@@ -57,8 +58,8 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		return err
 	}
 
-	alphaUsage := false
-	if alphaUsage {
+	alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
+	if err == nil && alphaUsage {
 		if ok := verifyProjectEligibility(shoot.Namespace); !ok {
 			return fmt.Errorf("project is not eligible for Falco extension")
 		}
