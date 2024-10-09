@@ -23,6 +23,7 @@ global:
   # Kubeconfig to the target cluster. In-cluster configuration will be used if not specified.
   kubeconfig: ""
   extensionPriorityClassName: gardener-system-900
+  admissionPriorityClassName: gardener-garden-system-500
 
   serviceAccountTokenVolumeProjection:
     enabled: false
