@@ -144,6 +144,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"image": map[string]string{
 				"image": falcosidekickImage,
 			},
+			"priorityClassName": *c.config.Falco.PriorityClassName,
 			"config": map[string]interface{}{
 				"debug": true,
 				"tlsserver": map[string]interface{}{
