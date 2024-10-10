@@ -7,7 +7,6 @@ global:
     repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/admission-shoot-falco-service
     tag: latest
     pullPolicy: IfNotPresent
-  priorityClassName: gardener-shoot-system-800
   replicaCount: 1
   resources: {}
   healthPort: 8081
@@ -22,7 +21,6 @@ global:
     serverPort: 10250
   # Kubeconfig to the target cluster. In-cluster configuration will be used if not specified.
   kubeconfig: ""
-  extensionPriorityClassName: gardener-system-900
   admissionPriorityClassName: gardener-garden-system-500
 
   serviceAccountTokenVolumeProjection:
