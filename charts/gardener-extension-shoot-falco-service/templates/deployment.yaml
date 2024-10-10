@@ -58,7 +58,7 @@ spec:
                 - {{ .Release.Name }}
             topologyKey: "kubernetes.io/hostname"
       {{- end }}
-      priorityClassName: {{ .Values.falco.extensionPriorityClassName }}
+      priorityClassName: {{ .Values.extensionPriorityClassName }}
       serviceAccountName: gardener-extension-{{ .Values.serviceName }}
       containers:
       - name: gardener-extension-{{ .Values.serviceName }}

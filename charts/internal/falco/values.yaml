@@ -1502,7 +1502,7 @@ falcosidekick:
   create: false
 
   # -- Name of the priority class to be used by the Sidekickpods, priority class needs to be created beforehand
-  priorityClassName: ""
+  priorityClassName: gardener-shoot-system-900
 
   # -- additions labels on the pods
   podLabels: {}
