@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -16,6 +17,7 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardenerhealthz "github.com/gardener/gardener/pkg/healthz"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -42,10 +44,34 @@ const AdmissionName = "admission-shoot-falco-service"
 
 var log = runtimelog.Log.WithName("gardener-extension-admission-shoot-falco-service")
 
+type RestrictedUsage struct {
+	RestrictedUsage bool
+	config *RestrictedUsageConfig
+}
+
+type RestrictedUsageConfig struct {
+	RestrictedUsage bool
+}
+
+func (r *RestrictedUsage) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&r.RestrictedUsage, "restricted-usage", false, "Restriction of the falco extension for enabled projects.")
+}
+
+func (r *RestrictedUsage) Complete() error {
+	r.config = &RestrictedUsageConfig{RestrictedUsage: r.RestrictedUsage}
+	return nil
+}
+
+// Completed returns the completed RESTConfig. Only call this if `Complete` was successful.
+func (r *RestrictedUsage) Completed() *RestrictedUsageConfig {
+	return r.config
+}
+
 // NewAdmissionCommand creates a new command for running an admission webhook.
 func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 	var (
 		restOpts = &controllercmd.RESTOptions{}
+		restrictedUsageOpts = &RestrictedUsage{}
 		mgrOpts  = &controllercmd.ManagerOptions{
 			LeaderElection:          true,
 			LeaderElectionID:        controllercmd.LeaderElectionNameID(AdmissionName),
@@ -69,6 +95,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 		aggOption = controllercmd.NewOptionAggregator(
 			restOpts,
+			restrictedUsageOpts,
 			mgrOpts,
 			webhookOptions,
 		)
@@ -187,6 +214,11 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 			if err := maintenance.AddToManager(ctx, mgr); err != nil {
 				return err
+			}
+
+			alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
+			if alphaUsage {
+				log.Info("Alpha usage restriction is enabled")
 			}
 
 			return mgr.Start(ctx)
