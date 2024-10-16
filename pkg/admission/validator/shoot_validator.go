@@ -38,15 +38,20 @@ type shoot struct {
 }
 
 // Validate implements extensionswebhook.Validator.Validate
-func (s *shoot) Validate(ctx context.Context, new, _ client.Object) error {
+func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
+	oldShoot, ok := old.(*core.Shoot)
+	if !ok {
+		oldShoot = nil
+	}
+
 	shoot, ok := new.(*core.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
 	}
-	return s.validateShoot(ctx, shoot)
+	return s.validateShoot(ctx, shoot, oldShoot)
 }
 
-func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
+func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *core.Shoot) error {
 	// Need check here
 	if s.isDisabled(shoot) {
 		return nil
@@ -60,8 +65,11 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 
 	alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
 	if err == nil && alphaUsage {
-		if ok := verifyProjectEligibility(shoot.Namespace); !ok {
-			return fmt.Errorf("project is not eligible for Falco extension")
+		oldFalcoConf, err := s.extractFalcoConfig(oldShoot)
+		if err != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
+			if ok := verifyProjectEligibility(shoot.Namespace); !ok {
+				return fmt.Errorf("project is not eligible for Falco extension")
+			}
 		}
 	}
 
@@ -189,6 +197,10 @@ func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
 }
 
 func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConfig, error) {
+	if shoot == nil {
+		return nil, fmt.Errorf("shoot pointer was nil")
+	}
+
 	ext := s.findExtension(shoot)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}

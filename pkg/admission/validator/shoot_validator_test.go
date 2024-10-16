@@ -65,7 +65,7 @@ func TestValidateShoot(t *testing.T) {
 	}
 	s := &shoot{}
 
-	if err := s.validateShoot(context.Background(), exampleShoot); err != nil {
+	if err := s.validateShoot(context.Background(), exampleShoot, nil); err != nil {
 		t.Error("Extension disabled but validated")
 	}
 }
