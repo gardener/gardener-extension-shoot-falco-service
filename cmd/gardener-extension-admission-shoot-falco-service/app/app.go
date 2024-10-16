@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -187,6 +188,11 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 			if err := maintenance.AddToManager(ctx, mgr); err != nil {
 				return err
+			}
+
+			alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
+			if alphaUsage {
+				log.Info("Alpha usage restriction is enabled")
 			}
 
 			return mgr.Start(ctx)
