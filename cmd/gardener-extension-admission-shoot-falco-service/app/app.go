@@ -216,7 +216,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
+			alphaUsage, _ := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
 			if alphaUsage {
 				log.Info("Alpha usage restriction is enabled")
 			}
