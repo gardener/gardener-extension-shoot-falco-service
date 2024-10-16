@@ -41,7 +41,7 @@ type shoot struct {
 func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 	oldShoot, ok := old.(*core.Shoot)
 	if !ok {
-		return fmt.Errorf("wrong object type %T", new)
+		oldShoot = nil
 	}
 
 	shoot, ok := new.(*core.Shoot)
