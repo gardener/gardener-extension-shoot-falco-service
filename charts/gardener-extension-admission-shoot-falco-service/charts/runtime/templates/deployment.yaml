@@ -60,7 +60,7 @@ spec:
           value: enabled
         {{- end }}
         {{- if .Values.global.restrictedUsage }}
-        - name: RESTICTED_USAGE
+        - name: RESTRICTED_USAGE
           value: "true"
         {{- end }}
         {{- end }}
