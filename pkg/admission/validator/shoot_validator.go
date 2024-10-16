@@ -197,6 +197,10 @@ func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
 }
 
 func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConfig, error) {
+	if shoot == nil {
+		return nil, fmt.Errorf("shoot pointer was nil")
+	}
+
 	ext := s.findExtension(shoot)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}
