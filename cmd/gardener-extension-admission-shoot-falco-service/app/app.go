@@ -46,7 +46,7 @@ var log = runtimelog.Log.WithName("gardener-extension-admission-shoot-falco-serv
 
 type RestrictedUsage struct {
 	RestrictedUsage bool
-	config *RestrictedUsageConfig
+	config          *RestrictedUsageConfig
 }
 
 type RestrictedUsageConfig struct {
@@ -70,9 +70,9 @@ func (r *RestrictedUsage) Completed() *RestrictedUsageConfig {
 // NewAdmissionCommand creates a new command for running an admission webhook.
 func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 	var (
-		restOpts = &controllercmd.RESTOptions{}
+		restOpts            = &controllercmd.RESTOptions{}
 		restrictedUsageOpts = &RestrictedUsage{}
-		mgrOpts  = &controllercmd.ManagerOptions{
+		mgrOpts             = &controllercmd.ManagerOptions{
 			LeaderElection:          true,
 			LeaderElectionID:        controllercmd.LeaderElectionNameID(AdmissionName),
 			LeaderElectionNamespace: os.Getenv("LEADER_ELECTION_NAMESPACE"),
