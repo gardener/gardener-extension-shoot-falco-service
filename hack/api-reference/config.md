@@ -386,6 +386,10 @@ Images
 </tr>
 </tbody>
 </table>
+<h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Version">Version
+</h3>
+<p>
+</p>
 <h3 id="falco.extensions.config.gardener.cloud/v1alpha1.Versions">Versions
 </h3>
 <p>

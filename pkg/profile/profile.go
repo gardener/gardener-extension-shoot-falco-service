@@ -152,8 +152,8 @@ func (p *FalcoProfileManager) rebuild() {
 		for _, q := range profile.Spec.Versions.Falco {
 			v := Version{
 				Classification: q.Classification,
-				//ExpirationDate: q.ExpirationDate,
-				Version: q.Version,
+				ExpirationDate: getExpirationDate(q),
+				Version:        q.Version,
 			}
 			p.falcoVersions[q.Version] = v
 		}
@@ -169,8 +169,8 @@ func (p *FalcoProfileManager) rebuild() {
 		for _, q := range profile.Spec.Versions.Falcosidekick {
 			v := Version{
 				Classification: q.Classification,
-				//ExpirationDate: q.ExpirationDate,
-				Version: q.Version,
+				ExpirationDate: getExpirationDate(q),
+				Version:        q.Version,
 			}
 			p.falcosidekickVersions[q.Version] = v
 		}
@@ -186,8 +186,8 @@ func (p *FalcoProfileManager) rebuild() {
 		for _, q := range profile.Spec.Versions.Falcoctl {
 			v := Version{
 				Classification: q.Classification,
-				//ExpirationDate: q.ExpirationDate,
-				Version: q.Version,
+				ExpirationDate: getExpirationDate(q),
+				Version:        q.Version,
 			}
 			p.falcoctlVersions[q.Version] = v
 		}
@@ -295,4 +295,16 @@ func decodeEvent(obj runtime.Object) (*v1alpha1.FalcoProfile, error) {
 		return nil, fmt.Errorf("cannot convert from unstructured: %w", err)
 	}
 	return &fe, nil
+}
+
+func getExpirationDate(version v1alpha1.Version) *time.Time {
+	var expiration *time.Time
+	if version.GetExpirationDate() != nil {
+		parsedTime, err := time.Parse(time.RFC3339, *version.GetExpirationDate())
+		if err != nil {
+			fmt.Println("Could not parse expiration date: ", err)
+		}
+		expiration = &parsedTime
+	}
+	return expiration
 }
