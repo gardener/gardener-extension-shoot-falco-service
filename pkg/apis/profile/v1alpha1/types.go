@@ -67,3 +67,45 @@ type ImageSpec struct {
 	Repository   string `json:"repository"`
 	Tag          string `json:"tag"`
 }
+
+type Version interface {
+	GetClassification() string
+	GetExpirationDate() *string
+	GetVersion() string
+}
+
+func (v FalcoVersion) GetVersion() string {
+	return v.Version
+}
+
+func (v FalcoVersion) GetClassification() string {
+	return v.Classification
+}
+
+func (v FalcoVersion) GetExpirationDate() *string {
+	return v.ExpirationDate
+}
+
+func (v FalcosidekickVersion) GetVersion() string {
+	return v.Version
+}
+
+func (v FalcosidekickVersion) GetClassification() string {
+	return v.Classification
+}
+
+func (v FalcosidekickVersion) GetExpirationDate() *string {
+	return v.ExpirationDate
+}
+
+func (v FalcoctlVersion) GetVersion() string {
+	return v.Version
+}
+
+func (v FalcoctlVersion) GetClassification() string {
+	return v.Classification
+}
+
+func (v FalcoctlVersion) GetExpirationDate() *string {
+	return v.ExpirationDate
+}
