@@ -185,7 +185,7 @@ func TestVerifyFalcoVersion(t *testing.T) {
 
 	conf.FalcoVersion = deprecated
 	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
-		t.Fatalf("Deprecated FalcoVersion without expiration is set but detected as invalid")
+		t.Fatalf("Deprecated FalcoVersion without expiration is set but detected as invalid %s", err)
 	}
 
 	conf.FalcoVersion = &expiredVersion

@@ -5,13 +5,19 @@
     rulesVersion: 3.0.1
   - version: 0.37.1
     classification: deprecated
+    expirationDate: "2024-11-01T23:59:59Z"
     rulesVersion: 3.0.1
   - version: 0.38.0
-    classification: supported
+    classification: deprecated
+    expirationDate: "2024-11-01T23:59:59Z"
     rulesVersion: 3.0.1
   - version: 0.38.1
-    classification: supported
+    classification: deprecated
+    expirationDate: "2024-11-01T23:59:59Z"
     rulesVersion: 3.0.1
   - version: 0.38.2
     classification: supported
     rulesVersion: 3.0.1
+  - version: 0.39.1
+    classification: preview
+    rulesVersion: 3.2.0
