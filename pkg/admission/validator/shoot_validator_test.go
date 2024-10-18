@@ -6,39 +6,16 @@ package validator
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
-
-func getDeprecatedAndSupportedVersions(falcoVersions *map[string]profile.Version) (*string, *string, error) {
-	var deprecated, supported string
-	for _, ver := range *falcoVersions {
-		if deprecated == "" && ver.Classification == "deprecated" {
-			deprecated = ver.Version
-		}
-		if supported == "" && ver.Classification == "supported" {
-			supported = ver.Version
-		}
-	}
-
-	var errSup, errDep error
-	if supported == "" {
-		errSup = fmt.Errorf("no supported FalcoVersion found")
-	}
-	if deprecated == "" {
-		errDep = fmt.Errorf("no deprecated FalcoVersion found")
-	}
-	err := errors.Join(errSup, errDep)
-
-	return &supported, &deprecated, err
-}
 
 func TestExtractFalcoConf(t *testing.T) {
 	s := &shoot{}
@@ -173,17 +150,12 @@ func TestVerifyFalcoVersion(t *testing.T) {
 		t.Fatalf("FalcoVersion is nil but not detected as such")
 	}
 
-	supported, deprecated, err := getDeprecatedAndSupportedVersions(&falcoVersions)
-	if err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-
-	conf.FalcoVersion = supported
+	conf.FalcoVersion = &supportedVersion
 	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
 		t.Fatalf("Supported FalcoVersion is set but detected as invalid")
 	}
 
-	conf.FalcoVersion = deprecated
+	conf.FalcoVersion = &depreatedVersion
 	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
 		t.Fatalf("Deprecated FalcoVersion without expiration is set but detected as invalid %s", err)
 	}
@@ -229,5 +201,38 @@ func TestVerifyGardenerSet(t *testing.T) {
 	gardenerVal.UseFalcoRules, gardenerVal.UseFalcoIncubatingRules, gardenerVal.UseFalcoSandboxRules = &commonRulesBool, &commonRulesBool, &commonRulesBool
 	if err := verifyGardenerSet(conf); err != nil {
 		t.Fatalf("Gardener rules are not nil but detected as such")
+	}
+}
+
+func TestVerifyProjectEligibility(t *testing.T) {
+	namespace := "testNamespace"
+	project := v1beta1.Project{}
+
+	gardenProject := v1beta1.Project{}
+	gardenProject.Name = "garden"
+
+	ProjectsInstance = &Projects{}
+	ProjectsInstance.projects = map[string]*v1beta1.Project{namespace: &project, constants.AlwaysEnabledProjects[0]: &gardenProject}
+
+	if verifyProjectEligibility("wrongNamespace") {
+		t.Fatalf("Project is nil but not detected as such")
+	}
+
+	if !verifyProjectEligibility(constants.AlwaysEnabledProjects[0]) {
+		t.Fatalf("Always enabled project is not detected as such")
+	}
+
+	if verifyProjectEligibility(namespace) {
+		t.Fatalf("Non annotated project is not detected as such")
+	}
+
+	project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "true"}
+	if !verifyProjectEligibility(namespace) {
+		t.Fatalf("Annotated project is falsely detected non-elegible")
+	}
+
+	project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "randoma.skjdnasdj"}
+	if verifyProjectEligibility(namespace) {
+		t.Fatalf("Falsely nnotated project is detected elegible")
 	}
 }
