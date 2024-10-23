@@ -1591,7 +1591,7 @@ falcosidekick:
       # -- port to serve http server serving selected endpoints
       notlsport: 2810
       # -- a comma separated list of endpoints, if not empty, and tlsserver.deploy is true, a separate http server will be deployed for the specified endpoints (/ping endpoint needs to be notls for Kubernetes to be able to perform the healthchecks)
-      notlspaths: "/ping"
+      notlspaths: "/ping,/metrics,/healthz"
 
     loki:
       # -- Loki <http://host:port>, if not `empty`, Loki is *enabled*
