@@ -1,0 +1,66 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  labels:
+    prometheus: shoot
+  name: shoot-falco
+  namespace: {{ .Release.Namespace }}
+spec:
+  authorization:
+    credentials:
+      key: token
+      name: shoot-access-prometheus-shoot
+  honorLabels: false
+  kubernetesSDConfigs:
+  - apiServer: https://kube-apiserver
+    authorization:
+      credentials:
+        key: token
+        name: shoot-access-prometheus-shoot
+    namespaces:
+      names:
+      - kube-system
+    role: endpoints
+    tlsConfig:
+      ca: {}
+      cert: {}
+      insecureSkipVerify: true
+  metricRelabelings:
+  - action: keep
+    regex: ^(falcosidekick_inputs|falcosidekick_outputs|falco_events)$
+    sourceLabels:
+    - __name__
+  relabelings:
+  - action: replace
+    replacement: shoot
+    targetLabel: type
+  - action: keep
+    regex: falcosidekick;http
+    sourceLabels:
+    - __meta_kubernetes_service_name
+    - __meta_kubernetes_endpoint_port_name
+  - action: labelmap
+    regex: __meta_kubernetes_service_label_(.+)
+  - action: replace
+    sourceLabels:
+    - __meta_kubernetes_pod_name
+    targetLabel: pod
+  - action: replace
+    sourceLabels:
+    - __meta_kubernetes_pod_node_name
+    targetLabel: node
+  - action: replace
+    replacement: kube-apiserver:443
+    targetLabel: __address__
+  - action: replace
+    regex: (.+);(.+)
+    replacement: /api/v1/namespaces/kube-system/pods/${1}:${2}/proxy/metrics
+    sourceLabels:
+    - __meta_kubernetes_pod_name
+    - __meta_kubernetes_pod_container_port_number
+    targetLabel: __metrics_path__
+  scheme: HTTPS
+  tlsConfig:
+    ca: {}
+    cert: {}
+    insecureSkipVerify: true

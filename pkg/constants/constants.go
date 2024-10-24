@@ -18,6 +18,11 @@ const (
 	// ManagedResourceNamesControllerSeed is the name used to describe the managed seed resources for the controller.
 	ManagedResourceNameFalco = ExtensionServiceName + "-shoot"
 
+	ManagedResourceNameFalcoSeed = ExtensionServiceName + "-seed"
+
+	// Name of the chart deployed in control plane (seed)
+	ManagedResourceNameFalcoChartSeed = ExtensionServiceName + "-chart-seed"
+
 	// Name of the Falco certificate secret file in shoot namespace
 	FalcoCertificatesSecretName = GardenerExtensionServiceName + "-certificates"
 
