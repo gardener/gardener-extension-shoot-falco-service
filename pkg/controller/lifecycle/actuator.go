@@ -7,6 +7,7 @@ package lifecycle
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/gardener/gardener/pkg/chartrenderer"
 	managedresources "github.com/gardener/gardener/pkg/utils/managedresources"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +80,9 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 			return err
 		}
 	}
+	if err := a.createSeedResources(ctx, log, namespace); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -103,6 +108,33 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cl
 		return fmt.Errorf("could not create managed resource for shoot falco deployment %w", err)
 	}
 	return nil
+}
+
+func (a *actuator) createSeedResources(ctx context.Context, log logr.Logger, namespace string) error {
+	log.Info("Creating Falco seed resources for shoot " + namespace)
+	values := map[string]interface{}{}
+
+	renderer, err := chartrenderer.NewForConfig(a.config)
+	if err != nil {
+		return fmt.Errorf("could not create chart renderer: %w", err)
+	}
+
+	log.Info("Component is being applied", "component", "shoot-falco-service", "namespace", namespace)
+
+	return a.createManagedResource(ctx, namespace, constants.ManagedResourceNameFalcoSeed, "seed", renderer, constants.ManagedResourceNameFalcoChartSeed, namespace, values, nil)
+}
+
+func (a *actuator) createManagedResource(ctx context.Context, namespace, name, class string, renderer chartrenderer.Interface, chartName, chartNamespace string, chartValues map[string]interface{}, injectedLabels map[string]string) error {
+	chartPath := filepath.Join(charts.InternalChartsPath, chartName)
+	fmt.Println("chartPath", chartPath)
+	chart, err := renderer.RenderEmbeddedFS(charts.InternalChart, chartPath, chartName, chartNamespace, chartValues)
+	if err != nil {
+		return err
+	}
+	data := map[string][]byte{"config.yaml": chart.Manifest()}
+	keepObjects := false
+	forceOverwriteAnnotations := false
+	return managedresources.Create(ctx, a.client, namespace, name, nil, false, class, data, &keepObjects, injectedLabels, &forceOverwriteAnnotations)
 }
 
 // Delete the Extension resource.
@@ -143,14 +175,26 @@ func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, na
 	return nil
 }
 
-func (a *actuator) deleteSeedResources(ctx context.Context, _ logr.Logger, namespace string) error {
+func (a *actuator) deleteSeedResources(ctx context.Context, log logr.Logger, namespace string) error {
 	certs := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.FalcoCertificatesSecretName,
 			Namespace: namespace,
 		},
 	}
-	return a.client.Delete(ctx, certs)
+	err1 := a.client.Delete(ctx, certs)
+
+	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
+
+	if err := managedresources.Delete(ctx, a.client, namespace, constants.ManagedResourceNameFalcoSeed, false); err != nil {
+		return err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	err2 := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ManagedResourceNameFalcoSeed)
+
+	return errors.Join(err1, err2)
 }
 
 // Restore the Extension resource.
@@ -168,7 +212,6 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 }
 
 func (a *actuator) extractFalcoServiceConfig(ex *extensionsv1alpha1.Extension) (*apisservice.FalcoServiceConfig, error) {
-	fmt.Println("Here we go||" + string(ex.Spec.ProviderConfig.Raw[:]))
 	falcoServiceConfig := &apisservice.FalcoServiceConfig{}
 	if ex.Spec.ProviderConfig != nil {
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
