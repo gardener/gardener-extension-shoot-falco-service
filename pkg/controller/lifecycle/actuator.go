@@ -7,6 +7,7 @@ package lifecycle
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -130,9 +131,6 @@ func (a *actuator) createManagedResource(ctx context.Context, namespace, name, c
 	if err != nil {
 		return err
 	}
-	fmt.Println("Chart manifest")
-	fmt.Println(chart)
-	// data := map[string][]byte{chartName: chart.Manifest()}
 	data := map[string][]byte{"config.yaml": chart.Manifest()}
 	keepObjects := false
 	forceOverwriteAnnotations := false
@@ -177,14 +175,26 @@ func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, na
 	return nil
 }
 
-func (a *actuator) deleteSeedResources(ctx context.Context, _ logr.Logger, namespace string) error {
+func (a *actuator) deleteSeedResources(ctx context.Context, log logr.Logger, namespace string) error {
 	certs := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.FalcoCertificatesSecretName,
 			Namespace: namespace,
 		},
 	}
-	return a.client.Delete(ctx, certs)
+	err1 := a.client.Delete(ctx, certs)
+
+	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
+
+	if err := managedresources.Delete(ctx, a.client, namespace, constants.ManagedResourceNameFalcoSeed, false); err != nil {
+		return err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	err2 := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ManagedResourceNameFalcoSeed)
+
+	return errors.Join(err1, err2)
 }
 
 // Restore the Extension resource.
