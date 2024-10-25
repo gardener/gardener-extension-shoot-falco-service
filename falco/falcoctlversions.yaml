@@ -1,3 +1,5 @@
   falcoctlVersions:
   - version: 0.9.1
     classification: supported
+  - version: 0.10.0
+    classification: supported

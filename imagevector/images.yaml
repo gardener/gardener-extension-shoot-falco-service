@@ -2,20 +2,6 @@ images:
 - name: falcosidekick
   sourceRepository: https://github.com/falcosecurity/falcosidekick
   repository: falcosecurity/falcosidekick
-  tag: 2.28.0
-  version: 2.28.0
-  labels:
-    - name: 'gardener.cloud/cve-categorisation'
-      value:
-        network_exposure: 'private'
-        authentication_enforced: true
-        user_interaction: 'gardener-operator'
-        confidentiality_requirement: 'low'
-        integrity_requirement: 'low'
-        availability_requirement: 'low'
-- name: falcosidekick
-  sourceRepository: https://github.com/falcosecurity/falcosidekick
-  repository: falcosecurity/falcosidekick
   tag: 2.29.0
   version: 2.29.0
   labels:
@@ -102,6 +88,20 @@ images:
   repository: falcosecurity/falcoctl
   tag: 0.9.1
   version: 0.9.1
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'private'
+      authentication_enforced: true
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'low'
+      integrity_requirement: 'low'
+      availability_requirement: 'low'
+- name: falcoctl
+  sourceRepository: https://github.com/falcosecurity/falcoctl
+  repository: falcosecurity/falcoctl
+  tag: 0.10.0
+  version: 0.10.0
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
