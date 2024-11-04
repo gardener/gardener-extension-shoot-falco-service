@@ -68,6 +68,18 @@ start-admission:
 		--restricted-centralized-logging \
         $(WEBHOOK_PARAM)
 
+.PHONY: start-admission-debug
+start-admission-debug:
+	LEADER_ELECTION_NAMESPACE=garden dlv debug \
+                --listen=:2345 \
+		./cmd/$(EXTENSION_PREFIX)-$(ADMISSION_NAME) \
+		-- --webhook-config-server-host=0.0.0.0 \
+		--webhook-config-server-port=$(WEBHOOK_CONFIG_PORT) \
+		--webhook-config-mode=$(WEBHOOK_CONFIG_MODE) \
+		--health-bind-address=:8082 \
+		--metrics-bind-address=:8083 \
+        $(WEBHOOK_PARAM)
+
 #################################################################
 # Rules related to binary build, Docker image build and release #
 #################################################################

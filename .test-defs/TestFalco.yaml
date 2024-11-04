@@ -1,0 +1,16 @@
+apiVersion: testmachinery.sapcloud.io
+kind: TestDefinition
+metadata:
+  name: test-falco
+spec:
+  owner: dirk.marwinski@sap.com
+  description: Tests whether Falco is running correctly on the cluster
+
+  activeDeadlineSeconds: 3600
+  command: [ "test/integration/falco-integration.sh" ]
+  args:
+  - >-
+      "$TM_KUBECONFIG_PATH/gardener.config" \
+      $PROJECT_NAMESPACE \
+      "$SHOOT_NAME"
+  image: python:python:3.9.20-bookworm
