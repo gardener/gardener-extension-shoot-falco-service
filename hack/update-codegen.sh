@@ -23,7 +23,7 @@ rm -f $GOPATH/bin/*-gen
 
 # profile
 
-bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+bash "${CODE_GEN_DIR}"/kube_codegen.sh \
   deepcopy,defaulter \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
@@ -31,7 +31,7 @@ bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
   "profile:v1alpha1" \
   --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
 
-bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+bash "${CODE_GEN_DIR}"/kube_codegen.sh \
   conversion \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
@@ -41,7 +41,7 @@ bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
   --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
 
 
-bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+bash "${CODE_GEN_DIR}"/kube_codegen.sh \
   deepcopy,defaulter \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
@@ -49,7 +49,7 @@ bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
   "config:v1alpha1" \
   --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
 
-bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+bash "${CODE_GEN_DIR}"/kube_codegen.sh \
   conversion \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
@@ -58,7 +58,7 @@ bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
   --extra-peer-dirs=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config,github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime,github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1 \
   --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
 
-bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+bash "${CODE_GEN_DIR}"/kube_codegen.sh \
   deepcopy,defaulter \
   github.com/gardener/gardener-extension-shoot-falco-serviceo/pkg/client \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
@@ -66,7 +66,7 @@ bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
   "service:v1alpha1" \
   --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
 
-  bash "${CODE_GEN_DIR}"/generate-internal-groups.sh \
+  bash "${CODE_GEN_DIR}"/kube_codegen.sh \
   conversion \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
   github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
