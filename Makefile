@@ -128,6 +128,14 @@ generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(HELM) $(MOCKGEN) $(Y
 format: $(GOIMPORTS) $(GOIMPORTSREVISER)
 	@bash $(GARDENER_HACK_DIR)/format.sh ./cmd ./pkg ./imagevector ./falco
 
+.PHONY: sast
+sast: $(GOSEC)
+	@bash $(GARDENER_HACK_DIR)/sast.sh
+
+.PHONY: sast-report
+sast-report: $(GOSEC)
+	@bash $(GARDENER_HACK_DIR)/sast.sh --gosec-report true
+
 .PHONY: test
 test:
 	@SKIP_FETCH_TOOLS=1 bash $(GARDENER_HACK_DIR)/test.sh ./cmd/... ./pkg/... ./falco/... ./imagevector
@@ -141,7 +149,7 @@ test-clean:
 	@bash $(GARDENER_HACK_DIR)/test-cover-clean.sh
 
 .PHONY: verify
-verify: check format test
+verify: check format test sast
 
 .PHONY: generate-profile
 generate-profile:
@@ -152,5 +160,5 @@ validate-falco-rules:
 	$(HACK_DIR)/validate-falco-rules falco/falco-profile.yaml falco/rules
 
 .PHONY: verify-extended
-verify-extended: check-generate check format generate-profile test
+verify-extended: check-generate check format generate-profile test sast-report
 #verify-extended: check-generate check format test test-cov test-clean

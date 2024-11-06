@@ -27,3 +27,6 @@ testbin
 dive.log
 /tmp
 /local
+
+# gosec
+gosec-report.sarif
