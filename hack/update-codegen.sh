@@ -14,63 +14,20 @@ set -x
 source "$GARDENER_HACK_DIR"/vgopath-setup.sh
 
 CODE_GEN_DIR=$(go list -m -f '{{.Dir}}' k8s.io/code-generator)
-
-# We need to explicitly pass GO111MODULE=off to k8s.io/code-generator as it is significantly slower otherwise,
-# see https://github.com/kubernetes/code-generator/issues/100.
-export GO111MODULE=off
+source "${CODE_GEN_DIR}/kube_codegen.sh"
 
 rm -f $GOPATH/bin/*-gen
 
-# profile
+PROJECT_ROOT=$(dirname $0)/..
 
-bash "${CODE_GEN_DIR}"/kube_codegen.sh \
-  deepcopy,defaulter \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  "profile:v1alpha1" \
-  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
+kube::codegen::gen_helpers \
+  --boilerplate "${PROJECT_ROOT}/hack/LICENSE_BOILERPLATE.txt" \
+  "${PROJECT_ROOT}/pkg/apis/config"
 
-bash "${CODE_GEN_DIR}"/kube_codegen.sh \
-  conversion \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  "profile:v1alpha1" \
-  --extra-peer-dirs=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile,github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime,github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1 \
-  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
+kube::codegen::gen_helpers \
+  --boilerplate "${PROJECT_ROOT}/hack/LICENSE_BOILERPLATE.txt" \
+  "${PROJECT_ROOT}/pkg/apis/profile"
 
-
-bash "${CODE_GEN_DIR}"/kube_codegen.sh \
-  deepcopy,defaulter \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  "config:v1alpha1" \
-  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
-
-bash "${CODE_GEN_DIR}"/kube_codegen.sh \
-  conversion \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  "config:v1alpha1" \
-  --extra-peer-dirs=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config,github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime,github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1 \
-  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
-
-bash "${CODE_GEN_DIR}"/kube_codegen.sh \
-  deepcopy,defaulter \
-  github.com/gardener/gardener-extension-shoot-falco-serviceo/pkg/client \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  "service:v1alpha1" \
-  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
-
-  bash "${CODE_GEN_DIR}"/kube_codegen.sh \
-  conversion \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/client \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis \
-  "service:v1alpha1" \
-  --extra-peer-dirs=github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service,github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime \
-  --go-header-file "$(dirname $0)/LICENSE_BOILERPLATE.txt"
+kube::codegen::gen_helpers \
+  --boilerplate "${PROJECT_ROOT}/hack/LICENSE_BOILERPLATE.txt" \
+  "${PROJECT_ROOT}/pkg/apis/service"
