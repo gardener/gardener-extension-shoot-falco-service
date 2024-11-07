@@ -34,6 +34,13 @@ gardener-extension-shoot-falco-service:
         attribute: global.image.tag
 
   base_definition:
+    repo:
+      source_labels:
+      - name: cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1
+        value:
+          policy: skip
+          comment: |
+            We use gosec for sast scanning, see attached log.
     traits:
       component_descriptor:
         ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
@@ -97,6 +104,16 @@ gardener-extension-shoot-falco-service:
           nextversion: 'bump_minor'
           next_version_callback: '.ci/prepare_release'
           release_callback: '.ci/prepare_release'
+          assets:
+          - type: build-step-log
+            step_name: verify
+            purposes:
+            - lint
+            - sast
+            - gosec
+            comment: |
+              We use gosec (linter) for SAST scans, see: https://github.com/securego/gosec.
+              Enabled by https://github.com/gardener/gardener-extension-shoot-falco-service/pull/87
         publish:
           oci-builder: docker-buildx
           platforms:
