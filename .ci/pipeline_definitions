@@ -95,6 +95,9 @@ gardener-extension-shoot-falco-service:
         verify-falco-rules:
           privilege_mode: privileged
     release:
+      steps:
+        verify:
+          image: *golang-test
       traits:
         version:
           preprocess: 'finalize'
