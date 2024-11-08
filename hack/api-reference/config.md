@@ -9,7 +9,9 @@
 <p>Package v1alpha1 contains the falco extension configuration.</p>
 </p>
 Resource Types:
-<ul></ul>
+<ul><li>
+<a href="#falco.extensions.config.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile</a>
+</li></ul>
 <h3 id="falco.extensions.config.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile
 </h3>
 <p>
@@ -22,6 +24,23 @@ Resource Types:
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>apiVersion</code></br>
+string</td>
+<td>
+<code>
+falco.extensions.config.gardener.cloud/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code></br>
+string
+</td>
+<td><code>FalcoProfile</code></td>
+</tr>
 <tr>
 <td>
 <code>metadata</code></br>
