@@ -218,7 +218,9 @@ deployed and ordered based on the result of the Go programming language
 `strings.Compare` function.
 
 ```
+apiVersion: v1
 kind: ConfigMap
+metadata:
   name: my-custom-rules
   namespace: garden-myproject
 data:
