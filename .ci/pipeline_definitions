@@ -80,7 +80,7 @@ gardener-extension-shoot-falco-service:
           - *shoot-falco-service-admission-runtime
       steps:
         verify:
-          image: &golang-test 'europe-docker.pkg.dev/gardener-project/releases/ci-infra/golang-test:v20240919-dd36bc2-1.23'
+          image: 'golang:1.23.2'
         verify-falco-rules:
           privilege_mode: privileged
     pull-request:
