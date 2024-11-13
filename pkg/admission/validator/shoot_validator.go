@@ -63,10 +63,11 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		return err
 	}
 
+	oldFalcoConf, oldFalcoConfErr := s.extractFalcoConfig(oldShoot)
+
 	alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
 	if err == nil && alphaUsage {
-		oldFalcoConf, err := s.extractFalcoConfig(oldShoot)
-		if err != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
+		if oldFalcoConfErr != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
 			if ok := verifyProjectEligibility(shoot.Namespace); !ok {
 				return fmt.Errorf("project is not eligible for Falco extension")
 			}
@@ -75,7 +76,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 
 	allErrs := []error{}
 
-	if err := verifyFalcoVersion(falcoConf); err != nil {
+	if err := verifyFalcoVersion(falcoConf, oldFalcoConf); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -145,7 +146,10 @@ func verifyResources(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
+func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig) error {
+	if oldFalcoConf != nil && *oldFalcoConf.FalcoVersion == *falcoConf.FalcoVersion { // no version change
+		return nil
+	}
 
 	versions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
 	if err := verifyFalcoVersionInVersions(falcoConf, versions); err != nil {

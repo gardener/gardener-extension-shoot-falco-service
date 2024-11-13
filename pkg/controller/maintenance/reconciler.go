@@ -14,14 +14,13 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/controllerutils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
-	"github.com/go-logr/logr"
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
@@ -38,39 +37,38 @@ type Reconciler struct {
 
 // Reconcile reconciles Shoots and maintains them by updating versions or triggering operations.
 func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	log := logf.FromContext(ctx)
-
 	ctx, cancel := controllerutils.GetMainReconciliationContext(ctx, controllerutils.DefaultReconciliationTimeout)
 	defer cancel()
 
 	shoot := &gardencorev1beta1.Shoot{}
 	if err := r.Client.Get(ctx, request.NamespacedName, shoot); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(1).Info("Object is gone, stop reconciling")
+			log.Info("Object is gone, stop reconciling")
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("error retrieving object from store: %w", err)
 	}
 
 	if shoot.DeletionTimestamp != nil {
-		log.V(1).Info("Skipping Shoot because it is marked for deletion")
+		log.Info("Skipping Shoot because it is marked for deletion")
 		return reconcile.Result{}, nil
 	}
 
 	// Disbale for testing
 	requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
 	if !mustMaintainNow(shoot, r.Clock) {
-		log.V(1).Info("Skipping Shoot because it doesn't need to be maintained now")
-		log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+		log.Info("Skipping Shoot because it doesn't need to be maintained now")
+		log.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	if err := r.reconcile(ctx, log, shoot); err != nil {
+	log.Infof("Maintaining Shoot %s:%s", shoot.Namespace, shoot.Name)
+	if err := r.reconcile(ctx, shoot); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Disable for testing
-	log.V(1).Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+	log.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -97,7 +95,7 @@ func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.T
 	return duration, nextMaintenance
 }
 
-func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gardencorev1beta1.Shoot) error {
+func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Shoot) error {
 
 	// TODO do we need to dopy here or not?
 	maintainedShoot := shoot.DeepCopy()
@@ -118,10 +116,10 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 
 	var versionToSet *string
 	if forceUpdate {
-		log.V(1).Info("Falco AutoUpdate disabled but needs forced upgrade")
+		log.Info("Falco AutoUpdate disabled but needs forced upgrade")
 		versionToSet, err = mutator.GetForceUpdateVersion(*currentVersion, *availableVersions)
 	} else if autoUpdate {
-		log.V(1).Info("Falco AutoUpdate enabled")
+		log.Info("Falco AutoUpdate enabled")
 		versionToSet, err = mutator.GetAutoUpdateVersion(*availableVersions)
 	}
 	if err != nil {
@@ -131,7 +129,7 @@ func (r *Reconciler) reconcile(ctx context.Context, log logr.Logger, shoot *gard
 	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
 
 	if !needToUpdate {
-		log.V(1).Info("Do not need to update Falco version")
+		log.Info("Do not need to update Falco version")
 		return nil
 	}
 

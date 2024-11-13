@@ -146,11 +146,15 @@ func TestVerifyFalcoVersion(t *testing.T) {
 	)
 
 	conf := &service.FalcoServiceConfig{}
-	if err := verifyFalcoVersion(conf); err == nil {
+	if err := verifyFalcoVersion(conf, nil); err == nil {
 		t.Fatalf("FalcoVersion is nil but not detected as such")
 	}
 
 	conf.FalcoVersion = &supportedVersion
+	if err := verifyFalcoVersion(conf, nil); err != nil {
+		t.Fatalf("FalcoVersion was supported but detected as invalid")
+	}
+
 	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
 		t.Fatalf("Supported FalcoVersion is set but detected as invalid")
 	}
@@ -169,6 +173,19 @@ func TestVerifyFalcoVersion(t *testing.T) {
 	conf.FalcoVersion = &nonVersion
 	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err == nil {
 		t.Fatalf("Nonsensical FalcoVersion is set but accepted as valid")
+	}
+
+	oldConf := &service.FalcoServiceConfig{}
+	conf.FalcoVersion = &expiredVersion
+	oldConf.FalcoVersion = &expiredVersion
+	if err := verifyFalcoVersion(conf, oldConf); err != nil {
+		t.Fatalf("FalcoVersion was expired but stayed the same between old and new config")
+	}
+
+	conf.FalcoVersion = &expiredVersion
+	oldConf.FalcoVersion = &supportedVersion
+	if err := verifyFalcoVersion(conf, oldConf); err == nil {
+		t.Fatalf("FalcoVersion was suppored but changed to expired between old and new config")
 	}
 }
 
