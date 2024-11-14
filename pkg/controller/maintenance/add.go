@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -58,18 +59,16 @@ func (r *Reconciler) ShootPredicate() predicate.Predicate {
 				return ok
 			}
 
-			// TODO enable again when testing is done
-			// oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
-			// if !ok {
-			// 	return ok
-			// }
-			// maintain := (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
-			// 	!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
+			oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
+			if !ok {
+				return ok
+			}
+			maintain := (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
+				!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
 
 			key := "extensions.extensions.gardener.cloud/shoot-falco-service"
 			val, ok := shoot.ObjectMeta.Labels[key]
 
-			maintain := true // TODO remove when testing is done
 			return maintain && ok && val == "true"
 		},
 	}
