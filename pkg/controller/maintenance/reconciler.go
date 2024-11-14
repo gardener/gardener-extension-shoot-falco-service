@@ -19,11 +19,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -64,7 +66,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 
 	log.Infof("Maintaining Shoot %s:%s", shoot.Namespace, shoot.Name)
 	if err := r.reconcile(ctx, shoot); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: time.Second * 10}, err
 	}
 
 	// Disable for testing
@@ -133,97 +135,36 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 		return nil
 	}
 
-	// TODO do the update and remove the labels. set success or not
 	falcoConf.FalcoVersion = versionToSet
 	if err := r.mutator.UpdateFalcoConfig(maintainedShoot, falcoConf); err != nil {
 		return fmt.Errorf("could not update Falco config: %s", err.Error())
 	}
 
-	// TODO can be used for debugging to see number of changes to shoot spec
-	// var m = make(map[string]string)
-	// m["myAnnotation"] = fmt.Sprintf("helloWorls %d", i)
-	// i++
-	// maintainedShoot.Annotations = m
+	// Only update the Falco Extension Spec
+	var place int
+	for i, ext := range maintainedShoot.Spec.Extensions {
+		if ext.Type == constants.ExtensionType {
+			place = i
+			break
+		}
+	}
+	shoot.Spec.Extensions[place] = *maintainedShoot.Spec.Extensions[place].DeepCopy()
 
-	// patch := client.MergeFrom(shoot.DeepCopy())
+	// We want to keep the annotations as they are; the general maintenance controller will remove them
+	// _ = maintainOperation(shoot)
 
-	// TODO think about how to mark Falco maintenance progress
-	// shoot.Status.LastMaintenance = &gardencorev1beta1.LastMaintenance{
-	// 	Description:   fmt.Sprintf("Updating Falco version from %s to %s", *currentVersion, *versionToSet),
-	// 	TriggeredTime: metav1.Time{Time: r.Clock.Now()},
-	// 	State:         gardencorev1beta1.LastOperationStateProcessing,
-	// }
-
-	// if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-	// 	return err
-	// }
-
-	// First dry run the update call to check if it can be executed successfully (maintenance might yield a Shoot configuration that is rejected by the ApiServer).
-	// If the dry run fails, the shoot maintenance is marked as failed and is retried only in
-	// next maintenance window.
-	if err := r.Client.Update(ctx, maintainedShoot.DeepCopy(), &client.UpdateOptions{
-		DryRun: []string{metav1.DryRunAll},
-	}); err != nil {
-		// If shoot maintenance is triggered by `gardener.cloud/operation=maintain` annotation and if it fails in dry run,
-		// `maintain` operation annotation needs to be removed so that if reason for failure is fixed and maintenance is triggered
-		// again via `maintain` operation annotation then it should not fail with the reason that annotation is already present.
-		// Removal of annotation during shoot status patch is possible cause only spec is kept in original form during status update
-		// https://github.com/gardener/gardener/blob/a2f7de0badaae6170d7b9b84c163b8cab43a84d2/pkg/apiserver/registry/core/shoot/strategy.go#L258-L267
-
-		// TODO again we will need a mechanism to signal maintenance similiar to this one
-		// if hasMaintainNowAnnotation(shoot) {
-		// 	delete(shoot.Annotations, v1beta1constants.GardenerOperation)
-		// }
-		// shoot.Status.LastMaintenance.Description = "Falco maintenance failed"
-		// shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateFailed
-		// shoot.Status.LastMaintenance.FailureReason = ptr.To(fmt.Sprintf("Updates to the Shoot failed to be applied: %s", err.Error()))
-		// if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-		// 	return err
-		// }
-
-		log.Info("Shoot maintenance failed", "reason", err)
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.Client.Update(ctx, shoot); err != nil {
+			r.Recorder.Event(shoot, corev1.EventTypeWarning, gardencorev1beta1.ShootMaintenanceFailed, err.Error())
+			return err
+		}
 		return nil
+	})
+	if retryErr != nil {
+		return fmt.Errorf("falco maintenance update failed: %v", retryErr)
 	}
 
-	shoot.Spec = *maintainedShoot.Spec.DeepCopy()
-	// shoot.Annotations = maintainedShoot.Annotations
-
-	// TODO this is required for the annotations??
-	// update shoot spec changes in maintenance call
-	_ = maintainOperation(shoot)
-
-	// try to maintain shoot, but don't retry on conflict, because a conflict means that we potentially operated on stale
-	// data (e.g. when calculating the updated k8s version), so rather return error and backoff
-	if err := r.Client.Update(ctx, shoot); err != nil {
-		r.Recorder.Event(shoot, corev1.EventTypeWarning, gardencorev1beta1.ShootMaintenanceFailed, err.Error())
-		return err
-	}
-
-	// if shoot.Status.LastMaintenance != nil && shoot.Status.LastMaintenance.State == gardencorev1beta1.LastOperationStateProcessing {
-	// 	patch := client.MergeFrom(shoot.DeepCopy())
-	// 	shoot.Status.LastMaintenance.Description = fmt.Sprintf("Succesfully updated Falco version from %s to %s", *currentVersion, *versionToSet)
-	// 	shoot.Status.LastMaintenance.State = gardencorev1beta1.LastOperationStateSucceeded
-
-	// 	if err := r.Client.Status().Patch(ctx, shoot, patch); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// TODO need to add reports for Falco??
-	// make sure to report (partial) maintenance failures
-	// if kubernetesControlPlaneUpdate != nil {
-	// 	if kubernetesControlPlaneUpdate.isSuccessful {
-	// 		r.Recorder.Eventf(shoot, corev1.EventTypeNormal, gardencorev1beta1.ShootEventK8sVersionMaintenance, "%s", fmt.Sprintf("Control Plane: %s. Reason: %s.", kubernetesControlPlaneUpdate.description, kubernetesControlPlaneUpdate.reason))
-	// 	} else {
-	// 		r.Recorder.Eventf(shoot, corev1.EventTypeWarning, gardencorev1beta1.ShootEventK8sVersionMaintenance, "%s", fmt.Sprintf("Control Plane: Kubernetes version maintenance failed. Reason for update: %s. Error: %v", kubernetesControlPlaneUpdate.reason, kubernetesControlPlaneUpdate.description))
-	// 	}
-	// }
-
-	// TODO Do we need an event here to record a maintenance event?
-	// r.recordMaintenanceEventsForPool(workerToKubernetesUpdate, shoot, gardencorev1beta1.ShootEventK8sVersionMaintenance, "Kubernetes")
-	// r.recordMaintenanceEventsForPool(workerToMachineImageUpdate, shoot, gardencorev1beta1.ShootEventImageVersionMaintenance, "Machine image")
-
-	log.Info("Shoot maintenance completed")
+	log.Info("Falco shoot maintenance completed")
 	return nil
 }
 
@@ -261,6 +202,11 @@ func mustMaintainNow(shoot *gardencorev1beta1.Shoot, clock clock.Clock) bool {
 }
 
 func hasMaintainNowAnnotation(shoot *gardencorev1beta1.Shoot) bool {
+	operation, ok := shoot.Annotations[v1beta1constants.GardenerOperation]
+	return ok && operation == v1beta1constants.ShootOperationMaintain
+}
+
+func hasMaintainFalcoAnnotation(shoot *gardencorev1beta1.Shoot) bool {
 	operation, ok := shoot.Annotations[v1beta1constants.GardenerOperation]
 	return ok && operation == v1beta1constants.ShootOperationMaintain
 }
