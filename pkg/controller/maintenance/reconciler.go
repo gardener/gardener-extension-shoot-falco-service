@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -66,11 +65,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 
 	log.Infof("Maintaining Shoot %s:%s", shoot.Namespace, shoot.Name)
 	if err := r.reconcile(ctx, shoot); err != nil {
+		log.Errorf("Failed to maintain Shoot %s:%s: %v", shoot.Namespace, shoot.Name, err)
 		return reconcile.Result{RequeueAfter: time.Second * 10}, err
 	}
 
-	// Disable for testing
-	log.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+	log.Info("Scheduled next maintenance for Shoot: ", nextMaintenance.Round(time.Minute))
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -99,10 +98,7 @@ func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.T
 
 func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Shoot) error {
 
-	// TODO do we need to dopy here or not?
-	maintainedShoot := shoot.DeepCopy()
-
-	falcoConf, err := r.mutator.ExtractFalcoConfig(maintainedShoot)
+	falcoConf, err := r.mutator.ExtractFalcoConfig(shoot)
 	if err != nil {
 		return err
 	}
@@ -136,19 +132,9 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 	}
 
 	falcoConf.FalcoVersion = versionToSet
-	if err := r.mutator.UpdateFalcoConfig(maintainedShoot, falcoConf); err != nil {
+	if err := r.mutator.UpdateFalcoConfig(shoot, falcoConf); err != nil {
 		return fmt.Errorf("could not update Falco config: %s", err.Error())
 	}
-
-	// Only update the Falco Extension Spec
-	var place int
-	for i, ext := range maintainedShoot.Spec.Extensions {
-		if ext.Type == constants.ExtensionType {
-			place = i
-			break
-		}
-	}
-	shoot.Spec.Extensions[place] = *maintainedShoot.Spec.Extensions[place].DeepCopy()
 
 	// We want to keep the annotations as they are; the general maintenance controller will remove them
 	// _ = maintainOperation(shoot)
@@ -166,35 +152,6 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 
 	log.Info("Falco shoot maintenance completed")
 	return nil
-}
-
-func maintainOperation(shoot *gardencorev1beta1.Shoot) string {
-	var operation string
-	if hasMaintainNowAnnotation(shoot) {
-		delete(shoot.Annotations, v1beta1constants.GardenerOperation)
-	}
-
-	if shoot.Status.LastOperation == nil {
-		return ""
-	}
-
-	switch {
-	case shoot.Status.LastOperation.State == gardencorev1beta1.LastOperationStateFailed:
-		if needsRetry(shoot) {
-			metav1.SetMetaDataAnnotation(&shoot.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.ShootOperationRetry)
-			delete(shoot.Annotations, v1beta1constants.FailedShootNeedsRetryOperation)
-		}
-	default:
-		operation = getOperation(shoot)
-		metav1.SetMetaDataAnnotation(&shoot.ObjectMeta, v1beta1constants.GardenerOperation, operation)
-		delete(shoot.Annotations, v1beta1constants.GardenerMaintenanceOperation)
-	}
-
-	if operation == v1beta1constants.GardenerOperationReconcile {
-		return ""
-	}
-
-	return operation
 }
 
 func mustMaintainNow(shoot *gardencorev1beta1.Shoot, clock clock.Clock) bool {
