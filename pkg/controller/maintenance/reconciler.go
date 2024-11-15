@@ -114,7 +114,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 
 	var versionToSet *string
 	if forceUpdate {
-		log.Info("Falco AutoUpdate disabled but needs forced upgrade")
+		log.Info("Falco version expired, needs upgrade")
 		versionToSet, err = mutator.GetForceUpdateVersion(*currentVersion, *availableVersions)
 	} else if autoUpdate {
 		log.Info("Falco AutoUpdate enabled")
@@ -150,7 +150,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 		return fmt.Errorf("falco maintenance update failed: %v", retryErr)
 	}
 
-	log.Info("Falco shoot maintenance completed")
+	log.Infof("Falco shoot maintenance completed; updated from version %s to %s", *currentVersion, *versionToSet)
 	return nil
 }
 
