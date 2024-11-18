@@ -20,6 +20,7 @@ import (
 	managedresources "github.com/gardener/gardener/pkg/utils/managedresources"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -184,6 +185,14 @@ func (a *actuator) deleteSeedResources(ctx context.Context, log logr.Logger, nam
 	}
 	err1 := a.client.Delete(ctx, certs)
 
+	// Check whether this is an error that we can ignore
+	kerr, ok := err1.(*apierror.StatusError)
+	if ok {
+		if kerr.ErrStatus.Code == 404 {
+			log.Info(fmt.Sprintf("Secret %s/%s not found, ignoring", namespace, constants.FalcoCertificatesSecretName))
+			err1 = nil
+		}
+	}
 	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
 
 	if err := managedresources.Delete(ctx, a.client, namespace, constants.ManagedResourceNameFalcoSeed, false); err != nil {
