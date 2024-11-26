@@ -7,24 +7,12 @@ spec:
     falco:
     - architecture: amd64
       repository: falcosecurity/falco-distroless
-      tag: 0.37.1
-      version: 0.37.1
-    - architecture: amd64
-      repository: falcosecurity/falco-distroless
-      tag: 0.38.0
-      version: 0.38.0
-    - architecture: amd64
-      repository: falcosecurity/falco-distroless
-      tag: 0.38.1
-      version: 0.38.1
-    - architecture: amd64
-      repository: falcosecurity/falco-distroless
-      tag: 0.38.2
-      version: 0.38.2
-    - architecture: amd64
-      repository: falcosecurity/falco-distroless
       tag: 0.39.1
       version: 0.39.1
+    - architecture: amd64
+      repository: falcosecurity/falco-distroless
+      tag: 0.39.2
+      version: 0.39.2
     falcoctl:
     - architecture: amd64
       repository: falcosecurity/falcoctl
@@ -41,25 +29,12 @@ spec:
       version: 2.29.0
   versions:
     falco:
-    - classification: deprecated
-      expirationDate: '2024-10-25T23:59:59Z'
-      rulesVersion: 3.0.1
-      version: 0.37.1
-    - classification: deprecated
-      expirationDate: '2024-10-25T23:59:59Z'
-      rulesVersion: 3.0.1
-      version: 0.38.0
-    - classification: deprecated
-      expirationDate: '2024-10-25T23:59:59Z'
-      rulesVersion: 3.0.1
-      version: 0.38.1
-    - classification: deprecated
-      expirationDate: '2024-10-25T23:59:59Z'
-      rulesVersion: 3.0.1
-      version: 0.38.2
     - classification: supported
       rulesVersion: 3.2.0
       version: 0.39.1
+    - classification: preview
+      rulesVersion: 3.2.0
+      version: 0.39.2
     falcoctl:
     - classification: supported
       version: 0.9.1

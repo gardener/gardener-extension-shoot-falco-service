@@ -131,7 +131,7 @@ func TestExtensionIsDisabled(t *testing.T) {
 }
 
 func TestSetFalcoVersion(t *testing.T) {
-	versions := &map[string]profile.Version{
+	versions := &map[string]profile.FalcoVersion{
 		"0.99.0": {
 			Version:        "0.99.0",
 			Classification: "supported",
@@ -166,7 +166,7 @@ func TestSetFalcoVersion(t *testing.T) {
 	// Test no falco version
 	falcoConf.FalcoVersion = nil
 	profile.GetDummyFalcoProfileManager(
-		&map[string]profile.Version{},
+		&map[string]profile.FalcoVersion{},
 		&map[string]profile.Image{},
 		&map[string]profile.Version{},
 		&map[string]profile.Image{},
@@ -182,10 +182,10 @@ func TestChooseHighestVersion(t *testing.T) {
 	dummyClassification := "test"
 	highVersion := "1.2.3"
 	lowVersion := "0.0.0"
-	highV := profile.Version{Version: highVersion, Classification: dummyClassification}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: dummyClassification}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
 
-	falcoVersions := map[string]profile.Version{lowVersion: lowV, highVersion: highV}
+	falcoVersions := map[string]profile.FalcoVersion{lowVersion: lowV, highVersion: highV}
 
 	vers, err := chooseHighestVersion(falcoVersions, dummyClassification)
 
@@ -197,13 +197,13 @@ func TestChooseHighestVersion(t *testing.T) {
 		t.Errorf("Falsely reported version %s as highest", *vers)
 	}
 
-	falcoVersions = map[string]profile.Version{}
+	falcoVersions = map[string]profile.FalcoVersion{}
 	_, err = chooseHighestVersion(falcoVersions, dummyClassification)
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
 	}
 
-	brokenV := profile.Version{Version: "broken", Classification: dummyClassification}
+	brokenV := profile.FalcoVersion{Version: "broken", Classification: dummyClassification}
 	falcoVersions["broken"] = brokenV
 	_, err = chooseHighestVersion(falcoVersions, dummyClassification)
 	if err == nil {
@@ -216,10 +216,10 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	highV := profile.Version{Version: highVersion, Classification: dummyClassification}
-	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
-	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: dummyClassification}
+	midV := profile.FalcoVersion{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV}
 
 	vers, err := chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err != nil {
@@ -251,7 +251,7 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 	}
 
 	// Test for empty versions
-	falcoVersions = map[string]profile.Version{}
+	falcoVersions = map[string]profile.FalcoVersion{}
 	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err == nil {
 		t.Errorf("Failed to detect no version found for classification")
@@ -259,7 +259,7 @@ func TestChooseLowestVersionHigherThanCurrent(t *testing.T) {
 
 	// Test for broken version in the available versions
 	brokenS = "broken"
-	brokenV := profile.Version{Version: brokenS, Classification: dummyClassification}
+	brokenV := profile.FalcoVersion{Version: brokenS, Classification: dummyClassification}
 	falcoVersions[brokenS] = brokenV
 	_, err = chooseLowestVersionHigherThanCurrent(lowVersion, falcoVersions, []string{dummyClassification})
 	if err == nil {
@@ -273,9 +273,9 @@ func TestSortVersionWithClassification(t *testing.T) {
 	lowVersion := "0.0.0"
 	expiredVersion := "1.1.1"
 	expiryDate := time.Time{}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
-	expV := profile.Version{Version: expiredVersion, Classification: dummyClassification, ExpirationDate: &expiryDate}
-	falcoVersions := map[string]profile.Version{lowVersion: lowV, expiredVersion: expV}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	expV := profile.FalcoVersion{Version: expiredVersion, Classification: dummyClassification, ExpirationDate: &expiryDate}
+	falcoVersions := map[string]profile.FalcoVersion{lowVersion: lowV, expiredVersion: expV}
 
 	// Check wrong classification
 	sorted, _ := sortVersionsWithClassification(falcoVersions, []string{"wrong"})
@@ -296,11 +296,11 @@ func TestGetAutoUpdateVersion(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	vHighV := profile.Version{Version: veryhighVersion, Classification: "deprecated"}
-	highV := profile.Version{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
-	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
-	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV, veryhighVersion: vHighV}
+	vHighV := profile.FalcoVersion{Version: veryhighVersion, Classification: "deprecated"}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	midV := profile.FalcoVersion{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV, veryhighVersion: vHighV}
 
 	vers, err := GetAutoUpdateVersion(falcoVersions)
 	if err != nil {
@@ -317,11 +317,11 @@ func TestGetForceUpdateVersionHigherVersionPresent(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	vHighV := profile.Version{Version: veryhighVersion, Classification: dummyClassification}
-	highV := profile.Version{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
-	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
-	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV, veryhighVersion: vHighV}
+	vHighV := profile.FalcoVersion{Version: veryhighVersion, Classification: dummyClassification}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	midV := profile.FalcoVersion{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV, veryhighVersion: vHighV}
 
 	vers, err := GetForceUpdateVersion(lowVersion, falcoVersions)
 	if err != nil {
@@ -337,10 +337,10 @@ func TestGetForceUpdateVersionNoHigherVersionPresent(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	highV := profile.Version{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
-	midV := profile.Version{Version: midVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
-	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	midV := profile.FalcoVersion{Version: midVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions := map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV}
 
 	vers, err := GetForceUpdateVersion(midVersion, falcoVersions)
 	if err != nil {
@@ -357,10 +357,10 @@ func TestGetForceUpdateVersionNoVersionFound(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	highV := profile.Version{Version: highVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
-	midV := profile.Version{Version: midVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
-	falcoVersions := map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
+	midV := profile.FalcoVersion{Version: midVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification, ExpirationDate: &time.Time{}}
+	falcoVersions := map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV}
 
 	if _, err := GetForceUpdateVersion(midVersion, falcoVersions); err == nil {
 		t.Errorf("Found version for force update by all versions are expired")
@@ -369,22 +369,22 @@ func TestGetForceUpdateVersionNoVersionFound(t *testing.T) {
 
 func TestChooseHighestVersionLowerThanCurrent(t *testing.T) {
 	// Empty version
-	if _, err := chooseHighestVersionLowerThanCurrent("0.0.0", map[string]profile.Version{}); err == nil {
+	if _, err := chooseHighestVersionLowerThanCurrent("0.0.0", map[string]profile.FalcoVersion{}); err == nil {
 		t.Error("Empty version map did not lead to error")
 	}
 
 	// Nonsensical version in available version
 	nonesenseVersion := "garba.ge"
-	nonesenseV := profile.Version{Version: nonesenseVersion, Classification: "supported"}
-	falcoVersions := map[string]profile.Version{nonesenseVersion: nonesenseV}
+	nonesenseV := profile.FalcoVersion{Version: nonesenseVersion, Classification: "supported"}
+	falcoVersions := map[string]profile.FalcoVersion{nonesenseVersion: nonesenseV}
 	if _, err := chooseHighestVersionLowerThanCurrent("0.0.0", falcoVersions); err == nil {
 		t.Error("Empty version map did not lead to error")
 	}
 
 	// Nonesenscial current version
 	goodVersion := "0.0.0"
-	goodV := profile.Version{Version: goodVersion, Classification: "supported"}
-	falcoVersions = map[string]profile.Version{goodVersion: goodV}
+	goodV := profile.FalcoVersion{Version: goodVersion, Classification: "supported"}
+	falcoVersions = map[string]profile.FalcoVersion{goodVersion: goodV}
 	if _, err := chooseHighestVersionLowerThanCurrent(nonesenseVersion, falcoVersions); err == nil {
 		t.Error("Empty version map did not lead to error")
 	}
@@ -393,10 +393,10 @@ func TestChooseHighestVersionLowerThanCurrent(t *testing.T) {
 	highVersion := "1.2.3"
 	midVersion := "1.0.0"
 	lowVersion := "0.0.0"
-	highV := profile.Version{Version: highVersion, Classification: dummyClassification}
-	midV := profile.Version{Version: midVersion, Classification: dummyClassification}
-	lowV := profile.Version{Version: lowVersion, Classification: dummyClassification}
-	falcoVersions = map[string]profile.Version{highVersion: highV, lowVersion: lowV, midVersion: midV}
+	highV := profile.FalcoVersion{Version: highVersion, Classification: dummyClassification}
+	midV := profile.FalcoVersion{Version: midVersion, Classification: dummyClassification}
+	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
+	falcoVersions = map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV}
 
 	currentVersion := "1.1.1"
 	if ver, err := chooseHighestVersionLowerThanCurrent(currentVersion, falcoVersions); err != nil || *ver != midVersion {

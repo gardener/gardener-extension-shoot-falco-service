@@ -73,7 +73,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
-func isVersionExpired(version string, versions map[string]profile.Version) bool {
+func isVersionExpired(version string, versions map[string]profile.FalcoVersion) bool {
 	existingVersion, ok := versions[version]
 	if !ok {
 		return true

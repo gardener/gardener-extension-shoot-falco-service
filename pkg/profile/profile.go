@@ -35,13 +35,20 @@ type Version struct {
 	Version        string
 }
 
+type FalcoVersion struct {
+	Classification string
+	ExpirationDate *time.Time
+	Version        string
+	RulesVersion   string
+}
+
 type FalcoProfileManager struct {
 	client                *dynamic.DynamicClient
 	falcoProfiles         map[string]*v1alpha1.FalcoProfile
 	falcoImages           map[string]Image
 	falcosidekickImages   map[string]Image
 	falcoctlImages        map[string]Image
-	falcoVersions         map[string]Version
+	falcoVersions         map[string]FalcoVersion
 	falcosidekickVersions map[string]Version
 	falcoctlVersions      map[string]Version
 	mutex                 sync.Mutex
@@ -58,7 +65,7 @@ func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager 
 		falcoImages:           make(map[string]Image),
 		falcosidekickImages:   make(map[string]Image),
 		falcoctlImages:        make(map[string]Image),
-		falcoVersions:         make(map[string]Version),
+		falcoVersions:         make(map[string]FalcoVersion),
 		falcosidekickVersions: make(map[string]Version),
 		falcoctlVersions:      make(map[string]Version),
 		mutex:                 sync.Mutex{},
@@ -67,7 +74,7 @@ func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager 
 	return FalcoProfileManagerInstance
 }
 
-func GetDummyFalcoProfileManager(falcoVersions *map[string]Version, falcoImages *map[string]Image, falcosidekickVersions *map[string]Version, falcosidekickImages *map[string]Image, falcoCtlVersions *map[string]Version, falcoCtlImages *map[string]Image) *FalcoProfileManager {
+func GetDummyFalcoProfileManager(falcoVersions *map[string]FalcoVersion, falcoImages *map[string]Image, falcosidekickVersions *map[string]Version, falcosidekickImages *map[string]Image, falcoCtlVersions *map[string]Version, falcoCtlImages *map[string]Image) *FalcoProfileManager {
 	FalcoProfileManagerInstance = &FalcoProfileManager{
 		mutex:                 sync.Mutex{},
 		falcoVersions:         *falcoVersions,
@@ -138,10 +145,11 @@ func (p *FalcoProfileManager) rebuild() {
 			p.falcoImages[q.Version] = im
 		}
 		for _, q := range profile.Spec.Versions.Falco {
-			v := Version{
+			v := FalcoVersion{
 				Classification: q.Classification,
 				ExpirationDate: getExpirationDate(q),
 				Version:        q.Version,
+				RulesVersion:   q.RulesVersion,
 			}
 			p.falcoVersions[q.Version] = v
 		}
@@ -196,10 +204,10 @@ func (p *FalcoProfileManager) deleteEvent(name string) {
 	p.rebuild()
 }
 
-func (p *FalcoProfileManager) GetFalcoVersions() *map[string]Version {
+func (p *FalcoProfileManager) GetFalcoVersions() *map[string]FalcoVersion {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	versionsCopy := make(map[string]Version, len(p.falcoVersions))
+	versionsCopy := make(map[string]FalcoVersion, len(p.falcoVersions))
 	for k, v := range p.falcoVersions {
 		versionsCopy[k] = v
 	}
