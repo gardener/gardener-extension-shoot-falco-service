@@ -158,7 +158,7 @@ func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig, oldFalcoConf *ser
 	return nil
 }
 
-func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, versions *map[string]profile.Version) error {
+func verifyFalcoVersionInVersions(falcoConf *service.FalcoServiceConfig, versions *map[string]profile.FalcoVersion) error {
 	chosenVersion := falcoConf.FalcoVersion
 	if chosenVersion == nil {
 		return fmt.Errorf("falcoVersion is nil")

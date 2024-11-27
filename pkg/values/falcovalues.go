@@ -541,9 +541,10 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 }
 
 func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string) (string, error) {
+	falcoVersions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
 	rules := versions.Rules
 	rulesVersion := ""
-	for _, fv := range versions.Falco.FalcoVersions {
+	for _, fv := range *falcoVersions {
 		if falcoVersion == fv.Version {
 			rulesVersion = fv.RulesVersion
 		}

@@ -131,10 +131,10 @@ func TestVerifyFalcoVersion(t *testing.T) {
 	supportedVersion := "1.2.3"
 	depreatedVersion := "3.2.1"
 	expiredVersion := "9.9.9"
-	supportedV := profile.Version{Version: supportedVersion, Classification: "supported"}
-	depreatedV := profile.Version{Version: depreatedVersion, Classification: "deprecated"}
-	expiredV := profile.Version{Version: expiredVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
-	falcoVersions := map[string]profile.Version{supportedVersion: supportedV, depreatedVersion: depreatedV, expiredVersion: expiredV}
+	supportedV := profile.FalcoVersion{Version: supportedVersion, Classification: "supported"}
+	depreatedV := profile.FalcoVersion{Version: depreatedVersion, Classification: "deprecated"}
+	expiredV := profile.FalcoVersion{Version: expiredVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	falcoVersions := map[string]profile.FalcoVersion{supportedVersion: supportedV, depreatedVersion: depreatedV, expiredVersion: expiredV}
 
 	profile.GetDummyFalcoProfileManager(
 		&falcoVersions,

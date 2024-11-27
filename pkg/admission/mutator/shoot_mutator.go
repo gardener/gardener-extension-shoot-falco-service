@@ -122,7 +122,7 @@ func setFalcoVersion(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func sortVersionsWithClassification(versions map[string]profile.Version, classifications []string) (pkgversion.Collection, error) {
+func sortVersionsWithClassification(versions map[string]profile.FalcoVersion, classifications []string) (pkgversion.Collection, error) {
 	now := time.Now()
 	var sortedVersions pkgversion.Collection
 	for _, v := range versions {
@@ -145,7 +145,7 @@ func sortVersionsWithClassification(versions map[string]profile.Version, classif
 	return sortedVersions, nil
 }
 
-func chooseHighestVersionLowerThanCurrent(version string, versions map[string]profile.Version) (*string, error) {
+func chooseHighestVersionLowerThanCurrent(version string, versions map[string]profile.FalcoVersion) (*string, error) {
 	sortedVersions, err := sortVersionsWithClassification(versions, []string{"supported", "deprecated"})
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func chooseHighestVersionLowerThanCurrent(version string, versions map[string]pr
 	return &incumbentStr, nil
 }
 
-func chooseLowestVersionHigherThanCurrent(version string, versions map[string]profile.Version, classifications []string) (*string, error) {
+func chooseLowestVersionHigherThanCurrent(version string, versions map[string]profile.FalcoVersion, classifications []string) (*string, error) {
 	sortedVersions, err := sortVersionsWithClassification(versions, classifications)
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ func chooseLowestVersionHigherThanCurrent(version string, versions map[string]pr
 	return nil, fmt.Errorf("no higher version than current version found")
 }
 
-func chooseHighestVersion(versions map[string]profile.Version, classification string) (*string, error) {
+func chooseHighestVersion(versions map[string]profile.FalcoVersion, classification string) (*string, error) {
 
 	sortedVersions, err := sortVersionsWithClassification(versions, []string{classification})
 	if err != nil {
@@ -213,12 +213,12 @@ func chooseHighestVersion(versions map[string]profile.Version, classification st
 	return &highest, nil
 }
 
-func GetAutoUpdateVersion(versions map[string]profile.Version) (*string, error) {
+func GetAutoUpdateVersion(versions map[string]profile.FalcoVersion) (*string, error) {
 	vers, err := chooseHighestVersion(versions, "supported")
 	return vers, err
 }
 
-func GetForceUpdateVersion(version string, versions map[string]profile.Version) (*string, error) {
+func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVersion) (*string, error) {
 	vers, err := chooseLowestVersionHigherThanCurrent(version, versions, []string{"deprecated", "supported"})
 	if err == nil {
 		return vers, nil

@@ -14,9 +14,23 @@ import (
 )
 
 var (
-	now      = time.Now().Round(time.Second)
-	dummyVer = "0.0.0"
-	versions = map[string]Version{
+	now           = time.Now().Round(time.Second)
+	dummyVer      = "0.0.0"
+	falcoVersions = map[string]FalcoVersion{
+		dummyVer: {
+			Classification: "supported",
+			ExpirationDate: &now,
+			Version:        dummyVer,
+		},
+	}
+	falcosidekickVersions = map[string]Version{
+		dummyVer: {
+			Classification: "supported",
+			ExpirationDate: &now,
+			Version:        dummyVer,
+		},
+	}
+	falcoctlVersions = map[string]Version{
 		dummyVer: {
 			Classification: "supported",
 			ExpirationDate: &now,
@@ -36,13 +50,13 @@ var (
 var _ = Describe("Falco profile manager", func() {
 	var profileManager *FalcoProfileManager
 	BeforeEach(func() {
-		profileManager = GetDummyFalcoProfileManager(&versions, &images, &versions, &images, &versions, &images)
+		profileManager = GetDummyFalcoProfileManager(&falcoVersions, &images, &falcosidekickVersions, &images, &falcoctlVersions, &images)
 		Expect(profileManager).ToNot(BeNil(), "profileManager should not be nil")
 	})
 
 	Context("getting falco version", func() {
 		It("can get correct versions", func() {
-			Expect(*profileManager.GetFalcoVersions()).To(Equal(versions))
+			Expect(*profileManager.GetFalcoVersions()).To(Equal(falcoVersions))
 		})
 	})
 
@@ -55,7 +69,7 @@ var _ = Describe("Falco profile manager", func() {
 
 	Context("getting falcosidekick version", func() {
 		It("can get correct versions", func() {
-			Expect(*profileManager.GetFalcosidekickVersions()).To(Equal(versions))
+			Expect(*profileManager.GetFalcosidekickVersions()).To(Equal(falcosidekickVersions))
 		})
 	})
 
@@ -68,7 +82,7 @@ var _ = Describe("Falco profile manager", func() {
 
 	Context("getting falcoctl version", func() {
 		It("can get correct versions", func() {
-			Expect(*profileManager.GetFalcoctlVersions()).To(Equal(versions))
+			Expect(*profileManager.GetFalcoctlVersions()).To(Equal(falcoctlVersions))
 		})
 	})
 

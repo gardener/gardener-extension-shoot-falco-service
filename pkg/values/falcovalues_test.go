@@ -76,10 +76,11 @@ var (
 	}
 
 	falcoProfileManager = profile.GetDummyFalcoProfileManager(
-		&map[string]profile.Version{
+		&map[string]profile.FalcoVersion{
 			"0.38.0": {
 				Version:        "0.38.0",
 				Classification: "supported",
+				RulesVersion:   "3.2.0",
 			},
 		},
 		&map[string]profile.Image{
