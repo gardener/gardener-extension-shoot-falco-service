@@ -7,10 +7,11 @@ spec:
   description: Tests whether Falco is running correctly on the cluster
 
   activeDeadlineSeconds: 3600
-  command: [ "test/integration/falco-integration.sh" ]
+  command: [bash, -c]
   args:
   - >-
-      "$TM_KUBECONFIG_PATH/gardener.config" \
-      $PROJECT_NAMESPACE \
-      "$SHOOT_NAME"
+    test/integration/falco-integration.sh
+    $TM_KUBECONFIG_PATH/gardener.config
+    $PROJECT_NAMESPACE
+    $SHOOT_NAME
   image: python:python:3.9.20-bookworm
