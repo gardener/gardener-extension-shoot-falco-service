@@ -1,7 +1,7 @@
   falcoVersions:
   - version: 0.39.1
-    classification: supported
+    classification: deprecated
     rulesVersion: 3.2.0
   - version: 0.39.2
-    classification: preview
+    classification: supported
     rulesVersion: 3.2.0
