@@ -14,4 +14,4 @@ spec:
     $TM_KUBECONFIG_PATH/gardener.config
     $PROJECT_NAMESPACE
     $SHOOT_NAME
-  image: python:3.9.20-bookworm
+  image: python:3.12-bookworm
