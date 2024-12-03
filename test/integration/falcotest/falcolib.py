@@ -345,7 +345,7 @@ def run_falco_event_generator(shoot_api_client):
     # Create a pod
     pod = cv1.create_namespaced_pod("default", pod)
     logger.info(f"Pod 'sample-events' created. Pod status: {pod.status.phase}")
-    time.sleep(10)
+    time.sleep(20)
     logs = ""
     start = datetime.now()
     while logs.count("\n") < 50 and (datetime.now() - start).seconds < 60:
