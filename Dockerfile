@@ -18,7 +18,7 @@ ARG EFFECTIVE_VERSION
 RUN make install EFFECTIVE_VERSION=$EFFECTIVE_VERSION
 
 ############# base
-FROM gcr.io/distroless/static-debian11:nonroot AS base
+FROM gcr.io/distroless/static-debian12:nonroot AS base
 
 ############# gardener-extension-shoot-falco
 FROM base AS gardener-extension-shoot-falco-service
@@ -30,7 +30,7 @@ ENTRYPOINT ["/gardener-extension-shoot-falco-service"]
 
 ############# gardener-extension-admission-shoot-falco-service
 FROM base AS gardener-extension-admission-shoot-falco-service
-WORKDIR /
 
+WORKDIR /
 COPY --from=builder /go/bin/gardener-extension-admission-shoot-falco-service /gardener-extension-admission-shoot-falco-service
 ENTRYPOINT ["/gardener-extension-admission-shoot-falco-service"]
