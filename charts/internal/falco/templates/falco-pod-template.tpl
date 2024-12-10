@@ -80,14 +80,6 @@ spec:
         {{- include "falco.configSyscallSource" . | indent 8 }}
         {{- with .Values.collectors }}
         {{- if .enabled }}
-        {{- if .containerd.enabled }}
-        - --cri
-        - /run/containerd/containerd.sock
-        {{- end }}
-        {{- if .crio.enabled }}
-        - --cri
-        - /run/crio/crio.sock
-        {{- end }}
         {{- if .kubernetes.enabled }}
         - -K
         - {{ .kubernetes.apiAuth }}
