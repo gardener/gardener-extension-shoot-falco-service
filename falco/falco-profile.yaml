@@ -22,11 +22,19 @@ spec:
       repository: falcosecurity/falcoctl
       tag: 0.10.0
       version: 0.10.0
+    - architecture: amd64
+      repository: falcosecurity/falcoctl
+      tag: 0.10.1
+      version: 0.10.1
     falcosidekick:
     - architecture: amd64
       repository: falcosecurity/falcosidekick
       tag: 2.29.0
       version: 2.29.0
+    - architecture: amd64
+      repository: falcosecurity/falcosidekick
+      tag: 2.30.0
+      version: 2.30.0
   versions:
     falco:
     - classification: deprecated
@@ -36,11 +44,15 @@ spec:
       rulesVersion: 3.2.0
       version: 0.39.2
     falcoctl:
-    - classification: supported
+    - classification: deprecated
       version: 0.9.1
-    - classification: supported
+    - classification: deprecated
       version: 0.10.0
-    falcosidekick:
     - classification: supported
+      version: 0.10.1
+    falcosidekick:
+    - classification: deprecated
       version: 2.29.0
+    - classification: supported
+      version: 2.30.0
 
