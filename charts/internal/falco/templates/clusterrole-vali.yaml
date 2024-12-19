@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.rbac.create }}
+kind: ClusterRole
+apiVersion: {{ include "rbac.apiVersion" . }}
+metadata:
+  name: {{ include "falco.fullname" . }}:vali
+  labels:
+    app.kubernetes.io/name: {{ include "falco.fullname" . }}:vali
+    {{- include "falco.labels" . | nindent 4 }}
+rules:
+  - nonResourceURLs:
+      - /vali/api/v1/push
+    verbs:
+      - create
+{{- end }}
