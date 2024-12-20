@@ -2,8 +2,6 @@
 metadata:
   name: {{ include "falco.fullname" . }}
   labels:
-    networking.gardener.cloud/to-dns: allowed
-    networking.gardener.cloud/to-falcosidekick: allowed
     {{- if or .Values.falcoctl.artifact.install.enabled .Values.falcoctl.artifact.follow.enabled }}
     networking.gardener.cloud/to-public-networks: allowed
     {{- end }}
