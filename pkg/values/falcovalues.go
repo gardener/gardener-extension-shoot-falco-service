@@ -91,6 +91,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			{"effect": "NoSchedule", "operator": "Exists"},
 			{"effect": "NoExecute", "operator": "Exists"},
 		},
+		"podLabels": map[string]string{
+			"networking.gardener.cloud/to-dns":           "allowed",
+			"networking.gardener.cloud/to-falcosidekick": "allowed",
+		},
 		"priorityClassName": *c.config.Falco.PriorityClassName,
 		"driver": map[string]string{
 			"kind": "modern-bpf",
@@ -136,6 +140,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"create": false,
 		},
 		"falcosidekick": map[string]interface{}{
+			"podLabels": map[string]string{
+				"networking.gardener.cloud/to-dns":             "allowed",
+				"networking.gardener.cloud/to-public-networks": "allowed",
+			},
 			"enabled":  true,
 			"fullfqdn": true,
 			"webui": map[string]bool{
