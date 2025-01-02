@@ -1,0 +1,17 @@
+{{- if .Values.rbac.create }}
+kind: ClusterRoleBinding
+apiVersion: {{ include "rbac.apiVersion" . }}
+metadata:
+  name: {{ include "falco.fullname" . }}:vali
+  labels:
+    app.kubernetes.io/name: {{ include "falco.fullname" . }}:vali
+    {{- include "falco.labels" . | nindent 4 }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "falco.fullname" . }}:vali
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "falco.serviceAccountName" . }}:vali
+    namespace: {{ include "falco.namespace" . }}
+{{- end }}
