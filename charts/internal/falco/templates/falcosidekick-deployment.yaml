@@ -100,6 +100,7 @@ spec:
                 {{- else }}
                 name: falcosidekick
                 {{- end }}
+
           env:
             - name: DEBUG
               value: {{ .Values.falcosidekick.config.debug | quote }}
@@ -131,7 +132,13 @@ spec:
               value: {{ .Values.falcosidekick.config.tlsserver.notlsport | quote }}
             - name: TLSSERVER_NOTLSPATHS
               value: {{ .Values.falcosidekick.config.tlsserver.notlspaths | quote }}
-
+            - name: SERVICE_ACCOUNT_TOKEN 
+              valueFrom:
+                secretKeyRef:
+                  name: falcosidekick-token-secret
+                  key: token
+            - name: LOKI_CUSTOMHEADERS
+              value: "Authorization: Bearer $(SERVICE_ACCOUNT_TOKEN)"
             {{- if .Values.falcosidekick.config.extraEnv }}
             {{ toYaml .Values.falcosidekick.config.extraEnv | nindent 12 }}
             {{- end }}
