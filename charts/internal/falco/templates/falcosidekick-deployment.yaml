@@ -30,6 +30,7 @@ spec:
       {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/falcosidekick-secrets.yaml") . | sha256sum }}
+        checksum/token: {{ include (print $.Template.BasePath "/falcosidekick-token.yaml") . | sha256sum }}
       {{- if .Values.falcosidekick.podAnnotations }}
 {{ toYaml .Values.falcosidekick.podAnnotations | indent 8 }}
       {{- end }}
@@ -135,10 +136,14 @@ spec:
             - name: SERVICE_ACCOUNT_TOKEN 
               valueFrom:
                 secretKeyRef:
-                  name: falcosidekick-token-secret
+                  name: falcosidekick-token
                   key: token
             - name: LOKI_CUSTOMHEADERS
               value: "Authorization: Bearer $(SERVICE_ACCOUNT_TOKEN)"
+            - name: LOKI_HOSTPORT
+              value: {{ .Values.falcosidekick.config.logging.valiHostPort | quote }}
+            - name: LOKI_ENDPOINT
+              value: "/vali/api/v1/push"
             {{- if .Values.falcosidekick.config.extraEnv }}
             {{ toYaml .Values.falcosidekick.config.extraEnv | nindent 12 }}
             {{- end }}
