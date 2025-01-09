@@ -138,10 +138,12 @@ spec:
                 secretKeyRef:
                   name: falcosidekick-token
                   key: token
+            - name: LOKI_CHECKCERT
+              value: "false"
             - name: LOKI_CUSTOMHEADERS
               value: "Authorization: Bearer $(SERVICE_ACCOUNT_TOKEN)"
             - name: LOKI_HOSTPORT
-              value: {{ .Values.falcosidekick.config.logging.valiHostPort | quote }}
+              value: {{ .Values.falcosidekick.config.loki.hostport | quote }}
             - name: LOKI_ENDPOINT
               value: "/vali/api/v1/push"
             {{- if .Values.falcosidekick.config.extraEnv }}
