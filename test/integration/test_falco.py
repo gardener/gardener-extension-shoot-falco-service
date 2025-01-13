@@ -144,6 +144,12 @@ def test_event_generator(shoot_api_client):
     # something that appears at the start
     assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
 
+    # make sure it is correctly persisted
+    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falcosidekick_pod_label_selector)
+    postedOK = False
+    for k,v in logs.items():
+        postedOK = postedOK or "Webhook - POST OK (200)" in v
+    assert postedOK
 
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
     
