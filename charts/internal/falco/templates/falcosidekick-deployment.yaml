@@ -21,8 +21,6 @@ spec:
   template:
     metadata:
       labels:
-        networking.gardener.cloud/to-dns: allowed
-        networking.gardener.cloud/to-public-networks: allowed
         app.kubernetes.io/name: falcosidekick
         app.kubernetes.io/instance: {{ .Release.Name }}
       {{- if .Values.falcosidekick.podLabels }}

@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	yaml "sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
@@ -91,6 +90,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			{"effect": "NoSchedule", "operator": "Exists"},
 			{"effect": "NoExecute", "operator": "Exists"},
 		},
+		"podLabels": map[string]string{
+			"networking.gardener.cloud/to-dns":           "allowed",
+			"networking.gardener.cloud/to-falcosidekick": "allowed",
+		},
 		"priorityClassName": *c.config.Falco.PriorityClassName,
 		"driver": map[string]string{
 			"kind": "modern-bpf",
@@ -136,6 +139,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"create": false,
 		},
 		"falcosidekick": map[string]interface{}{
+			"podLabels": map[string]string{
+				"networking.gardener.cloud/to-dns":             "allowed",
+				"networking.gardener.cloud/to-public-networks": "allowed",
+			},
 			"enabled":  true,
 			"fullfqdn": true,
 			"webui": map[string]bool{
@@ -206,13 +213,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			return nil, err
 		}
 	}
-
-	strChart, err := yaml.Marshal(falcoChartValues)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(strChart[:]))
-	//log.Info("falco chart values", "values", string(strChart[:]))
 	return falcoChartValues, nil
 }
 
@@ -422,9 +422,7 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 
 	cas, certs, err := c.loadFalcoCertificates(ctx, namespace)
 	if err != nil {
-		log.Info("cannot load Falco certificates from secret: " + err.Error())
-	}
-	if err != nil {
+		log.Info("cannot load Falco certificates from secret, generating new certificates: " + err.Error())
 		// need to generate everything
 		cas, err = secrets.GenerateFalcoCas(cluster.Shoot.Name, constants.DefaultCALifetime)
 		if err != nil {
