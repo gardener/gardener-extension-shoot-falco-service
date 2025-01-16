@@ -18,4 +18,4 @@ spec:
       networking.gardener.cloud/to-falcosidekick: allowed
   policyTypes:
   - Egress
-{{- end }}
+{{- end }} 
