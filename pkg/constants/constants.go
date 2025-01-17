@@ -58,5 +58,6 @@ const (
 )
 
 var (
-	AlwaysEnabledProjects = [...]string{"garden"}
+	AlwaysEnabledProjects = []string{"garden"}
+	AllowedOutputs        = []string{"none", "cluster", "central", "custom"}
 )

@@ -84,6 +84,107 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	}
 	customFields := serializeCustomHeaders(customFieldsMap)
 
+	var falcosidekickConfig map[string]interface{}
+	var enableFalcoHttpOutput bool = true
+
+	switch *falcoServiceConfig.Output.EventCollector {
+	case "none":
+		falcosidekickConfig = map[string]interface{}{
+			"enabled": false,
+		}
+		enableFalcoHttpOutput = false
+	case "cluster":
+		// TODO
+		falcosidekickConfig = map[string]interface{}{
+			"enabled": false,
+		}
+	case "central":
+
+		// Gardener managed event store
+		ingestorAddress := c.config.Falco.IngestorURL
+		// ok to generate new token on each reconcile
+		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
+		customHeadersMap := map[string]string{
+			"Authorization": "Bearer " + token,
+		}
+		customHeaders := serializeCustomHeaders(customHeadersMap)
+		webhook := map[string]interface{}{
+			"address":       ingestorAddress,
+			"customheaders": customHeaders,
+			"checkcerts":    true,
+		}
+		falcosidekickConfig = map[string]interface{}{
+			"podLabels": map[string]string{
+				"networking.gardener.cloud/to-dns":             "allowed",
+				"networking.gardener.cloud/to-public-networks": "allowed",
+			},
+			"enabled":  true,
+			"fullfqdn": true,
+			"webui": map[string]bool{
+				"enabled": false,
+			},
+			"image": map[string]string{
+				"image": falcosidekickImage,
+			},
+			"priorityClassName": *c.config.Falco.PriorityClassName,
+			"config": map[string]interface{}{
+				"debug": true,
+				"tlsserver": map[string]interface{}{
+					"deploy":        true,
+					"mutualtls":     false,
+					"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
+					"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
+					"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
+				},
+				"customfields": customFields,
+				"webhook":      webhook,
+			},
+		}
+	case "custom":
+		// user has defined a custom location, we just pass it
+		customWebhook := falcoServiceConfig.Output.CustomWebhook
+		webhook := map[string]interface{}{
+			"address": *customWebhook.Address,
+		}
+		if customWebhook.CustomHeaders != nil {
+			webhook["customheaders"] = *customWebhook.CustomHeaders
+		}
+		if customWebhook.Checkcerts != nil {
+			webhook["checkcerts"] = *customWebhook.Checkcerts
+		}
+		falcosidekickConfig = map[string]interface{}{
+			"podLabels": map[string]string{
+				"networking.gardener.cloud/to-dns":             "allowed",
+				"networking.gardener.cloud/to-public-networks": "allowed",
+			},
+			"enabled":  true,
+			"fullfqdn": true,
+			"webui": map[string]bool{
+				"enabled": false,
+			},
+			"image": map[string]string{
+				"image": falcosidekickImage,
+			},
+			"priorityClassName": *c.config.Falco.PriorityClassName,
+			"config": map[string]interface{}{
+				"debug": true,
+				"tlsserver": map[string]interface{}{
+					"deploy":        true,
+					"mutualtls":     false,
+					"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
+					"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
+					"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
+				},
+				"customfields": customFields,
+				"webhook":      webhook,
+			},
+		}
+	}
+
+	var logFalcoEvents bool
+	if falcoServiceConfig.Output.LogFalcoEvents != nil && *falcoServiceConfig.Output.LogFalcoEvents {
+		logFalcoEvents = true
+	}
 	falcoChartValues := map[string]interface{}{
 		"clusterId": *cluster.Shoot.Status.ClusterIdentity,
 		"tolerations": []map[string]string{
@@ -127,75 +228,21 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		},
 		"falco": map[string]interface{}{
 			"http_output": map[string]interface{}{
-				"enabled":  true,
+				"enabled":  enableFalcoHttpOutput,
 				"insecure": true,
 				"url":      fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", metav1.NamespaceSystem, 2801),
 			},
 			"json_output":                  true,
 			"json_include_output_property": true,
 			"log_level":                    "debug",
+			"stdout_output": map[string]bool{
+				"enabled": logFalcoEvents,
+			},
 		},
 		"scc": map[string]bool{
 			"create": false,
 		},
-		"falcosidekick": map[string]interface{}{
-			"podLabels": map[string]string{
-				"networking.gardener.cloud/to-dns":             "allowed",
-				"networking.gardener.cloud/to-public-networks": "allowed",
-			},
-			"enabled":  true,
-			"fullfqdn": true,
-			"webui": map[string]bool{
-				"enabled": false,
-			},
-			"image": map[string]string{
-				"image": falcosidekickImage,
-			},
-			"priorityClassName": *c.config.Falco.PriorityClassName,
-			"config": map[string]interface{}{
-				"debug": true,
-				"tlsserver": map[string]interface{}{
-					"deploy":        true,
-					"mutualtls":     false,
-					"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
-					"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
-					"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
-				},
-				"customfields": customFields,
-			},
-		},
-	}
-
-	if falcoServiceConfig.CustomWebhook == nil || falcoServiceConfig.CustomWebhook.Enabled == nil || !*falcoServiceConfig.CustomWebhook.Enabled {
-		// Gardener managed event store
-		ingestorAddress := c.config.Falco.IngestorURL
-		// ok to generate new token on each reconcile
-		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
-		customHeadersMap := map[string]string{
-			"Authorization": "Bearer " + token,
-		}
-		customHeaders := serializeCustomHeaders(customHeadersMap)
-		webhook := map[string]interface{}{
-			"address":       ingestorAddress,
-			"customheaders": customHeaders,
-			"checkcerts":    true,
-		}
-		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
-		config["webhook"] = webhook
-	} else {
-		// user has defined a custom location, we just pass it
-		customWebhook := falcoServiceConfig.CustomWebhook
-		webhook := map[string]interface{}{
-			"address": *customWebhook.Address,
-		}
-		if customWebhook.CustomHeaders != nil {
-			webhook["customheaders"] = *customWebhook.CustomHeaders
-		}
-		if customWebhook.Checkcerts != nil {
-			webhook["checkcerts"] = *customWebhook.Checkcerts
-		}
-		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
-		config["webhook"] = webhook
+		"falcosidekick": falcosidekickConfig,
 	}
 
 	if *falcoServiceConfig.Resources == "gardener" {

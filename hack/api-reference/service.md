@@ -120,6 +120,18 @@ Webhook
 <p>Configuration for custom webhook</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>output</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.Output">
+Output
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl
@@ -366,11 +378,62 @@ bool
 </tr>
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Webhook">Webhook
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.Output">Output
 </h3>
 <p>
 (<em>Appears on:</em>
 <a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>logFalcoEvents</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>eventCollector</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>customWebhook</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.Webhook">
+Webhook
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.Webhook">Webhook
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>, 
+<a href="#falco.extensions.gardener.cloud/v1alpha1.Output">Output</a>)
 </p>
 <p>
 </p>

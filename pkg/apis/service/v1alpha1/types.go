@@ -38,11 +38,13 @@ type FalcoServiceConfig struct {
 	// Configuration for custom webhook
 	// +optional
 	CustomWebhook *Webhook `json:"webhook,omitempty"`
+
+	Output *Output `json:"output,omitempty"`
 }
 
 type FalcoCtl struct {
-	Indexes      []FalcoCtlIndex `json:"indexes"`
-	AllowedTypes []string        `json:"allowedTypes"`
+	Indexes      []FalcoCtlIndex `json:"indexes,omitempty"`
+	AllowedTypes []string        `json:"allowedTypes,omitempty"`
 
 	Install *Install `json:"install,omitempty"`
 	Follow  *Follow  `json:"follow,omitempty"`
@@ -86,4 +88,10 @@ type Webhook struct {
 	Address       *string `json:"address,omitempty"`
 	CustomHeaders *string `json:"customHeaders,omitempty"`
 	Checkcerts    *bool   `json:"checkcerts,omitempty"`
+}
+
+type Output struct {
+	LogFalcoEvents *bool    `json:"logFalcoEvents,omitempty"`
+	EventCollector *string  `json:"eventCollector,omitempty"`
+	CustomWebhook  *Webhook `json:"customWebhook,omitempty"`
 }

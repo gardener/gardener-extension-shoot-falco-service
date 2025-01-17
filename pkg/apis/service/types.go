@@ -34,9 +34,14 @@ type FalcoServiceConfig struct {
 	Gardener *Gardener
 
 	// Configuration for custom webhook
+	// deprecated, will be migraed by the webhook and be removed in the
+	// future
 	// +optional
 	CustomWebhook *Webhook
 
+	// Specify the output configuration. Default to log Falco events
+	// in the Gardener monitoring stack.
+	// +optional
 	Output *Output
 }
 
@@ -97,7 +102,7 @@ type Output struct {
 	// Specify the log collector to use. There are currently three options;
 	// one of them requires additional configuration:
 	// - "none": do not collect Falco event logs. This is useful if you
-	//   scape and process the event logs yourself.
+	//   scrape and process the event logs yourself.
 	// - "cluster": us the gardener logging stack to collect and store
 	//   Falco event logs. This is the default.
 	// - "central": use the Gardener central Falco event storage

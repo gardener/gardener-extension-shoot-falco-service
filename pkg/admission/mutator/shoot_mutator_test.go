@@ -15,23 +15,23 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
-func TestSetWebhook(t *testing.T) {
-	falcoConf := &service.FalcoServiceConfig{}
-	setCustomWebhook(falcoConf)
-	if falcoConf.CustomWebhook == nil {
-		t.Error("CustomWebhook not set")
-	} else if falcoConf.CustomWebhook.Enabled == nil || *falcoConf.CustomWebhook.Enabled {
-		t.Error("CustomWebhook enabled but should be disabled by default")
-	}
-}
+// func TestSetWebhook(t *testing.T) {
+// 	falcoConf := &service.FalcoServiceConfig{}
+// 	setCustomWebhook(falcoConf)
+// 	if falcoConf.CustomWebhook == nil {
+// 		t.Error("CustomWebhook not set")
+// 	} else if falcoConf.CustomWebhook.Enabled == nil || *falcoConf.CustomWebhook.Enabled {
+// 		t.Error("CustomWebhook enabled but should be disabled by default")
+// 	}
+// }
 
-func TestSetFalcoCtl(t *testing.T) {
-	falcoConf := &service.FalcoServiceConfig{}
-	setFalcoCtl(falcoConf)
-	if falcoConf.FalcoCtl == nil {
-		t.Error("FalcoCtl not set")
-	}
-}
+// func TestSetFalcoCtl(t *testing.T) {
+// 	falcoConf := &service.FalcoServiceConfig{}
+// 	setFalcoCtl(falcoConf)
+// 	if falcoConf.FalcoCtl == nil {
+// 		t.Error("FalcoCtl not set")
+// 	}
+// }
 
 func TestSetResources(t *testing.T) {
 	falcoConf := &service.FalcoServiceConfig{}

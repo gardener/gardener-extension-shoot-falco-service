@@ -11,6 +11,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -58,7 +59,6 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	}
 
 	falcoConf, err := s.extractFalcoConfig(shoot)
-	// falcoConf, err := utils.ExtractFalcoServiceConfig(shoot)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyWebhook(falcoConf); err != nil {
+	if err := verifyOutput(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -103,10 +103,8 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	return nil
 }
 
-func verifyFalcoCtl(falcoConf *service.FalcoServiceConfig) error {
-	if falcoConf.FalcoCtl == nil {
-		return fmt.Errorf("falcoCtl is not set")
-	}
+func verifyFalcoCtl(_ *service.FalcoServiceConfig) error {
+	// TODO
 	return nil
 }
 
@@ -122,8 +120,7 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func verifyWebhook(falcoConf *service.FalcoServiceConfig) error {
-	webhook := falcoConf.CustomWebhook
+func verifyWebhook(webhook *service.Webhook) error {
 	if webhook == nil {
 		return fmt.Errorf("webhook is nil")
 	} else if webhook.Enabled == nil {
@@ -132,6 +129,24 @@ func verifyWebhook(falcoConf *service.FalcoServiceConfig) error {
 		return fmt.Errorf("webhook is enabled but without address")
 	}
 	// may also want to enforce headers at some point
+	return nil
+}
+
+func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
+	output := falcoConf.Output
+	if output == nil {
+		return fmt.Errorf("event ouptut is not defined")
+	}
+	if output.EventCollector == nil || slices.Contains(constants.AllowedOutputs, *output.EventCollector) {
+		return fmt.Errorf("output.eventCollector needs to be set to a value in " + strings.Join(constants.AllowedOutputs, ", "))
+	}
+	if *output.EventCollector == "custom" {
+		if output.CustomWebhook == nil {
+			return fmt.Errorf("output.eventCollector is set to custom but customWebhook is not defined")
+		}
+		return verifyWebhook(falcoConf.Output.CustomWebhook)
+
+	}
 	return nil
 }
 

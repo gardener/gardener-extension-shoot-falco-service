@@ -56,16 +56,14 @@ func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	return s.mutateShoot(ctx, shoot)
 }
 
-func setCustomWebhook(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.CustomWebhook == nil {
-		enabledWebhook := false
-		falcoConf.CustomWebhook = &service.Webhook{Enabled: &enabledWebhook}
-	}
-}
-
-func setFalcoCtl(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.FalcoCtl == nil {
-		falcoConf.FalcoCtl = &service.FalcoCtl{}
+func setOutput(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Output == nil {
+		defaultLog := false
+		defaultEventCollector := "cluster"
+		falcoConf.Output = &service.Output{
+			LogFalcoEvents: &defaultLog,
+			EventCollector: &defaultEventCollector,
+		}
 	}
 }
 
@@ -252,11 +250,9 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	setResources(falcoConf)
 
-	setFalcoCtl(falcoConf)
-
 	setGardenerRules(falcoConf)
 
-	setCustomWebhook(falcoConf)
+	setOutput(falcoConf)
 
 	return s.UpdateFalcoConfig(new, falcoConf)
 }
