@@ -1,3 +1,4 @@
+{{- if .Values.falcosidekick.enabled }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -85,4 +86,5 @@ subjects:
 - kind: ServiceAccount
   namespace: {{ .Release.Namespace }}
   name: falcosidekick
+{{- end }}
 {{- end }}
