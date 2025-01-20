@@ -15,14 +15,14 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/mod v0.22.0
 	golang.org/x/tools v0.29.0
-	helm.sh/helm/v3 v3.16.4
-	k8s.io/api v0.32.0
-	k8s.io/apimachinery v0.32.0
-	k8s.io/client-go v0.32.0
-	k8s.io/code-generator v0.32.0
-	k8s.io/component-base v0.32.0
+	helm.sh/helm/v3 v3.17.0
+	k8s.io/api v0.32.1
+	k8s.io/apimachinery v0.32.1
+	k8s.io/client-go v0.32.1
+	k8s.io/code-generator v0.32.1
+	k8s.io/component-base v0.32.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	sigs.k8s.io/controller-runtime v0.19.4
+	sigs.k8s.io/controller-runtime v0.20.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -36,7 +36,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/cyphar/filepath-securejoin v0.3.4 // indirect
+	github.com/cyphar/filepath-securejoin v0.3.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
@@ -57,6 +57,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -118,7 +119,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	istio.io/api v1.23.3 // indirect
 	istio.io/client-go v1.23.3 // indirect
-	k8s.io/apiextensions-apiserver v0.31.3 // indirect
+	k8s.io/apiextensions-apiserver v0.32.0 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.2.1 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
