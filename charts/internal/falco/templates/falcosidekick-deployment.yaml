@@ -30,7 +30,6 @@ spec:
       {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/falcosidekick-secrets.yaml") . | sha256sum }}
-        checksum/token: {{ include (print $.Template.BasePath "/falcosidekick-token.yaml") . | sha256sum }}
       {{- if .Values.falcosidekick.podAnnotations }}
 {{ toYaml .Values.falcosidekick.podAnnotations | indent 8 }}
       {{- end }}
@@ -41,7 +40,7 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      serviceAccountName: falcosidekick
+      serviceAccountName: gardener-falcosidekick
       {{- if .Values.falcosidekick.priorityClassName }}
       priorityClassName: "{{ .Values.falcosidekick.priorityClassName }}"
       {{- end }}
@@ -136,7 +135,7 @@ spec:
             - name: SERVICE_ACCOUNT_TOKEN 
               valueFrom:
                 secretKeyRef:
-                  name: falcosidekick-token
+                  name: gardener-falcosidekick
                   key: token
             - name: LOKI_CHECKCERT
               value: "false"

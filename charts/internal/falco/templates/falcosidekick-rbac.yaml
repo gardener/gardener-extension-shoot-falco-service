@@ -1,15 +1,4 @@
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: falcosidekick
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app.kubernetes.io/name: falcosidekick
-    helm.sh/chart: {{ include "falco.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -44,8 +33,7 @@ roleRef:
   name: falcosidekick
 subjects:
 - kind: ServiceAccount
-  name: falcosidekick
-{{- if .Values.falcosidekick.config.policyreport.enabled  }}
+  name: gardener-falcosidekick
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -88,5 +76,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   namespace: {{ .Release.Namespace }}
-  name: falcosidekick
-{{- end }}
+  name: gardener-falcosidekick

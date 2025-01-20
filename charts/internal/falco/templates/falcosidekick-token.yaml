@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: falcosidekick-token
-  namespace: {{ .Release.Namespace }}
-  annotations:
-    kubernetes.io/service-account.name: falcosidekick
-type: kubernetes.io/service-account-token
