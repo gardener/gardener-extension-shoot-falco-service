@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    serviceaccount.resources.gardener.cloud/name: gardener-falcosidekick
+    serviceaccount.resources.gardener.cloud/namespace: kube-system
+    serviceaccount.resources.gardener.cloud/token-expiration-duration: 720h
+    token-requestor.resources.gardener.cloud/target-secret-name: gardener-falcosidekick
+    token-requestor.resources.gardener.cloud/target-secret-namespace: kube-system
+  labels:
+    resources.gardener.cloud/class: shoot
+    resources.gardener.cloud/purpose: token-requestor
+  name: shoot-access-falcosidekick
+  namespace: {{ .Release.Namespace }}
+type: Opaque

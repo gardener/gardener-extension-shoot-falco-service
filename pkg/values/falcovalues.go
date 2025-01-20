@@ -24,6 +24,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
 )
 
 var (
@@ -197,6 +198,13 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		config["webhook"] = webhook
 	}
+
+	config := falcoChartValues["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+	valiHost := utils.ComputeValiHost(*cluster.Shoot, *cluster.Seed)
+	loggingConfig := map[string]interface{}{
+		"hostport": "https://" + valiHost,
+	}
+	config["loki"] = loggingConfig
 
 	if *falcoServiceConfig.Resources == "gardener" {
 		if err := c.generateGardenerValues(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {

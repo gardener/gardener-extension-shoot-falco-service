@@ -38,7 +38,7 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      serviceAccountName: falcosidekick
+      serviceAccountName: gardener-falcosidekick
       {{- if .Values.falcosidekick.priorityClassName }}
       priorityClassName: "{{ .Values.falcosidekick.priorityClassName }}"
       {{- end }}
@@ -98,6 +98,7 @@ spec:
                 {{- else }}
                 name: falcosidekick
                 {{- end }}
+
           env:
             - name: DEBUG
               value: {{ .Values.falcosidekick.config.debug | quote }}
@@ -129,7 +130,19 @@ spec:
               value: {{ .Values.falcosidekick.config.tlsserver.notlsport | quote }}
             - name: TLSSERVER_NOTLSPATHS
               value: {{ .Values.falcosidekick.config.tlsserver.notlspaths | quote }}
-
+            - name: SERVICE_ACCOUNT_TOKEN 
+              valueFrom:
+                secretKeyRef:
+                  name: gardener-falcosidekick
+                  key: token
+            - name: LOKI_CHECKCERT
+              value: "false"
+            - name: LOKI_CUSTOMHEADERS
+              value: "Authorization: Bearer $(SERVICE_ACCOUNT_TOKEN)"
+            - name: LOKI_HOSTPORT
+              value: {{ .Values.falcosidekick.config.loki.hostport | quote }}
+            - name: LOKI_ENDPOINT
+              value: "/vali/api/v1/push"
             {{- if .Values.falcosidekick.config.extraEnv }}
             {{ toYaml .Values.falcosidekick.config.extraEnv | nindent 12 }}
             {{- end }}
