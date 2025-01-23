@@ -55,6 +55,7 @@ type FalcoProfileManager struct {
 	logger                logr.Logger
 }
 
+// TODO: get rid of this singleton
 var FalcoProfileManagerInstance *FalcoProfileManager
 
 func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager {

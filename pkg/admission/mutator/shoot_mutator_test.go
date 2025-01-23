@@ -5,14 +5,172 @@
 package mutator
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
+)
+
+var (
+	profileManager1 = profile.GetDummyFalcoProfileManager(
+		&map[string]profile.FalcoVersion{
+			"0.99.0": {
+				Version:        "0.99.0",
+				Classification: "supported",
+			},
+			"0.100.0": {
+				Version:        "0.100.0",
+				Classification: "supported",
+			},
+			"0.101.0": {
+				Version:        "0.101.0",
+				Classification: "preview",
+			},
+		},
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+	)
+
+	// minimal
+	mutate1 = `
+{
+	"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+	"kind": "FalcoServiceConfig"
+}`
+
+	expectedMutate1 = `
+{
+	"kind":"FalcoServiceConfig",
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"falcoVersion":"0.100.0",
+	"autoUpdate":true,
+	"resources":"gardener",
+	"gardener": {
+		"useFalcoRules":true,
+		"useFalcoIncubatingRules":false,
+		"useFalcoSandboxRules":false
+	},
+	"output": {
+		"logFalcoEvents":false,
+		"eventCollector":"central"
+	}
+}`
+
+	// falcoctl
+	mutate2 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"resources": "falcoctl",
+	"falcoCtl": {
+		"indexes": [
+			{
+				"name": "myrepo",
+				"url": "https://myrepo.com"
+			}
+		]
+	},
+	"kind":"FalcoServiceConfig"	 
+}
+`
+	expectedMutate2 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"0.100.0",
+	"autoUpdate":true,
+	"resources": "falcoctl",
+	"falcoCtl": {
+		"indexes": [
+			{
+				"name": "myrepo",
+				"url": "https://myrepo.com"
+			}
+		]
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"central",
+		"logFalcoEvents":false
+	}
+}
+`
+
+	// non-default gardener config
+	mutate3 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":false,
+			"useFalcoIncubatingRules":true,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+
+	expectedMutate3 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":false,
+			"useFalcoIncubatingRules":true,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+	// minimal
+
+	// broken
+	mutate4 = `
+{
+	"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+	"kind": "FalcoServiceConfig",
+	"aufoUpdate": true
+}`
+
+	genericShoot = &gardencorev1beta1.Shoot{
+		Spec: gardencorev1beta1.ShootSpec{
+			Extensions: []gardencorev1beta1.Extension{
+				{
+					Type:           "shoot-falco-service",
+					Disabled:       boolValue(false),
+					ProviderConfig: &runtime.RawExtension{},
+				},
+			},
+		},
+	}
 )
 
 // func TestSetWebhook(t *testing.T) {
@@ -404,3 +562,44 @@ func TestChooseHighestVersionLowerThanCurrent(t *testing.T) {
 	}
 
 }
+
+var _ = Describe("Test mutator", Label("mutator"), func() {
+
+	It("mutate forthe smallest possible config", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		mutator := NewShootMutator(mgr)
+
+		setProfileManager(profileManager1)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = mutator.Mutate(context.TODO(), genericShoot, nil)
+			return err
+		}
+
+		err = f(mutate1)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result := genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate1), "Mutator did not return expected result")
+
+		err = f(mutate2)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate2), "Mutator did not return expected result")
+
+		err = f(mutate3)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate3), "Mutator did not return expected result")
+
+		err = f(mutate4)
+		Expect(err).To(Not(BeNil()), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(ContainSubstring("aufoUpdate"), "Mutator did not return expected result")
+	})
+})

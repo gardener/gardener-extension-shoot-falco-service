@@ -34,7 +34,7 @@ func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
 
 func NewShoot(mgr manager.Manager) *Shoot {
 	return &Shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
+		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		scheme:  mgr.GetScheme(),
 	}
 }
@@ -59,11 +59,13 @@ func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 func setOutput(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Output == nil {
 		defaultLog := false
-		defaultEventCollector := "cluster"
 		falcoConf.Output = &service.Output{
 			LogFalcoEvents: &defaultLog,
-			EventCollector: &defaultEventCollector,
 		}
+	}
+	if falcoConf.Output.EventCollector == nil {
+		defaultEventCollector := "central"
+		falcoConf.Output.EventCollector = &defaultEventCollector
 	}
 }
 
@@ -96,6 +98,9 @@ func setResources(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Resources == nil {
 		defaultResource := "gardener"
 		falcoConf.Resources = &defaultResource
+	}
+	if *falcoConf.Resources == "gardener" {
+		setGardenerRules(falcoConf)
 	}
 }
 
@@ -249,8 +254,6 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	setAutoUpdate(falcoConf)
 
 	setResources(falcoConf)
-
-	setGardenerRules(falcoConf)
 
 	setOutput(falcoConf)
 

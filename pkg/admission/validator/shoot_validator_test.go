@@ -279,6 +279,15 @@ var (
 	}
 }
 `
+
+	// wrong object type
+	falcoExtensionIllegal7 = `
+{
+	"apiVersion":"nonsense.extensions.gardener.cloud/v1alpha1",
+	"kind":"dFalcoServiceConfig",
+	"autoUpdate":true
+}
+`
 )
 
 func init() {
@@ -545,6 +554,9 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to custom but customWebhook is not defined"), "Illegal extension is not detected as such ")
 
+		f(falcoExtensionIllegal7)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring(" failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
 	})
 
 })
