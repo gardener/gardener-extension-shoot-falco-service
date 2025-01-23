@@ -161,6 +161,27 @@ var (
 }
 `
 
+	// custom rules
+	falcoExtension6 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "gardener",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false,
+		"customRules": [ "rulecfg1", "rulecfg2" ]
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":true
+	}
+}
+`
+
 	falcoExtensionIllegal1 = `
 {
 	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
@@ -514,6 +535,9 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtension5)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension6)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
 	It("verify illegal extensions", func(ctx SpecContext) {
 		managerOptions := sigsmanager.Options{}
@@ -556,7 +580,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		f(falcoExtensionIllegal7)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring(" failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
 	})
 
 })

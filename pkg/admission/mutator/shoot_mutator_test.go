@@ -150,10 +150,50 @@ var (
 			}
 		}
 	}`
-	// minimal
+
+	// gardener config incomplete
+	mutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+
+	expectedMutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
 
 	// broken
-	mutate4 = `
+	mutate5 = `
 {
 	"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
 	"kind": "FalcoServiceConfig",
@@ -598,6 +638,11 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(result).To(MatchJSON(expectedMutate3), "Mutator did not return expected result")
 
 		err = f(mutate4)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate4), "Mutator did not return expected result")
+
+		err = f(mutate5)
 		Expect(err).To(Not(BeNil()), "Mutator failed")
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(ContainSubstring("aufoUpdate"), "Mutator did not return expected result")
