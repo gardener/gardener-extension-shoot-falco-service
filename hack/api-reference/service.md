@@ -108,20 +108,6 @@ Gardener
 </tr>
 <tr>
 <td>
-<code>webhook</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Webhook">
-Webhook
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Configuration for custom webhook</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>output</code></br>
 <em>
 <a href="#falco.extensions.gardener.cloud/v1alpha1.Output">
@@ -130,6 +116,8 @@ Output
 </em>
 </td>
 <td>
+<p>Specify the output configuration. Default to log Falco events
+in the Gardener monitoring stack.</p>
 </td>
 </tr>
 </tbody>
@@ -432,7 +420,6 @@ Webhook
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>, 
 <a href="#falco.extensions.gardener.cloud/v1alpha1.Output">Output</a>)
 </p>
 <p>
@@ -445,16 +432,6 @@ Webhook
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>enabled</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-</td>
-</tr>
 <tr>
 <td>
 <code>address</code></br>

@@ -8,13 +8,18 @@ import (
 	"context"
 	"time"
 
-	service "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
+
+	service "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 var (
@@ -40,70 +45,260 @@ var (
 		},
 	}
 
-	// resources          = "gardener"
-	// falcoServiceConfig = &apisservice.FalcoServiceConfig{
-	// 	Resources: &resources,
-	// 	Gardener: &apisservice.Gardener{
-	// 		CustomRules: []string{"rules1", "rules3"},
-	// 	},
-	// }
-	// falcoServiceConfigBad = &apisservice.FalcoServiceConfig{
-	// 	Resources: &resources,
-	// 	Gardener: &apisservice.Gardener{
-	// 		CustomRules: []string{"rules1", "rules2"},
-	// 	},
-	// }
-	// falcoServiceConfigWrongCustomRules = &apisservice.FalcoServiceConfig{
-	// 	Resources: &resources,
-	// 	Gardener: &apisservice.Gardener{
-	// 		CustomRules: []string{"rules1", "rules_wrong"},
-	// 	},
-	// }
-	// falcoServiceConfigCustomWebhook = &apisservice.FalcoServiceConfig{
-	// 	FalcoVersion: stringValue("0.38.0"),
-	// 	Resources:    &resources,
-	// 	Gardener: &apisservice.Gardener{
-	// 		UseFalcoRules: boolValue(true),
-	// 	},
-	// 	CustomWebhook: &apisservice.Webhook{
-	// 		Enabled:       boolValue(true),
-	// 		Address:       stringValue("https://webhook.example.com"),
-	// 		CustomHeaders: stringValue("my-custom-headers"),
-	// 		Checkcerts:    boolValue(true),
-	// 	},
-	// }
-	// rulesConfigMap = &corev1.ConfigMapList{
-	// 	Items: []corev1.ConfigMap{
-	// 		{
-	// 			ObjectMeta: metav1.ObjectMeta{
-	// 				Namespace: "shoot--test--foo",
-	// 				Name:      "ref-rules1",
-	// 			},
-	// 			Data: map[string]string{
-	// 				"dummyrules.yaml": "# dummy rules 1",
-	// 			},
-	// 		},
-	// 		{
-	// 			ObjectMeta: metav1.ObjectMeta{
-	// 				Namespace: "shoot--test--foo",
-	// 				Name:      "ref-rules2",
-	// 			},
-	// 			Data: map[string]string{
-	// 				"dummyrules.yaml": "# dummy rules 2",
-	// 			},
-	// 		},
-	// 		{
-	// 			ObjectMeta: metav1.ObjectMeta{
-	// 				Namespace: "shoot--test--foo",
-	// 				Name:      "ref-rules3",
-	// 			},
-	// 			Data: map[string]string{
-	// 				"dummyrules-other.yaml": "# dummy rules 3",
-	// 			},
-	// 		},
-	// 	},
-	// }
+	genericShoot = &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{
+				{
+					Type:           "shoot-falco-service",
+					Disabled:       boolValue(false),
+					ProviderConfig: &runtime.RawExtension{},
+				},
+			},
+		},
+	}
+
+	falcoExtension1 = `
+	{
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"output": {
+			"eventCollector": "cluster"
+		},
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":true
+		}
+	}`
+
+	falcoExtension2 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"central",
+			"logFalcoEvents":false
+		}
+	}
+`
+
+	falcoExtension3 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "gardener",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":true
+	}
+}
+`
+
+	// falcoctl
+	falcoExtension4 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "falcoctl",
+	"falcoCtl": {
+		"indexes": [
+			{
+				"name": "myrepo",
+				"url": "https://myrepo.com"
+			}
+		]
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":true
+	}
+}
+`
+
+	// wenhook
+	falcoExtension5 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "falcoctl",
+	"falcoCtl": {
+		"indexes": [
+			{
+				"name": "myrepo",
+				"url": "https://myrepo.com"
+			}
+		]
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"custom",
+		"customWebhook": {
+			"address": "https://mywebhook.com",
+			"customHeaders": "a:b,c:d",
+			"checkcerts": true
+		}
+	}
+}
+`
+
+	falcoExtensionIllegal1 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "gardener",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"nonsense",
+		"logFalcoEvents":false
+	}
+}
+`
+
+	// does not log anything, this does not make sense
+	falcoExtensionIllegal2 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "gardener",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":false
+	}
+}
+`
+
+	// add extra fields
+	falcoExtensionIllegal3 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "gardener",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"nonsense" : "nonsense",
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":true
+	}
+}
+`
+	// falco version does not exist
+	falcoExtensionIllegal4 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"7.8.9",
+	"resources": "gardener",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":true
+	}
+}
+`
+
+	// specify "falcoctl" as resource but don't specify anything
+	falcoExtensionIllegal5 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "falcoctl",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"none",
+		"logFalcoEvents":true
+	}
+}
+`
+
+	// specify custom as event collector but don't provide a webhook
+	falcoExtensionIllegal6 = `
+{
+	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+	"autoUpdate":true,
+	"falcoVersion":"1.2.3",
+	"resources": "falcoctl",
+	"gardener": {
+		"useFalcoIncubatingRules":false,
+		"useFalcoRules":true,
+		"useFalcoSandboxRules":false
+	},
+	"kind":"FalcoServiceConfig",
+	"output": {
+		"eventCollector":"custom",
+		"logFalcoEvents":false
+	}
+}
+`
 )
+
+func init() {
+	supportedVersion := "1.2.3"
+	depreatedVersion := "3.2.1"
+	expiredVersion := "9.9.9"
+	supportedV := profile.FalcoVersion{Version: supportedVersion, Classification: "supported"}
+	depreatedV := profile.FalcoVersion{Version: depreatedVersion, Classification: "deprecated"}
+	expiredV := profile.FalcoVersion{Version: expiredVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+	falcoVersions := map[string]profile.FalcoVersion{supportedVersion: supportedV, depreatedVersion: depreatedV, expiredVersion: expiredV}
+
+	profile.GetDummyFalcoProfileManager(
+		&falcoVersions,
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+		&map[string]profile.Version{},
+		&map[string]profile.Image{},
+	)
+}
 
 var _ = Describe("Test validator", Label("falcovalues"), func() {
 
@@ -146,24 +341,6 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(disabled).To(BeTrue(), "No extension is present but reported found")
 	})
 
-	It("verify webhook", func(ctx SpecContext) {
-
-		err := verifyWebhook(nil)
-		Expect(err).NotTo(BeNil(), "Webhook is nil but not detected as such")
-
-		webhook := &service.Webhook{}
-		err = verifyWebhook(webhook)
-		Expect(err).NotTo(BeNil(), "Enabled flag in webhook is nil but not detected as such")
-
-		webhook.Enabled = boolValue(false)
-		err = verifyWebhook(webhook)
-		Expect(err).To(BeNil(), "Disabled flag in webhook is not nil not detected as invalid")
-
-		webhook.Enabled = boolValue(true)
-		err = verifyWebhook(webhook)
-		Expect(err).NotTo(BeNil(), "Webhook is enabled but nil address is not detected")
-	})
-
 	It("verfiy resources", func(ctx SpecContext) {
 		conf := &service.FalcoServiceConfig{}
 		err := verifyResources(conf)
@@ -172,12 +349,20 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		nonSenseRessource := "gardenerr"
 		conf.Resources = &nonSenseRessource
 		err = verifyResources(conf)
-		Expect(err).NotTo(BeNil(), "Ressources is of wrong value %s but not detected as such", nonSenseRessource)
+		Expect(err).NotTo(BeNil(), "Resource is of wrong value %s but not detected as such", nonSenseRessource)
 
 		goodRessource := "falcoctl"
 		conf.Resources = &goodRessource
+		conf.FalcoCtl = &service.FalcoCtl{
+			Indexes: []service.FalcoCtlIndex{
+				{
+					Name: stringValue("myrepo"),
+					Url:  stringValue("https://myrepo.com"),
+				},
+			},
+		}
 		err = verifyResources(conf)
-		Expect(err).To(BeNil(), "Ressources is of correct value %s but is detected as invalid", goodRessource)
+		Expect(err).To(BeNil(), "Resource is of correct value %s but is detected as invalid", goodRessource)
 	})
 
 	It("verify falco version", func(ctx SpecContext) {
@@ -291,4 +476,75 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "randoma.skjdnasdj"}
 		Expect(verifyProjectEligibility(namespace)).To(BeFalse(), "Falsely annotated project is detected elegible")
 	})
+
+	It("verify legal extensions", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericShoot, nil)
+			return err
+		}
+		err = f(falcoExtension1)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension3)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension4)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension5)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+	})
+	It("verify illegal extensions", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericShoot, nil)
+			return err
+		}
+		f(falcoExtensionIllegal1)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("output.eventCollector needs to be set to a value"), "Illegal extension is not detected as such")
+
+		f(falcoExtensionIllegal2)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated"), "Illegal extension is not detected as such ")
+
+		// additional field (or typo)
+		f(falcoExtensionIllegal3)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider config: strict decoding error: unknown field \"nonsense\""), "Illegal extension is not detected as such ")
+
+		f(falcoExtensionIllegal4)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("version not found in possible versions"), "Illegal extension is not detected as such ")
+
+		f(falcoExtensionIllegal5)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("falcoctl is set as resource but falcoctl property is not defined"), "Illegal extension is not detected as such ")
+
+		f(falcoExtensionIllegal6)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to custom but customWebhook is not defined"), "Illegal extension is not detected as such ")
+
+	})
+
 })

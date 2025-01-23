@@ -33,15 +33,8 @@ type FalcoServiceConfig struct {
 	// +optional
 	Gardener *Gardener
 
-	// Configuration for custom webhook
-	// deprecated, will be migraed by the webhook and be removed in the
-	// future
-	// +optional
-	CustomWebhook *Webhook
-
 	// Specify the output configuration. Default to log Falco events
 	// in the Gardener monitoring stack.
-	// +optional
 	Output *Output
 }
 
@@ -87,7 +80,6 @@ type Gardener struct {
 }
 
 type Webhook struct {
-	Enabled       *bool
 	Address       *string
 	CustomHeaders *string
 	Checkcerts    *bool

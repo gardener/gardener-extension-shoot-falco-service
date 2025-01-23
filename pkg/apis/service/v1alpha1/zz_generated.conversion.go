@@ -160,7 +160,6 @@ func autoConvert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *F
 	out.Resources = (*string)(unsafe.Pointer(in.Resources))
 	out.FalcoCtl = (*service.FalcoCtl)(unsafe.Pointer(in.FalcoCtl))
 	out.Gardener = (*service.Gardener)(unsafe.Pointer(in.Gardener))
-	out.CustomWebhook = (*service.Webhook)(unsafe.Pointer(in.CustomWebhook))
 	out.Output = (*service.Output)(unsafe.Pointer(in.Output))
 	return nil
 }
@@ -176,7 +175,6 @@ func autoConvert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *s
 	out.Resources = (*string)(unsafe.Pointer(in.Resources))
 	out.FalcoCtl = (*FalcoCtl)(unsafe.Pointer(in.FalcoCtl))
 	out.Gardener = (*Gardener)(unsafe.Pointer(in.Gardener))
-	out.CustomWebhook = (*Webhook)(unsafe.Pointer(in.CustomWebhook))
 	out.Output = (*Output)(unsafe.Pointer(in.Output))
 	return nil
 }
@@ -281,7 +279,6 @@ func Convert_service_Output_To_v1alpha1_Output(in *service.Output, out *Output, 
 }
 
 func autoConvert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webhook, s conversion.Scope) error {
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Address = (*string)(unsafe.Pointer(in.Address))
 	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
 	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
@@ -294,7 +291,6 @@ func Convert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webho
 }
 
 func autoConvert_service_Webhook_To_v1alpha1_Webhook(in *service.Webhook, out *Webhook, s conversion.Scope) error {
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Address = (*string)(unsafe.Pointer(in.Address))
 	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
 	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))

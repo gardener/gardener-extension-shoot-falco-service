@@ -223,6 +223,7 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 func (a *actuator) extractFalcoServiceConfig(ex *extensionsv1alpha1.Extension) (*apisservice.FalcoServiceConfig, error) {
 	falcoServiceConfig := &apisservice.FalcoServiceConfig{}
 	if ex.Spec.ProviderConfig != nil {
+		fmt.Println(string(ex.Spec.ProviderConfig.Raw[:]))
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
 			return nil, fmt.Errorf("could not decode Falco service config: %w", err)
 		}

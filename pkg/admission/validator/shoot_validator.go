@@ -29,7 +29,7 @@ import (
 // NewShootValidator returns a new instance of a shoot validator.
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
 	return &shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
+		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 	}
 }
 
@@ -84,14 +84,6 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyFalcoCtl(falcoConf); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if err := verifyGardenerSet(falcoConf); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
 	if err := verifyOutput(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
 	}
@@ -103,8 +95,12 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	return nil
 }
 
-func verifyFalcoCtl(_ *service.FalcoServiceConfig) error {
-	// TODO
+func verifyFalcoCtl(falcoConf *service.FalcoServiceConfig) error {
+
+	ctl := falcoConf.FalcoCtl
+	if len(ctl.Indexes) == 0 {
+		return fmt.Errorf("no falcoctl index are is set")
+	}
 	return nil
 }
 
@@ -121,14 +117,9 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 }
 
 func verifyWebhook(webhook *service.Webhook) error {
-	if webhook == nil {
-		return fmt.Errorf("webhook is nil")
-	} else if webhook.Enabled == nil {
-		return fmt.Errorf("webhook needs to be either enabled or disbaled")
-	} else if *webhook.Enabled && webhook.Address == nil {
-		return fmt.Errorf("webhook is enabled but without address")
+	if webhook.Address == nil {
+		return fmt.Errorf("webhook address is not set")
 	}
-	// may also want to enforce headers at some point
 	return nil
 }
 
@@ -137,15 +128,17 @@ func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 	if output == nil {
 		return fmt.Errorf("event ouptut is not defined")
 	}
-	if output.EventCollector == nil || slices.Contains(constants.AllowedOutputs, *output.EventCollector) {
-		return fmt.Errorf("output.eventCollector needs to be set to a value in " + strings.Join(constants.AllowedOutputs, ", "))
+	if output.EventCollector == nil || !slices.Contains(constants.AllowedOutputs, *output.EventCollector) {
+		return fmt.Errorf("output.eventCollector needs to be set to a value in %s", strings.Join(constants.AllowedOutputs, ", "))
 	}
 	if *output.EventCollector == "custom" {
 		if output.CustomWebhook == nil {
 			return fmt.Errorf("output.eventCollector is set to custom but customWebhook is not defined")
 		}
 		return verifyWebhook(falcoConf.Output.CustomWebhook)
-
+	}
+	if *output.EventCollector == "none" && !*output.LogFalcoEvents {
+		return fmt.Errorf("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated")
 	}
 	return nil
 }
@@ -153,10 +146,29 @@ func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 func verifyResources(falcoConf *service.FalcoServiceConfig) error {
 	resource := falcoConf.Resources
 	if resource == nil {
-		return fmt.Errorf("resource is not defined")
+		return fmt.Errorf("resources property is not defined")
 	}
 	if *resource != "gardener" && *resource != "falcoctl" {
 		return fmt.Errorf("resource needs to be either gardener or falcoctl")
+	}
+
+	if *resource == "gardener" {
+		if falcoConf.Gardener == nil {
+			return fmt.Errorf("gardener is set as resource but gardener property is not defined")
+		}
+		err := verifyGardenerSet(falcoConf)
+		if err != nil {
+			return err
+		}
+	}
+	if *resource == "falcoctl" {
+		if falcoConf.FalcoCtl == nil {
+			return fmt.Errorf("falcoctl is set as resource but falcoctl property is not defined")
+		}
+		err := verifyFalcoCtl(falcoConf)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
