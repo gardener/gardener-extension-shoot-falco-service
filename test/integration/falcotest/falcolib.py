@@ -256,18 +256,26 @@ def wait_for_extension_deployed(shoot_api_client):
                     logging.info(f"Pod {pod.metadata.name} is not running yet")
                     allRunning = False
                     break                
-        if not allRunning:
+        if not allRunning or len(pods.items) == 0:
             logging.info("Not all expected falco pods are running or deployed")
             time.sleep(5)
         else:
             logging.info("All falco pods are running, waitig a bit longer to re-check")
             time.sleep(20)
             pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
+            if len(pods.items) == 0:
+                raise Exception("Falco pods are not running or deployed")
             for pod in pods.items:
                 logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
             return
     raise Exception(f"Falco pods are not running or deployed after {max_iteratins} iterations")
 
+def get_falco_sidekick_pods(shoot_api_client):
+    logger.info("Getting falco sidekick pods")
+    cv1 = client.CoreV1Api(shoot_api_client)
+    ls = falcosidekick_pod_label_selector
+    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
+    return pods.items
 
 def get_falco_profile(garden_api_client, profile_name):
     resource_path = f"/apis/falco.gardener.cloud/v1alpha1/falcoprofiles/falco"
