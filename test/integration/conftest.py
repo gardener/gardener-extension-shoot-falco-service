@@ -2,6 +2,7 @@
 import pytest
 import base64
 import yaml
+import os
 from datetime import datetime, timezone
 import logging
 
@@ -36,6 +37,8 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="session")
 def garden_kubeconfig(pytestconfig):
     if pytestconfig.getoption('--garden-kubeconfig'):
+        if not os.path.exists(pytestconfig.getoption('--garden-kubeconfig')):
+            pytest.exit("garden-kubeconfig file does not exist.", 1)
         return pytestconfig.getoption('--garden-kubeconfig')
     pytest.exit("Need to specify garden-kubeconfig to test on.", 1)
 
