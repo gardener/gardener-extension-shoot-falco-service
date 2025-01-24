@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from kubernetes import client, config
 
-from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extension, annotate_shoot, get_latest_supported_falco_version, get_deprecated_falco_version, run_falco_event_generator, falcosidekick_pod_label_selector, falco_extension_deployed, add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed, wait_for_extension_undeployed, pod_logs_from_label_selector, falco_pod_label_selector
+from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extension, annotate_shoot, get_latest_supported_falco_version, get_deprecated_falco_version, run_falco_event_generator, falcosidekick_pod_label_selector, falco_extension_deployed, add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed, wait_for_extension_undeployed, pod_logs_from_label_selector, falco_pod_label_selector, get_falco_sidekick_pods
 
 
 # from _pytest.config.argparsing import Parser
@@ -151,6 +151,7 @@ def test_event_generator(shoot_api_client):
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
 
+
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
     
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
@@ -182,6 +183,49 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
     
     assert ext["providerConfig"]["falcoVersion"] == update_candiate
 
+    logger.info("Undepoying falco extension")
+    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
+    wait_for_extension_undeployed(shoot_api_client)
+
+
+def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
+
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
+    logger.info("Falco extension is not deployed, deploying")
+
+    extension_config = {
+        "type": "shoot-falco-service",
+        "providerConfig": {
+            "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+            "kind": "FalcoServiceConfig",
+            "autoUpdate": True,
+        },
+        "output": {
+            "eventCollector": "none",
+            "logFalcoEvents": True
+        }
+    }
+    error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
+
+    assert error is None
+    wait_for_extension_deployed(shoot_api_client)
+    pods = get_falco_sidekick_pods(shoot_api_client)
+    assert len(pods) == 0
+
+    logger.info("Reading logs from falco pods")
+    pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
+
+    logs = run_falco_event_generator(shoot_api_client)
+    # something that appears at the start
+    assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
+
+    # make sure it is correctly persisted
+    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
+    postedOK = False
+    for k,v in logs.items():
+        postedOK = postedOK or "Webhook - POST OK (200)" in v
+    assert postedOK
+    
     logger.info("Undepoying falco extension")
     remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
     wait_for_extension_undeployed(shoot_api_client)
