@@ -643,32 +643,32 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 			err = s.Validate(context.TODO(), genericShoot, nil)
 			return err
 		}
-		f(falcoExtensionIllegal1)
+		err = f(falcoExtensionIllegal1)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("output.eventCollector needs to be set to a value"), "Illegal extension is not detected as such")
 
-		f(falcoExtensionIllegal2)
+		err = f(falcoExtensionIllegal2)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated"), "Illegal extension is not detected as such ")
 
 		// additional field (or typo)
-		f(falcoExtensionIllegal3)
+		err = f(falcoExtensionIllegal3)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider config: strict decoding error: unknown field \"nonsense\""), "Illegal extension is not detected as such ")
 
-		f(falcoExtensionIllegal4)
+		err = f(falcoExtensionIllegal4)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("version not found in possible versions"), "Illegal extension is not detected as such ")
 
-		f(falcoExtensionIllegal5)
+		err = f(falcoExtensionIllegal5)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("falcoctl is set as resource but falcoctl property is not defined"), "Illegal extension is not detected as such ")
 
-		f(falcoExtensionIllegal6)
+		err = f(falcoExtensionIllegal6)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to custom but customWebhook is not defined"), "Illegal extension is not detected as such ")
 
-		f(falcoExtensionIllegal7)
+		err = f(falcoExtensionIllegal7)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
 	})
