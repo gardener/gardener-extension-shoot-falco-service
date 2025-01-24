@@ -43,15 +43,3 @@ type Falco struct {
 	// Event inggestor URL
 	IngestorURL string
 }
-
-// type Version struct {
-// 	// Falco version
-// 	Version string
-
-// 	// Classification: [preview|supported|deprecated]
-// 	Classification string
-
-// 	// date when Falco version is going to expire
-// 	// +optional
-// 	ExpiryDate *metav1.Time
-// }

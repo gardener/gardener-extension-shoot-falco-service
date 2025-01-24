@@ -47,67 +47,65 @@ var (
 
 	// minimal
 	mutate1 = `
-{
-	"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
-	"kind": "FalcoServiceConfig"
-}`
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig"
+	}`
 
 	expectedMutate1 = `
-{
-	"kind":"FalcoServiceConfig",
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"falcoVersion":"0.100.0",
-	"autoUpdate":true,
-	"resources":"gardener",
-	"gardener": {
-		"useFalcoRules":true,
-		"useFalcoIncubatingRules":false,
-		"useFalcoSandboxRules":false
-	},
-	"output": {
-		"logFalcoEvents":false,
-		"eventCollector":"central"
-	}
-}`
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate":true,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":false
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		}
+	}`
 
 	// falcoctl
 	mutate2 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"resources": "falcoctl",
-	"falcoCtl": {
-		"indexes": [
-			{
-				"name": "myrepo",
-				"url": "https://myrepo.com"
-			}
-		]
-	},
-	"kind":"FalcoServiceConfig"	 
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig"
+	}`
+
 	expectedMutate2 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"0.100.0",
-	"autoUpdate":true,
-	"resources": "falcoctl",
-	"falcoCtl": {
-		"indexes": [
-			{
-				"name": "myrepo",
-				"url": "https://myrepo.com"
-			}
-		]
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"central",
-		"logFalcoEvents":false
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"0.100.0",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"central",
+			"logFalcoEvents":false
+		}
+	}`
 
 	// non-default gardener config
 	mutate3 = `
@@ -194,16 +192,15 @@ var (
 				"address": "https://gardener.cloud"
 			}
 		}
-	}
-	`
+	}`
 
 	// broken
 	mutate5 = `
-{
-	"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
-	"kind": "FalcoServiceConfig",
-	"aufoUpdate": true
-}`
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"aufoUpdate": true
+	}`
 
 	// make sure existing configs are correctly mutated
 	mutate6 = `
@@ -229,8 +226,7 @@ var (
 		"webhook": {
 			"enabled": false
 		}
-	}
-`
+	}`
 
 	expectedMutate6 = `
 	{
@@ -248,9 +244,7 @@ var (
 			"logFalcoEvents":false,
 			"eventCollector":"central"
 		}
-	}
-
-`
+	}`
 
 	genericShoot = &gardencorev1beta1.Shoot{
 		Spec: gardencorev1beta1.ShootSpec{
@@ -264,24 +258,6 @@ var (
 		},
 	}
 )
-
-// func TestSetWebhook(t *testing.T) {
-// 	falcoConf := &service.FalcoServiceConfig{}
-// 	setCustomWebhook(falcoConf)
-// 	if falcoConf.CustomWebhook == nil {
-// 		t.Error("CustomWebhook not set")
-// 	} else if falcoConf.CustomWebhook.Enabled == nil || *falcoConf.CustomWebhook.Enabled {
-// 		t.Error("CustomWebhook enabled but should be disabled by default")
-// 	}
-// }
-
-// func TestSetFalcoCtl(t *testing.T) {
-// 	falcoConf := &service.FalcoServiceConfig{}
-// 	setFalcoCtl(falcoConf)
-// 	if falcoConf.FalcoCtl == nil {
-// 		t.Error("FalcoCtl not set")
-// 	}
-// }
 
 func TestSetResources(t *testing.T) {
 	falcoConf := &service.FalcoServiceConfig{}

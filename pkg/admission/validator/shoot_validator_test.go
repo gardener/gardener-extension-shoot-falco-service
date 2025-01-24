@@ -89,226 +89,315 @@ var (
 			"eventCollector":"central",
 			"logFalcoEvents":false
 		}
-	}
-`
+	}`
 
 	falcoExtension3 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "gardener",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":true
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
 	// falcoctl
 	falcoExtension4 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "falcoctl",
-	"falcoCtl": {
-		"indexes": [
-			{
-				"name": "myrepo",
-				"url": "https://myrepo.com"
-			}
-		]
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":true
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
 	// wenhook
 	falcoExtension5 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "falcoctl",
-	"falcoCtl": {
-		"indexes": [
-			{
-				"name": "myrepo",
-				"url": "https://myrepo.com"
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://mywebhook.com",
+				"customHeaders": "a:b,c:d",
+				"checkcerts": true
 			}
-		]
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"custom",
-		"customWebhook": {
-			"address": "https://mywebhook.com",
-			"customHeaders": "a:b,c:d",
-			"checkcerts": true
 		}
-	}
-}
-`
+	}`
 
 	// custom rules
 	falcoExtension6 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "gardener",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false,
-		"customRules": [ "rulecfg1", "rulecfg2" ]
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":true
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false,
+			"customRules": [ "rulecfg1", "rulecfg2" ]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
 	falcoExtensionIllegal1 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "gardener",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"nonsense",
-		"logFalcoEvents":false
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"nonsense",
+			"logFalcoEvents":false
+		}
+	}`
 
 	// does not log anything, this does not make sense
 	falcoExtensionIllegal2 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "gardener",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":false
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":false
+		}
+	}`
 
 	// add extra fields
 	falcoExtensionIllegal3 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "gardener",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"nonsense" : "nonsense",
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":true
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"nonsense" : "nonsense",
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
+
 	// falco version does not exist
 	falcoExtensionIllegal4 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"7.8.9",
-	"resources": "gardener",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":true
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"7.8.9",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
 	// specify "falcoctl" as resource but don't specify anything
 	falcoExtensionIllegal5 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "falcoctl",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"none",
-		"logFalcoEvents":true
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
 	// specify custom as event collector but don't provide a webhook
 	falcoExtensionIllegal6 = `
-{
-	"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-	"autoUpdate":true,
-	"falcoVersion":"1.2.3",
-	"resources": "falcoctl",
-	"gardener": {
-		"useFalcoIncubatingRules":false,
-		"useFalcoRules":true,
-		"useFalcoSandboxRules":false
-	},
-	"kind":"FalcoServiceConfig",
-	"output": {
-		"eventCollector":"custom",
-		"logFalcoEvents":false
-	}
-}
-`
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"custom",
+			"logFalcoEvents":false
+		}
+	}`
 
 	// wrong object type
 	falcoExtensionIllegal7 = `
-{
-	"apiVersion":"nonsense.extensions.gardener.cloud/v1alpha1",
-	"kind":"dFalcoServiceConfig",
-	"autoUpdate":true
-}
-`
+	{
+		"apiVersion":"nonsense.extensions.gardener.cloud/v1alpha1",
+		"kind":"dFalcoServiceConfig",
+		"autoUpdate":true
+	}`
+
+	// expected outputs from mutator test
+	expectedMutate1 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":true,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":false
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		}
+	}`
+
+	expectedMutate2 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"central",
+			"logFalcoEvents":false
+		}
+	}`
+
+	expectedMutate3 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":false,
+			"useFalcoIncubatingRules":true,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+
+	expectedMutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+
+	expectedMutate6 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		}
+	}`
 )
 
 func init() {
@@ -539,6 +628,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = f(falcoExtension6)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
+
 	It("verify illegal extensions", func(ctx SpecContext) {
 		managerOptions := sigsmanager.Options{}
 		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
@@ -583,4 +673,34 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
 	})
 
+	It("make sure outputs from mutator validate", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericShoot, nil)
+			return err
+		}
+
+		err = f(expectedMutate1)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate3)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate4)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate6)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+	})
 })
