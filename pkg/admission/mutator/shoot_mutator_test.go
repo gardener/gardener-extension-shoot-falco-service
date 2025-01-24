@@ -9,9 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +16,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
 var (
@@ -127,6 +128,9 @@ var (
 			"customWebhook": {
 				"address": "https://gardener.cloud"
 			}
+		},
+		"webhook": {
+			"enabled": false
 		}
 	}`
 
@@ -190,7 +194,8 @@ var (
 				"address": "https://gardener.cloud"
 			}
 		}
-	}`
+	}
+	`
 
 	// broken
 	mutate5 = `
@@ -199,6 +204,53 @@ var (
 	"kind": "FalcoServiceConfig",
 	"aufoUpdate": true
 }`
+
+	// make sure existing configs are correctly mutated
+	mutate6 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		},
+		"falcoCtl": {
+			"allowedTypes": null,
+			"indexes": null
+		},
+		"webhook": {
+			"enabled": false
+		}
+	}
+`
+
+	expectedMutate6 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		}
+	}
+
+`
 
 	genericShoot = &gardencorev1beta1.Shoot{
 		Spec: gardencorev1beta1.ShootSpec{
@@ -605,7 +657,7 @@ func TestChooseHighestVersionLowerThanCurrent(t *testing.T) {
 
 var _ = Describe("Test mutator", Label("mutator"), func() {
 
-	It("mutate forthe smallest possible config", func(ctx SpecContext) {
+	It("mutate for the smallest possible config", func(ctx SpecContext) {
 		managerOptions := sigsmanager.Options{}
 		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
 		Expect(err).To(BeNil(), "Manager could not be created")
@@ -646,5 +698,10 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(Not(BeNil()), "Mutator failed")
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(ContainSubstring("aufoUpdate"), "Mutator did not return expected result")
+
+		err = f(mutate6)
+		Expect(err).To(BeNil(), "Mutator failed", err)
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate6), "Mutator did not return expected result")
 	})
 })

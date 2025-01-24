@@ -38,6 +38,11 @@ type FalcoServiceConfig struct {
 	// Specify the output configuration. Default to log Falco events
 	// in the Gardener monitoring stack.
 	Output *Output `json:"output,omitempty"`
+
+	// required for migration
+	// Configuration for custom webhook
+	// +optional
+	CustomWebhook *Webhook `json:"webhook,omitempty"`
 }
 
 type FalcoCtl struct {
@@ -49,18 +54,18 @@ type FalcoCtl struct {
 }
 
 type FalcoCtlIndex struct {
-	Name *string `json:"name"`
-	Url  *string `json:"url"`
+	Name *string `json:"name,omitempty"`
+	Url  *string `json:"url,omitempty"`
 }
 
 type Follow struct {
-	Refs  []string `json:"refs"`
-	Every *string  `json:"every"`
+	Refs  []string `json:"refs,omitempty"`
+	Every *string  `json:"every,omitempty"`
 }
 
 type Install struct {
-	Refs        []string `json:"refs"`
-	ResolveDeps *bool    `json:"resolveDeps"`
+	Refs        []string `json:"refs,omitempty"`
+	ResolveDeps *bool    `json:"resolveDeps,omitempty"`
 }
 
 type Gardener struct {
@@ -82,6 +87,7 @@ type Gardener struct {
 }
 
 type Webhook struct {
+	Enabled       *bool   `json:"enabled,omitempty"`
 	Address       *string `json:"address,omitempty"`
 	CustomHeaders *string `json:"customHeaders,omitempty"`
 	Checkcerts    *bool   `json:"checkcerts,omitempty"`

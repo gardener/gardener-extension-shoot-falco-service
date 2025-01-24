@@ -235,6 +235,23 @@ func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVers
 	return nil, fmt.Errorf("no version was found to force update expired version %s", version)
 }
 
+// Mutate old FalcoServiceConfig.customWebhook to new FalcoServiceConfig.output.customWebhook
+func (s *Shoot) mutateCustomWebhook(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.CustomWebhook != nil {
+		w := falcoConf.CustomWebhook
+		if w.Enabled == nil || !*w.Enabled {
+			falcoConf.CustomWebhook = nil
+		}
+	}
+}
+
+// Fix broken empty falcoctl configuration in shoot spec
+func (s *Shoot) mutateFalcoCtl(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.FalcoCtl != nil && falcoConf.FalcoCtl.AllowedTypes == nil && falcoConf.FalcoCtl.Indexes == nil {
+		falcoConf.FalcoCtl = nil
+	}
+}
+
 func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
 	if s.isDisabled(new) {
 		return nil
@@ -250,6 +267,10 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if err = setFalcoVersion(falcoConf); err != nil {
 		return err
 	}
+
+	s.mutateCustomWebhook(falcoConf)
+
+	s.mutateFalcoCtl(falcoConf)
 
 	setAutoUpdate(falcoConf)
 

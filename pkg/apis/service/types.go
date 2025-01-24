@@ -36,6 +36,11 @@ type FalcoServiceConfig struct {
 	// Specify the output configuration. Default to log Falco events
 	// in the Gardener monitoring stack.
 	Output *Output
+
+	// required for migration
+	// Configuration for custom webhook
+	// +optional
+	CustomWebhook *Webhook
 }
 
 type FalcoCtl struct {
@@ -80,6 +85,7 @@ type Gardener struct {
 }
 
 type Webhook struct {
+	Enabled       *bool
 	Address       *string
 	CustomHeaders *string
 	Checkcerts    *bool
