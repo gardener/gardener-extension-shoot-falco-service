@@ -10,8 +10,6 @@ from kubernetes import client, config
 from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extension, annotate_shoot, get_latest_supported_falco_version, get_deprecated_falco_version, run_falco_event_generator, falcosidekick_pod_label_selector, falco_extension_deployed, add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed, wait_for_extension_undeployed, pod_logs_from_label_selector, falco_pod_label_selector, get_falco_sidekick_pods
 
 
-# from _pytest.config.argparsing import Parser
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -58,12 +56,10 @@ def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, pr
             "gardener": {
                 "useFalcoRules": True,
                 "useFalcoIncubatingRules": True,
-                "useFalcoSandboxesRules": True,
+                "useFalcoSandboxRules": True
             }
         }
     }
-
-
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
     assert error is None
     # if error is not None:
@@ -85,6 +81,10 @@ def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, pr
     
     logger.info("Reading logs from falco pods")
     logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
+    for l in logs.values():
+        assert "/etc/falco/rules.d/falco_rules.yaml" in l
+        assert "/etc/falco/rules.d/falco-incubating_rules.yaml" in l
+        assert "/etc/falco/rules.d/falco-sandbox_rules.yaml" in l
     
     logger.info("Undepoying falco extension")
     remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
@@ -135,7 +135,27 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
         wait_for_extension_undeployed(shoot_api_client)
 
 
-def test_event_generator(shoot_api_client):
+def test_event_generator(garden_api_client, shoot_api_client, project_namespace, shoot_name):
+
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
+    
+    logger.info("Falco extension is not deployed, deploying")
+    extension_config = { 
+        "type": "shoot-falco-service",
+        "providerConfig": {
+            "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+            "kind": "FalcoServiceConfig",
+            "resources": "gardener",
+            "gardener": {
+                "useFalcoRules": True,
+                "useFalcoIncubatingRules": True,
+                "useFalcoSandboxRules": True
+            }
+        }
+    }
+    error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
+    assert error is None
+
     logs = run_falco_event_generator(shoot_api_client)
     # something that appears at the start
     assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
@@ -146,6 +166,8 @@ def test_event_generator(shoot_api_client):
     for k,v in logs.items():
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
+    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
+    wait_for_extension_undeployed(shoot_api_client)
 
 
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
@@ -156,6 +178,7 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
     fw = get_deprecated_falco_version(falco_profile)
     if fw is None:
         pytest.skip("No deprecated falco version found")
+    logger.info(f"Using deprecated Falco version {fw}")
     update_candiate = get_latest_supported_falco_version(falco_profile)
     if update_candiate is None:
         pytest.skip("No supported falco version found")
@@ -170,15 +193,15 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
             "autoUpdate": True,
         }
     }
-    add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
-
+    err = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
+    assert err is None
     wait_for_extension_deployed(shoot_api_client)
     annotate_shoot(garden_api_client, project_namespace, shoot_name, "gardener.cloud/operation=maintain")
     time.sleep(10)
     ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
     
     assert ext["providerConfig"]["falcoVersion"] == update_candiate
-
+    logger.info(f"Falco version updated as expected from {fw} to {update_candiate}")
     logger.info("Undepoying falco extension")
     remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
     wait_for_extension_undeployed(shoot_api_client)
@@ -207,7 +230,7 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
     wait_for_extension_deployed(shoot_api_client)
     pods = get_falco_sidekick_pods(shoot_api_client)
     assert len(pods) == 0
-    logger.info("no falcosidekick pods running")
+    logger.info("no falcosidekick pods running - good")
     
     logger.info("Running event generator")
     logs = run_falco_event_generator(shoot_api_client)
@@ -224,5 +247,5 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
     assert "Warning Detected ptrace" in allLogs
     
     logger.info("Undepoying falco extension")
-#    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-#    wait_for_extension_undeployed(shoot_api_client)
+    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
+    wait_for_extension_undeployed(shoot_api_client)
