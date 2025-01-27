@@ -42,4 +42,8 @@ type Falco struct {
 
 	// Event inggestor URL
 	IngestorURL string
+
+	// Default event logger
+	// possible values are: "none", "central", "cluster", "webhook"
+	DefaultEventLogger *string
 }

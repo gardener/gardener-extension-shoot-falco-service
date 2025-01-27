@@ -15,6 +15,7 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	"github.com/go-logr/logr"
 	pkgversion "github.com/hashicorp/go-version"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -24,6 +25,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -235,16 +237,6 @@ func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVers
 	return nil, fmt.Errorf("no version was found to force update expired version %s", version)
 }
 
-// Mutate old FalcoServiceConfig.customWebhook to new FalcoServiceConfig.output.customWebhook
-func (s *Shoot) mutateCustomWebhook(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.CustomWebhook != nil {
-		w := falcoConf.CustomWebhook
-		if w.Enabled == nil || !*w.Enabled {
-			falcoConf.CustomWebhook = nil
-		}
-	}
-}
-
 // Fix broken empty falcoctl configuration in shoot spec
 func (s *Shoot) mutateFalcoCtl(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.FalcoCtl != nil && falcoConf.FalcoCtl.AllowedTypes == nil && falcoConf.FalcoCtl.Indexes == nil {
@@ -268,7 +260,10 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 		return err
 	}
 
-	s.mutateCustomWebhook(falcoConf)
+	log := logr.New(nil)
+
+	c := "central"
+	falcoConf = migration.MigrateFalcoServiceConfig(log, falcoConf, &c)
 
 	s.mutateFalcoCtl(falcoConf)
 

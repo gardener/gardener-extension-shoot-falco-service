@@ -60,4 +60,8 @@ const (
 var (
 	AlwaysEnabledProjects = []string{"garden"}
 	AllowedOutputs        = []string{"none", "cluster", "central", "custom"}
+
+	// Default Event logger if not specified in controller configuration
+	// (apis.Falco.DefaultEventLogger)
+	DefaultEventLogger string = "cluster"
 )

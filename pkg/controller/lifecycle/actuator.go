@@ -33,6 +33,7 @@ import (
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/values"
@@ -46,6 +47,11 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 		return nil, err
 	}
 	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
+
+	// set DefaultEventLogger if not set in extension configurtion
+	if config.Falco.DefaultEventLogger == nil || *config.Falco.DefaultEventLogger == "" {
+		config.Falco.DefaultEventLogger = &constants.DefaultEventLogger
+	}
 	return &actuator{
 		client:        mgr.GetClient(),
 		config:        mgr.GetConfig(),
@@ -73,7 +79,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		return err
 	}
 	if !controller.IsHibernated(cluster) {
-		falcoServiceConfig, err := a.extractFalcoServiceConfig(ex)
+		falcoServiceConfig, err := a.extractFalcoServiceConfig(log, ex)
 		if err != nil {
 			return err
 		}
@@ -89,6 +95,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
+	// migrate config to new format
+	falcoServiceConfig = migration.MigrateFalcoServiceConfig(log, falcoServiceConfig, a.serviceConfig.Falco.DefaultEventLogger)
 	log.Info("Reconciling Falco resources for shoot " + cluster.Shoot.Name)
 	renderer, err := util.NewChartRendererForShoot(cluster.Shoot.Spec.Kubernetes.Version)
 	if err != nil {
@@ -122,12 +130,12 @@ func (a *actuator) createSeedResources(ctx context.Context, log logr.Logger, nam
 
 	log.Info("Component is being applied", "component", "shoot-falco-service", "namespace", namespace)
 
-	return a.createManagedResource(ctx, namespace, constants.ManagedResourceNameFalcoSeed, "seed", renderer, constants.ManagedResourceNameFalcoChartSeed, namespace, values, nil)
+	return a.createManagedResource(ctx, log, namespace, constants.ManagedResourceNameFalcoSeed, "seed", renderer, constants.ManagedResourceNameFalcoChartSeed, namespace, values, nil)
 }
 
-func (a *actuator) createManagedResource(ctx context.Context, namespace, name, class string, renderer chartrenderer.Interface, chartName, chartNamespace string, chartValues map[string]interface{}, injectedLabels map[string]string) error {
+func (a *actuator) createManagedResource(ctx context.Context, log logr.Logger, namespace, name, class string, renderer chartrenderer.Interface, chartName, chartNamespace string, chartValues map[string]interface{}, injectedLabels map[string]string) error {
 	chartPath := filepath.Join(charts.InternalChartsPath, chartName)
-	fmt.Println("chartPath", chartPath)
+	log.Info("Rendering chart", "chart", chartName, "chart path", chartPath)
 	chart, err := renderer.RenderEmbeddedFS(charts.InternalChart, chartPath, chartName, chartNamespace, chartValues)
 	if err != nil {
 		return err
@@ -220,10 +228,10 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return a.Delete(ctx, log, ex)
 }
 
-func (a *actuator) extractFalcoServiceConfig(ex *extensionsv1alpha1.Extension) (*apisservice.FalcoServiceConfig, error) {
+func (a *actuator) extractFalcoServiceConfig(log logr.Logger, ex *extensionsv1alpha1.Extension) (*apisservice.FalcoServiceConfig, error) {
 	falcoServiceConfig := &apisservice.FalcoServiceConfig{}
 	if ex.Spec.ProviderConfig != nil {
-		fmt.Println(string(ex.Spec.ProviderConfig.Raw[:]))
+		log.Info("Extracting Falco service config", "providerConfig", string(ex.Spec.ProviderConfig.Raw[:]))
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
 			return nil, fmt.Errorf("could not decode Falco service config: %w", err)
 		}

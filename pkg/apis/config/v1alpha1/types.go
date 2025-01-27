@@ -46,4 +46,8 @@ type Falco struct {
 
 	// Ingestor URL
 	IngestorURL string `json:"ingestorURL,omitempty"`
+
+	// Default event logger
+	// possible values are: "none", "central", "cluster", "webhook"
+	DefaultEventLogger *string `json:"defaultEventLogger,omitempty"`
 }
