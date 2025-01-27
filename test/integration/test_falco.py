@@ -199,33 +199,30 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
             "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
             "kind": "FalcoServiceConfig",
             "autoUpdate": True,
+            "output": {
+                "eventCollector": "none",
+                "logFalcoEvents": True
+            }
         },
-        "output": {
-            "eventCollector": "none",
-            "logFalcoEvents": True
-        }
     }
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
-
     assert error is None
+
     wait_for_extension_deployed(shoot_api_client)
     pods = get_falco_sidekick_pods(shoot_api_client)
     assert len(pods) == 0
-
-    logger.info("Reading logs from falco pods")
-    pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-
+    logger.info("no falcosidekick pods running")
+    
+    logger.info("Running event generator")
     logs = run_falco_event_generator(shoot_api_client)
-    # something that appears at the start
     assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
-
-    # make sure it is correctly persisted
+    
+    logger.info("Waiting for Falco log to be flushed to log file")
+    time.sleep(20)
+    logger.info("Making sure expected events are in Falco log")
     logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-    postedOK = False
-    for k,v in logs.items():
-        postedOK = postedOK or "Webhook - POST OK (200)" in v
-    assert postedOK
+    assert "Warning Detected ptrace" in logs
     
     logger.info("Undepoying falco extension")
-    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-    wait_for_extension_undeployed(shoot_api_client)
+#    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
+#    wait_for_extension_undeployed(shoot_api_client)

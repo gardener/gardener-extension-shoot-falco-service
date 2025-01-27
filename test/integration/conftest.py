@@ -6,7 +6,8 @@ import os
 from datetime import datetime, timezone
 import logging
 
-from kubernetes import client, config
+from kubernetes import client, config, client
+from kubernetes.client.exceptions import ApiException
 
 
 logger = logging.getLogger(__name__)
@@ -117,3 +118,12 @@ def falco_profile(garden_api_client):
         header_params=header_params,
         response_type=object)
     return data
+
+
+def pytest_assertrepr_compare(op, left, right):
+    # print exception is assertion fails
+    if left is not None and isinstance(left, ApiException) and right is None and op == "is":
+        return [
+            "ApiException is:",
+            left.__str__(),
+        ]
