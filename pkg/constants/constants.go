@@ -63,5 +63,5 @@ var (
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventLogger)
-	DefaultEventLogger string = "cluster"
+	DefaultEventLogger string = "central"
 )
