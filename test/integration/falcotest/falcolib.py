@@ -19,10 +19,9 @@ falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
 
 
-
 def pod_logs(shoot_api_client, namespace, pod_name):
     v1 = client.CoreV1Api(shoot_api_client)
-    ret = v1.read_namespaced_pod_log(namespace=namespace, name=pod_name)
+    ret = v1.read_namespaced_pod_log(namespace=namespace, name=pod_name, limit_bytes=90000000, since_seconds=10000, _preload_content=True)
     return ret
 
 
@@ -31,8 +30,9 @@ def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
     ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     logs = {}
     for pod in ret.items:
-        pod_logs(shoot_api_client, namespace, pod.metadata.name)
+        #pod_logs(shoot_api_client, namespace, pod.metadata.name)
         logs[pod.metadata.name] = pod_logs(shoot_api_client, namespace, pod.metadata.name)
+    print(logs)
     return logs
 
 
@@ -178,6 +178,7 @@ def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: st
         }
     }
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
+    logger.info(f"Adding falco extension to shoot {shoot_name}, resource {resource_path}, patch {patch}")
     try:
         auth_settings = ['BearerToken']
         data, status, headers = garden_api_client.call_api(
@@ -270,12 +271,14 @@ def wait_for_extension_deployed(shoot_api_client):
             return
     raise Exception(f"Falco pods are not running or deployed after {max_iteratins} iterations")
 
+
 def get_falco_sidekick_pods(shoot_api_client):
     logger.info("Getting falco sidekick pods")
     cv1 = client.CoreV1Api(shoot_api_client)
     ls = falcosidekick_pod_label_selector
     pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
     return pods.items
+
 
 def get_falco_profile(garden_api_client, profile_name):
     resource_path = f"/apis/falco.gardener.cloud/v1alpha1/falcoprofiles/falco"
