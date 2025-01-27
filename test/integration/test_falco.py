@@ -24,10 +24,6 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name)
     assert error is None
     if error is not None:
-        
-        #self, status=None, reason=None, http_resp=None
-        print("------------------------------------___")
-        # print(f"Error: {e.body}")
         body = json.loads(error.body)
         print(type(body))
         print(body)
@@ -221,7 +217,11 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
     time.sleep(20)
     logger.info("Making sure expected events are in Falco log")
     logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-    assert "Warning Detected ptrace" in logs
+    allLogs = ""
+    for k, l in logs.items():
+        allLogs += l
+    print (allLogs)
+    assert "Warning Detected ptrace" in allLogs
     
     logger.info("Undepoying falco extension")
 #    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
