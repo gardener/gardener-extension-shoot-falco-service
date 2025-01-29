@@ -110,6 +110,7 @@ func (p *FalcoProfileManager) watch() error {
 		return err
 	}
 	for event := range watcher.ResultChan() {
+		p.logger.V(6).Info("received FalcoProfile event", "event", event)
 		switch event.Type {
 		case watch.Added, watch.Modified:
 			fe, err := decodeEvent(event.Object)
