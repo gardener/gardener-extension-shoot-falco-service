@@ -53,6 +53,9 @@ var (
 			CustomRules:   []string{"rules1"},
 			UseFalcoRules: boolValue(true),
 		},
+		Output: &service.Output{
+			EventCollector: stringValue("central"),
+		},
 	}
 	shootExtensionFalcoctl = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
@@ -72,6 +75,9 @@ var (
 				},
 				ResolveDeps: boolValue(true),
 			},
+		},
+		Output: &service.Output{
+			EventCollector: stringValue("central"),
 		},
 	}
 
@@ -173,11 +179,14 @@ var (
 		Gardener: &apisservice.Gardener{
 			UseFalcoRules: boolValue(true),
 		},
-		CustomWebhook: &apisservice.Webhook{
-			Enabled:       boolValue(true),
-			Address:       stringValue("https://webhook.example.com"),
-			CustomHeaders: stringValue("my-custom-headers"),
-			Checkcerts:    boolValue(true),
+		Output: &apisservice.Output{
+			EventCollector: stringValue("custom"),
+			CustomWebhook: &apisservice.Webhook{
+				Enabled:       boolValue(true),
+				Address:       stringValue("https://webhook.example.com"),
+				CustomHeaders: stringValue("my-custom-headers"),
+				Checkcerts:    boolValue(true),
+			},
 		},
 	}
 	rulesConfigMap = &corev1.ConfigMapList{

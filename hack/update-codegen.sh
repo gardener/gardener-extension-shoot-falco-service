@@ -8,7 +8,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-set -x
 
 # setup virtual GOPATH
 source "$GARDENER_HACK_DIR"/vgopath-setup.sh

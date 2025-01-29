@@ -147,7 +147,6 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				if err := mgr.AddReadyzCheck("source-informer-sync", gardenerhealthz.NewCacheSyncHealthz(sourceCluster.GetCache())); err != nil {
 					return err
 				}
-
 				if err = mgr.Add(sourceCluster); err != nil {
 					return err
 				}

@@ -15,6 +15,7 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	"github.com/go-logr/logr"
 	pkgversion "github.com/hashicorp/go-version"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -24,6 +25,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -34,7 +36,7 @@ func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
 
 func NewShoot(mgr manager.Manager) *Shoot {
 	return &Shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
+		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		scheme:  mgr.GetScheme(),
 	}
 }
@@ -56,16 +58,16 @@ func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	return s.mutateShoot(ctx, shoot)
 }
 
-func setCustomWebhook(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.CustomWebhook == nil {
-		enabledWebhook := false
-		falcoConf.CustomWebhook = &service.Webhook{Enabled: &enabledWebhook}
+func setOutput(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Output == nil {
+		defaultLog := false
+		falcoConf.Output = &service.Output{
+			LogFalcoEvents: &defaultLog,
+		}
 	}
-}
-
-func setFalcoCtl(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.FalcoCtl == nil {
-		falcoConf.FalcoCtl = &service.FalcoCtl{}
+	if falcoConf.Output.EventCollector == nil {
+		defaultEventCollector := "central"
+		falcoConf.Output.EventCollector = &defaultEventCollector
 	}
 }
 
@@ -98,6 +100,9 @@ func setResources(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Resources == nil {
 		defaultResource := "gardener"
 		falcoConf.Resources = &defaultResource
+	}
+	if *falcoConf.Resources == "gardener" {
+		setGardenerRules(falcoConf)
 	}
 }
 
@@ -232,6 +237,13 @@ func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVers
 	return nil, fmt.Errorf("no version was found to force update expired version %s", version)
 }
 
+// Fix broken empty falcoctl configuration in shoot spec
+func (s *Shoot) mutateFalcoCtl(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.FalcoCtl != nil && falcoConf.FalcoCtl.AllowedTypes == nil && falcoConf.FalcoCtl.Indexes == nil {
+		falcoConf.FalcoCtl = nil
+	}
+}
+
 func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
 	if s.isDisabled(new) {
 		return nil
@@ -248,15 +260,18 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 		return err
 	}
 
+	log := logr.New(nil)
+
+	c := "central"
+	falcoConf = migration.MigrateFalcoServiceConfig(log, falcoConf, &c)
+
+	s.mutateFalcoCtl(falcoConf)
+
 	setAutoUpdate(falcoConf)
 
 	setResources(falcoConf)
 
-	setFalcoCtl(falcoConf)
-
-	setGardenerRules(falcoConf)
-
-	setCustomWebhook(falcoConf)
+	setOutput(falcoConf)
 
 	return s.UpdateFalcoConfig(new, falcoConf)
 }

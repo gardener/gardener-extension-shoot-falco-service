@@ -46,16 +46,8 @@ type Falco struct {
 
 	// Ingestor URL
 	IngestorURL string `json:"ingestorURL,omitempty"`
-}
 
-type Version struct {
-	// Falco version
-	Version string `json:"version"`
-
-	// Classification: [preview|supported|deprecated]
-	Classification string `json:"classification"`
-
-	// date when Falco version is going to expire
-	// +optional
-	ExpiryDate *metav1.Time `json:"expiryDate,omitempty"`
+	// Default event logger
+	// possible values are: "none", "central", "cluster", "webhook"
+	DefaultEventLogger *string `json:"defaultEventLogger,omitempty"`
 }
