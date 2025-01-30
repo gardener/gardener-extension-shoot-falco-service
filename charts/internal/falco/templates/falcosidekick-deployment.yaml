@@ -137,10 +137,12 @@ spec:
                 secretKeyRef:
                   name: gardener-falcosidekick
                   key: token
+            - name: GODEBUG
+              value: http2debug=2
             - name: LOKI_CHECKCERT
               value: "false"
             - name: LOKI_CUSTOMHEADERS
-              value: "Authorization: Bearer $(SERVICE_ACCOUNT_TOKEN)"
+              value: "Authorization:Bearer $(SERVICE_ACCOUNT_TOKEN)"
             - name: LOKI_HOSTPORT
               value: {{ .Values.falcosidekick.config.loki.hostport | quote }}
             - name: LOKI_ENDPOINT
