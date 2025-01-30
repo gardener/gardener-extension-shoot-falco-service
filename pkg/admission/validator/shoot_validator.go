@@ -16,6 +16,7 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,16 +27,59 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
+// extra Falco options
+type FalcoWebhookOptions struct {
+	// if set to true, projects must be annotated with falco.gardener.cloud/enabled=true to
+	// deploy Falco in their shoot clusters
+	RestrictedUsage bool
+
+	// if set to true, project must be annotated with falco.gardener.cloud/centralized-logging=true
+	// to use the Gardener manged centralized logging solution
+	RestrictedCentralizedLogging bool
+}
+
+var DefautltFalcoWebhookOptions = FalcoWebhookOptions{}
+
+// Complete implements Completer.Complete.
+func (o *FalcoWebhookOptions) Complete() error {
+	return nil
+}
+
+// Completed returns the completed Config. Only call this if `Complete` was successful.
+func (c *FalcoWebhookOptions) Completed() *FalcoWebhookOptions {
+	return c
+}
+
+// AddFlags implements Flagger.AddFlags.
+func (c *FalcoWebhookOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&c.RestrictedUsage, "restricted-usage", false, "if set to true, projects must be annotated with falco.gardener.cloud/enabled=true to deploy Falco in their shoot clusters")
+	fs.BoolVar(&c.RestrictedCentralizedLogging, "restricted-centralized-logging", false, "if set to true, project must be annotated with falco.gardener.cloud/centralized-logging=true to use the Gardener manged centralized logging solution")
+}
+
+// Apply sets the values of this Config in the given config.ControllerConfiguration.
+func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
+	config.RestrictedCentralizedLogging = c.RestrictedCentralizedLogging
+	config.RestrictedUsage = c.RestrictedUsage
+}
+
 // NewShootValidator returns a new instance of a shoot validator.
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
+	return NewShootValidatorWithOption(mgr, &DefautltFalcoWebhookOptions)
+}
+
+func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
 	return &shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		restrictedUsage:          options.RestrictedUsage,
+		restrictedCentralLogging: options.RestrictedCentralizedLogging,
 	}
 }
 
 // shoot validates shoots
 type shoot struct {
-	decoder runtime.Decoder
+	decoder                  runtime.Decoder
+	restrictedUsage          bool
+	restrictedCentralLogging bool
 }
 
 // Validate implements extensionswebhook.Validator.Validate

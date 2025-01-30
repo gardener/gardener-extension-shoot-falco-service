@@ -67,11 +67,12 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			webhookServerOptions,
 			webhookSwitches,
 		)
-
-		aggOption = controllercmd.NewOptionAggregator(
+		falcoOptions = &validator.FalcoWebhookOptions{}
+		aggOption    = controllercmd.NewOptionAggregator(
 			restOpts,
 			mgrOpts,
 			webhookOptions,
+			falcoOptions,
 		)
 	)
 
@@ -116,6 +117,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
+			falcoOptions.Completed().Apply(&validator.DefautltFalcoWebhookOptions)
 			mgr, err := manager.New(restOpts.Completed().Config, managerOptions)
 			if err != nil {
 				runtimelog.Log.Error(err, "Could not instantiate manager")
