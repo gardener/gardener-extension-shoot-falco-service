@@ -55,6 +55,7 @@ type FalcoProfileManager struct {
 	logger                logr.Logger
 }
 
+// TODO: get rid of this singleton
 var FalcoProfileManagerInstance *FalcoProfileManager
 
 func NewFalcoProfileManager(client *dynamic.DynamicClient) *FalcoProfileManager {
@@ -109,6 +110,7 @@ func (p *FalcoProfileManager) watch() error {
 		return err
 	}
 	for event := range watcher.ResultChan() {
+		p.logger.V(6).Info("received FalcoProfile event", "event", event)
 		switch event.Type {
 		case watch.Added, watch.Modified:
 			fe, err := decodeEvent(event.Object)

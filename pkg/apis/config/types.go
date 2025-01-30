@@ -5,7 +5,7 @@
 package config
 
 import (
-	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
+	healthcheckconfigv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -19,7 +19,7 @@ type Configuration struct {
 	Falco *Falco
 
 	// HealthCheckConfig is the config for the health check controller.
-	HealthCheckConfig *healthcheckconfig.HealthCheckConfig
+	HealthCheckConfig *healthcheckconfigv1alpha1.HealthCheckConfig
 }
 
 // Falco extension configuration
@@ -42,16 +42,8 @@ type Falco struct {
 
 	// Event inggestor URL
 	IngestorURL string
-}
 
-type Version struct {
-	// Falco version
-	Version string
-
-	// Classification: [preview|supported|deprecated]
-	Classification string
-
-	// date when Falco version is going to expire
-	// +optional
-	ExpiryDate *metav1.Time
+	// Default event logger
+	// possible values are: "none", "central", "cluster", "webhook"
+	DefaultEventLogger *string
 }

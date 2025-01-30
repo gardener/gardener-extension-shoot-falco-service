@@ -6,128 +6,401 @@ package validator
 
 import (
 	"context"
-	"testing"
 	"time"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	service "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
-func TestExtractFalcoConf(t *testing.T) {
-	s := &shoot{}
-	exampleShoot := &core.Shoot{
+var (
+	exampleShoot = &core.Shoot{
 		Spec: core.ShootSpec{
 			Extensions: []core.Extension{},
 		},
 	}
 
-	conf, err := s.extractFalcoConfig(exampleShoot)
-	if err != nil && conf != nil {
-		t.Errorf("FalcoConf not present but extracted")
-	}
-}
-
-func TestValidateShoot(t *testing.T) {
-	disabledSet := true
-	exampleShoot := &core.Shoot{
+	exampleShootValidation = &core.Shoot{
 		Spec: core.ShootSpec{
 			Extensions: []core.Extension{
-				{Type: "shoot-falco-service", Disabled: &disabledSet},
-			},
-		},
-	}
-	s := &shoot{}
-
-	if err := s.validateShoot(context.Background(), exampleShoot, nil); err != nil {
-		t.Error("Extension disabled but validated")
-	}
-}
-
-func TestExtensionIsDisabled(t *testing.T) {
-	disabledSet := false
-	exampleShoot := &core.Shoot{
-		Spec: core.ShootSpec{
-			Extensions: []core.Extension{
-				{Type: "shoot-falco-service", Disabled: &disabledSet},
+				{Type: "shoot-falco-service", Disabled: boolValue(true)},
 			},
 		},
 	}
 
-	s := &shoot{}
-	disabled := s.isDisabled(exampleShoot)
-	if disabled {
-		t.Error("Extension is present but not found")
+	exampleShootValidation2 = &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{
+				{Type: "shoot-falco-service"},
+			},
+		},
 	}
 
-	disabledSet = true
-	disabled = s.isDisabled(exampleShoot)
-	if !disabled {
-		t.Error("Extension is disabled but found")
+	genericShoot = &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{
+				{
+					Type:           "shoot-falco-service",
+					Disabled:       boolValue(false),
+					ProviderConfig: &runtime.RawExtension{},
+				},
+			},
+		},
 	}
 
-	exampleShoot.Spec.Extensions[0].Disabled = nil
-	disabled = s.isDisabled(exampleShoot)
-	if disabled {
-		t.Error("Extension is present and not explicitly disabled but not found")
-	}
+	falcoExtension1 = `
+	{
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"output": {
+			"eventCollector": "cluster"
+		},
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":true
+		}
+	}`
 
-	exampleShoot.Spec.Extensions = []core.Extension{}
-	disabled = s.isDisabled(exampleShoot)
-	if !disabled {
-		t.Error("No extension is present but reported found")
-	}
-}
+	falcoExtension2 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"central",
+			"logFalcoEvents":false
+		}
+	}`
 
-func TestVerifyWebhook(t *testing.T) {
-	conf := &service.FalcoServiceConfig{}
-	if err := verifyWebhook(conf); err == nil {
-		t.Fatalf("Webhook is nil but not detected as such")
-	}
+	falcoExtension3 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
-	webhook := service.Webhook{}
-	conf.CustomWebhook = &webhook
-	if err := verifyWebhook(conf); err == nil {
-		t.Fatalf("Enabled flag in webhook is nil but not detected as such")
-	}
+	// falcoctl
+	falcoExtension4 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
-	disable := false
-	conf.CustomWebhook.Enabled = &disable
-	if err := verifyWebhook(conf); err != nil {
-		t.Fatalf("Disabled flag in webhook is not nil not detected as invalid")
-	}
+	// wenhook
+	falcoExtension5 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://mywebhook.com",
+				"customHeaders": "a:b,c:d",
+				"checkcerts": true
+			}
+		}
+	}`
 
-	enable := true
-	conf.CustomWebhook.Enabled = &enable
-	if err := verifyWebhook(conf); err == nil {
-		t.Fatalf("Webhook is enabled but nil address is not detected")
-	}
-}
+	// custom rules
+	falcoExtension6 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false,
+			"customRules": [ "rulecfg1", "rulecfg2" ]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
-func TestVerifyResources(t *testing.T) {
-	conf := &service.FalcoServiceConfig{}
-	if err := verifyResources(conf); err == nil {
-		t.Fatalf("Ressources is nil but not detected as such")
-	}
+	falcoExtensionIllegal1 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"nonsense",
+			"logFalcoEvents":false
+		}
+	}`
 
-	nonSenseRessource := "gardenerr"
-	conf.Resources = &nonSenseRessource
-	if err := verifyResources(conf); err == nil {
-		t.Fatalf("Ressources is of wrong value %s but not detected as such", nonSenseRessource)
-	}
+	// does not log anything, this does not make sense
+	falcoExtensionIllegal2 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":false
+		}
+	}`
 
-	goodRessource := "falcoctl"
-	conf.Resources = &goodRessource
-	if err := verifyResources(conf); err != nil {
-		t.Fatalf("Ressources is of correct value %s but is detected as invalid", goodRessource)
-	}
-}
+	// add extra fields
+	falcoExtensionIllegal3 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"nonsense" : "nonsense",
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
-func TestVerifyFalcoVersion(t *testing.T) {
+	// falco version does not exist
+	falcoExtensionIllegal4 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"7.8.9",
+		"resources": "gardener",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
 
+	// specify "falcoctl" as resource but don't specify anything
+	falcoExtensionIllegal5 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"none",
+			"logFalcoEvents":true
+		}
+	}`
+
+	// specify custom as event collector but don't provide a webhook
+	falcoExtensionIllegal6 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"gardener": {
+			"useFalcoIncubatingRules":false,
+			"useFalcoRules":true,
+			"useFalcoSandboxRules":false
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"custom",
+			"logFalcoEvents":false
+		}
+	}`
+
+	// wrong object type
+	falcoExtensionIllegal7 = `
+	{
+		"apiVersion":"nonsense.extensions.gardener.cloud/v1alpha1",
+		"kind":"dFalcoServiceConfig",
+		"autoUpdate":true
+	}`
+
+	// expected outputs from mutator test
+	expectedMutate1 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":true,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":false
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		}
+	}`
+
+	expectedMutate2 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"resources": "falcoctl",
+		"falcoCtl": {
+			"indexes": [
+				{
+					"name": "myrepo",
+					"url": "https://myrepo.com"
+				}
+			]
+		},
+		"kind":"FalcoServiceConfig",
+		"output": {
+			"eventCollector":"central",
+			"logFalcoEvents":false
+		}
+	}`
+
+	expectedMutate3 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":false,
+			"useFalcoIncubatingRules":true,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+
+	expectedMutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
+	}`
+
+	expectedMutate6 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"1.2.3",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"central"
+		}
+	}`
+)
+
+func init() {
 	supportedVersion := "1.2.3"
 	depreatedVersion := "3.2.1"
 	expiredVersion := "9.9.9"
@@ -144,112 +417,290 @@ func TestVerifyFalcoVersion(t *testing.T) {
 		&map[string]profile.Version{},
 		&map[string]profile.Image{},
 	)
-
-	conf := &service.FalcoServiceConfig{}
-	if err := verifyFalcoVersion(conf, nil); err == nil {
-		t.Fatalf("FalcoVersion is nil but not detected as such")
-	}
-
-	conf.FalcoVersion = &supportedVersion
-	if err := verifyFalcoVersion(conf, nil); err != nil {
-		t.Fatalf("FalcoVersion was supported but detected as invalid")
-	}
-
-	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
-		t.Fatalf("Supported FalcoVersion is set but detected as invalid")
-	}
-
-	conf.FalcoVersion = &depreatedVersion
-	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err != nil {
-		t.Fatalf("Deprecated FalcoVersion without expiration is set but detected as invalid %s", err)
-	}
-
-	conf.FalcoVersion = &expiredVersion
-	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err == nil {
-		t.Fatalf("Expired FalcoVersion is set but accepted as valid")
-	}
-
-	nonVersion := "0.0.0"
-	conf.FalcoVersion = &nonVersion
-	if err := verifyFalcoVersionInVersions(conf, &falcoVersions); err == nil {
-		t.Fatalf("Nonsensical FalcoVersion is set but accepted as valid")
-	}
-
-	oldConf := &service.FalcoServiceConfig{}
-	conf.FalcoVersion = &expiredVersion
-	oldConf.FalcoVersion = &expiredVersion
-	if err := verifyFalcoVersion(conf, oldConf); err != nil {
-		t.Fatalf("FalcoVersion was expired but stayed the same between old and new config")
-	}
-
-	conf.FalcoVersion = &expiredVersion
-	oldConf.FalcoVersion = &supportedVersion
-	if err := verifyFalcoVersion(conf, oldConf); err == nil {
-		t.Fatalf("FalcoVersion was suppored but changed to expired between old and new config")
-	}
 }
 
-func TestVerifyFalcoCtl(t *testing.T) {
-	conf := &service.FalcoServiceConfig{}
-	if err := verifyFalcoCtl(conf); err == nil {
-		t.Fatalf("FalcoCtl is nil but not detected as such")
-	}
+var _ = Describe("Test validator", Label("falcovalues"), func() {
 
-	falcoCtlVal := service.FalcoCtl{}
-	conf.FalcoCtl = &falcoCtlVal
-	if err := verifyFalcoCtl(conf); err != nil {
-		t.Fatalf("FalcoCtl is not nil but detected as such")
-	}
-}
+	// BeforeEach(func() {
+	// 	fakeclient := crfake.NewFakeClient(rulesConfigMap)
+	// 	tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+	// 	Expect(err).To(BeNil())
+	// 	configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+	// 	logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+	// })
 
-func TestVerifyGardenerSet(t *testing.T) {
-	conf := &service.FalcoServiceConfig{}
-	if err := verifyGardenerSet(conf); err == nil {
-		t.Fatalf("Gardener is nil but not detected as such")
-	}
+	It("extract falco config", func(ctx SpecContext) {
+		s := &shoot{}
+		conf, err := s.extractFalcoConfig(exampleShoot)
+		Expect(err != nil && conf != nil).To(BeFalse(), "FalcoConf not present but extracted")
+	})
 
-	gardenerVal := service.Gardener{}
-	conf.Gardener = &gardenerVal
-	if err := verifyGardenerSet(conf); err == nil {
-		t.Fatalf("Gardener rules are nil but not detected as such")
-	}
+	It("validate shoot", func(ctx SpecContext) {
+		s := &shoot{}
+		err := s.validateShoot(context.Background(), exampleShootValidation, nil)
+		Expect(err).To(BeNil(), "FalcoConf not present but extracted")
+	})
 
-	commonRulesBool := false
-	gardenerVal.UseFalcoRules, gardenerVal.UseFalcoIncubatingRules, gardenerVal.UseFalcoSandboxRules = &commonRulesBool, &commonRulesBool, &commonRulesBool
-	if err := verifyGardenerSet(conf); err != nil {
-		t.Fatalf("Gardener rules are not nil but detected as such")
-	}
-}
+	It("extension is disabled", func(ctx SpecContext) {
+		s := &shoot{}
+		exampleShootValidation2.Spec.Extensions[0].Disabled = boolValue(false)
+		disabled := s.isDisabled(exampleShootValidation2)
+		Expect(disabled).To(BeFalse(), "Extension is disabled but not found")
 
-func TestVerifyProjectEligibility(t *testing.T) {
-	namespace := "testNamespace"
-	project := v1beta1.Project{}
+		exampleShootValidation2.Spec.Extensions[0].Disabled = boolValue(true)
+		disabled = s.isDisabled(exampleShootValidation2)
+		Expect(disabled).To(BeTrue(), "Extension is disabled but found")
 
-	gardenProject := v1beta1.Project{}
-	gardenProject.Name = "garden"
+		exampleShootValidation2.Spec.Extensions[0].Disabled = nil
+		disabled = s.isDisabled(exampleShootValidation2)
+		Expect(disabled).To(BeFalse(), "Extension is present and not explicitly disabled but not found")
 
-	ProjectsInstance = &Projects{}
-	ProjectsInstance.projects = map[string]*v1beta1.Project{namespace: &project, constants.AlwaysEnabledProjects[0]: &gardenProject}
+		exampleShootValidation2.Spec.Extensions = []core.Extension{}
+		disabled = s.isDisabled(exampleShootValidation2)
+		Expect(disabled).To(BeTrue(), "No extension is present but reported found")
+	})
 
-	if verifyProjectEligibility("wrongNamespace") {
-		t.Fatalf("Project is nil but not detected as such")
-	}
+	It("verfiy resources", func(ctx SpecContext) {
+		conf := &service.FalcoServiceConfig{}
+		err := verifyResources(conf)
+		Expect(err).NotTo(BeNil(), "Ressources is nil but not detected as such")
 
-	if !verifyProjectEligibility(constants.AlwaysEnabledProjects[0]) {
-		t.Fatalf("Always enabled project is not detected as such")
-	}
+		nonSenseRessource := "gardenerr"
+		conf.Resources = &nonSenseRessource
+		err = verifyResources(conf)
+		Expect(err).NotTo(BeNil(), "Resource is of wrong value %s but not detected as such", nonSenseRessource)
 
-	if verifyProjectEligibility(namespace) {
-		t.Fatalf("Non annotated project is not detected as such")
-	}
+		goodRessource := "falcoctl"
+		conf.Resources = &goodRessource
+		conf.FalcoCtl = &service.FalcoCtl{
+			Indexes: []service.FalcoCtlIndex{
+				{
+					Name: stringValue("myrepo"),
+					Url:  stringValue("https://myrepo.com"),
+				},
+			},
+		}
+		err = verifyResources(conf)
+		Expect(err).To(BeNil(), "Resource is of correct value %s but is detected as invalid", goodRessource)
+	})
 
-	project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "true"}
-	if !verifyProjectEligibility(namespace) {
-		t.Fatalf("Annotated project is falsely detected non-elegible")
-	}
+	It("verify falco version", func(ctx SpecContext) {
 
-	project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "randoma.skjdnasdj"}
-	if verifyProjectEligibility(namespace) {
-		t.Fatalf("Falsely nnotated project is detected elegible")
-	}
-}
+		var err error
+		supportedVersion := "1.2.3"
+		depreatedVersion := "3.2.1"
+		expiredVersion := "9.9.9"
+		supportedV := profile.FalcoVersion{Version: supportedVersion, Classification: "supported"}
+		depreatedV := profile.FalcoVersion{Version: depreatedVersion, Classification: "deprecated"}
+		expiredV := profile.FalcoVersion{Version: expiredVersion, Classification: "deprecated", ExpirationDate: &time.Time{}}
+		falcoVersions := map[string]profile.FalcoVersion{supportedVersion: supportedV, depreatedVersion: depreatedV, expiredVersion: expiredV}
+
+		profile.GetDummyFalcoProfileManager(
+			&falcoVersions,
+			&map[string]profile.Image{},
+			&map[string]profile.Version{},
+			&map[string]profile.Image{},
+			&map[string]profile.Version{},
+			&map[string]profile.Image{},
+		)
+
+		conf := &service.FalcoServiceConfig{}
+		err = verifyFalcoVersion(conf, nil)
+		Expect(err).NotTo(BeNil(), "FalcoVersion is nil but not detected as such")
+
+		conf.FalcoVersion = &supportedVersion
+		err = verifyFalcoVersion(conf, nil)
+		Expect(err).To(BeNil(), "FalcoVersion was supported but detected as invalid")
+
+		err = verifyFalcoVersionInVersions(conf, &falcoVersions)
+		Expect(err).To(BeNil(), "Supported FalcoVersion is set but detected as invalid")
+
+		conf.FalcoVersion = &depreatedVersion
+		err = verifyFalcoVersionInVersions(conf, &falcoVersions)
+		Expect(err).To(BeNil(), "Deprecated FalcoVersion without expiration is set but detected as invalid %s", err)
+
+		conf.FalcoVersion = &expiredVersion
+		err = verifyFalcoVersionInVersions(conf, &falcoVersions)
+		Expect(err).NotTo(BeNil(), "Expired FalcoVersion is set but accepted as valid")
+
+		nonVersion := "0.0.0"
+		conf.FalcoVersion = &nonVersion
+		err = verifyFalcoVersionInVersions(conf, &falcoVersions)
+		Expect(err).NotTo(BeNil(), "Nonsensical FalcoVersion is set but accepted as valid")
+
+		oldConf := &service.FalcoServiceConfig{}
+		conf.FalcoVersion = &expiredVersion
+		oldConf.FalcoVersion = &expiredVersion
+		err = verifyFalcoVersion(conf, oldConf)
+		Expect(err).To(BeNil(), "FalcoVersion was expired but stayed the same between old and new config")
+
+		conf.FalcoVersion = &expiredVersion
+		oldConf.FalcoVersion = &supportedVersion
+		err = verifyFalcoVersion(conf, oldConf)
+		Expect(err).NotTo(BeNil(), "FalcoVersion was suppored but changed to expired between old and new config")
+	})
+
+	// currently not implemented
+	//
+	/*
+		It("verify falcoctl", func(ctx SpecContext) {
+			var err error
+			conf := &service.FalcoServiceConfig{}
+			err = verifyFalcoCtl(conf)
+			Expect(err).NotTo(BeNil(), "FalcoCtl is nil but not detected as such")
+
+			falcoCtlVal := service.FalcoCtl{}
+			conf.FalcoCtl = &falcoCtlVal
+			err = verifyFalcoCtl(conf)
+			Expect(err).To(BeNil(), "FalcoCtl is not nil but detected as such")
+		})
+	*/
+
+	It("verify gardener set", func(ctx SpecContext) {
+		var err error
+		conf := &service.FalcoServiceConfig{}
+		err = verifyGardenerSet(conf)
+		Expect(err).NotTo(BeNil(), "Gardener is nil but not detected as such")
+
+		gardenerVal := service.Gardener{}
+		conf.Gardener = &gardenerVal
+		err = verifyGardenerSet(conf)
+		Expect(err).NotTo(BeNil(), "Gardener rules are nil but not detected as such")
+
+		commonRulesBool := false
+		gardenerVal.UseFalcoRules, gardenerVal.UseFalcoIncubatingRules, gardenerVal.UseFalcoSandboxRules = &commonRulesBool, &commonRulesBool, &commonRulesBool
+		err = verifyGardenerSet(conf)
+		Expect(err).To(BeNil(), "Gardener rules are not nil but detected as such")
+	})
+
+	It("verify project eligibility", func(ctx SpecContext) {
+		namespace := "testNamespace"
+		project := v1beta1.Project{}
+
+		gardenProject := v1beta1.Project{}
+		gardenProject.Name = "garden"
+
+		ProjectsInstance = &Projects{}
+		ProjectsInstance.projects = map[string]*v1beta1.Project{namespace: &project, constants.AlwaysEnabledProjects[0]: &gardenProject}
+
+		Expect(verifyProjectEligibility("wrongNamespace")).To(BeFalse(), "Project is nil but not detected as such")
+
+		Expect(verifyProjectEligibility(constants.AlwaysEnabledProjects[0])).To(BeTrue(), "Always enabled project is not detected as such")
+
+		Expect(verifyProjectEligibility(namespace)).To(BeFalse(), "Non annotated project is not detected as such")
+
+		project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "true"}
+		Expect(verifyProjectEligibility(namespace)).To(BeTrue(), "Annotated project is falsely detected non-elegible")
+
+		project.Annotations = map[string]string{constants.ProjectEnableAnnotation: "randoma.skjdnasdj"}
+		Expect(verifyProjectEligibility(namespace)).To(BeFalse(), "Falsely annotated project is detected elegible")
+	})
+
+	It("verify legal extensions", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericShoot, nil)
+			return err
+		}
+		err = f(falcoExtension1)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension3)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension4)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension5)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtension6)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+	})
+
+	It("verify illegal extensions", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericShoot, nil)
+			return err
+		}
+		err = f(falcoExtensionIllegal1)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("output.eventCollector needs to be set to a value"), "Illegal extension is not detected as such")
+
+		err = f(falcoExtensionIllegal2)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated"), "Illegal extension is not detected as such ")
+
+		// additional field (or typo)
+		err = f(falcoExtensionIllegal3)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider config: strict decoding error: unknown field \"nonsense\""), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegal4)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("version not found in possible versions"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegal5)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("falcoctl is set as resource but falcoctl property is not defined"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegal6)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to custom but customWebhook is not defined"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegal7)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
+	})
+
+	It("make sure outputs from mutator validate", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericShoot, nil)
+			return err
+		}
+
+		err = f(expectedMutate1)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate3)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate4)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(expectedMutate6)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+	})
+})

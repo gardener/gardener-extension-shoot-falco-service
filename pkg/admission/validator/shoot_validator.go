@@ -11,10 +11,12 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,16 +27,59 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
+// extra Falco options
+type FalcoWebhookOptions struct {
+	// if set to true, projects must be annotated with falco.gardener.cloud/enabled=true to
+	// deploy Falco in their shoot clusters
+	RestrictedUsage bool
+
+	// if set to true, project must be annotated with falco.gardener.cloud/centralized-logging=true
+	// to use the Gardener manged centralized logging solution
+	RestrictedCentralizedLogging bool
+}
+
+var DefautltFalcoWebhookOptions = FalcoWebhookOptions{}
+
+// Complete implements Completer.Complete.
+func (o *FalcoWebhookOptions) Complete() error {
+	return nil
+}
+
+// Completed returns the completed Config. Only call this if `Complete` was successful.
+func (c *FalcoWebhookOptions) Completed() *FalcoWebhookOptions {
+	return c
+}
+
+// AddFlags implements Flagger.AddFlags.
+func (c *FalcoWebhookOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&c.RestrictedUsage, "restricted-usage", false, "if set to true, projects must be annotated with falco.gardener.cloud/enabled=true to deploy Falco in their shoot clusters")
+	fs.BoolVar(&c.RestrictedCentralizedLogging, "restricted-centralized-logging", false, "if set to true, project must be annotated with falco.gardener.cloud/centralized-logging=true to use the Gardener manged centralized logging solution")
+}
+
+// Apply sets the values of this Config in the given config.ControllerConfiguration.
+func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
+	config.RestrictedCentralizedLogging = c.RestrictedCentralizedLogging
+	config.RestrictedUsage = c.RestrictedUsage
+}
+
 // NewShootValidator returns a new instance of a shoot validator.
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
+	return NewShootValidatorWithOption(mgr, &DefautltFalcoWebhookOptions)
+}
+
+func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
 	return &shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
+		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		restrictedUsage:          options.RestrictedUsage,
+		restrictedCentralLogging: options.RestrictedCentralizedLogging,
 	}
 }
 
 // shoot validates shoots
 type shoot struct {
-	decoder runtime.Decoder
+	decoder                  runtime.Decoder
+	restrictedUsage          bool
+	restrictedCentralLogging bool
 }
 
 // Validate implements extensionswebhook.Validator.Validate
@@ -58,7 +103,6 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	}
 
 	falcoConf, err := s.extractFalcoConfig(shoot)
-	// falcoConf, err := utils.ExtractFalcoServiceConfig(shoot)
 	if err != nil {
 		return err
 	}
@@ -84,15 +128,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyFalcoCtl(falcoConf); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if err := verifyGardenerSet(falcoConf); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if err := verifyWebhook(falcoConf); err != nil {
+	if err := verifyOutput(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -104,8 +140,10 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 }
 
 func verifyFalcoCtl(falcoConf *service.FalcoServiceConfig) error {
-	if falcoConf.FalcoCtl == nil {
-		return fmt.Errorf("falcoCtl is not set")
+
+	ctl := falcoConf.FalcoCtl
+	if len(ctl.Indexes) == 0 {
+		return fmt.Errorf("no falcoctl index are is set")
 	}
 	return nil
 }
@@ -122,26 +160,59 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func verifyWebhook(falcoConf *service.FalcoServiceConfig) error {
-	webhook := falcoConf.CustomWebhook
-	if webhook == nil {
-		return fmt.Errorf("webhook is nil")
-	} else if webhook.Enabled == nil {
-		return fmt.Errorf("webhook needs to be either enabled or disbaled")
-	} else if *webhook.Enabled && webhook.Address == nil {
-		return fmt.Errorf("webhook is enabled but without address")
+func verifyWebhook(webhook *service.Webhook) error {
+	if webhook.Address == nil {
+		return fmt.Errorf("webhook address is not set")
 	}
-	// may also want to enforce headers at some point
+	return nil
+}
+
+func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
+	output := falcoConf.Output
+	if output == nil {
+		return fmt.Errorf("event ouptut is not defined")
+	}
+	if output.EventCollector == nil || !slices.Contains(constants.AllowedOutputs, *output.EventCollector) {
+		return fmt.Errorf("output.eventCollector needs to be set to a value in %s", strings.Join(constants.AllowedOutputs, ", "))
+	}
+	if *output.EventCollector == "custom" {
+		if output.CustomWebhook == nil {
+			return fmt.Errorf("output.eventCollector is set to custom but customWebhook is not defined")
+		}
+		return verifyWebhook(falcoConf.Output.CustomWebhook)
+	}
+	if *output.EventCollector == "none" && !*output.LogFalcoEvents {
+		return fmt.Errorf("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated")
+	}
 	return nil
 }
 
 func verifyResources(falcoConf *service.FalcoServiceConfig) error {
 	resource := falcoConf.Resources
 	if resource == nil {
-		return fmt.Errorf("resource is not defined")
+		return fmt.Errorf("resources property is not defined")
 	}
 	if *resource != "gardener" && *resource != "falcoctl" {
 		return fmt.Errorf("resource needs to be either gardener or falcoctl")
+	}
+
+	if *resource == "gardener" {
+		if falcoConf.Gardener == nil {
+			return fmt.Errorf("gardener is set as resource but gardener property is not defined")
+		}
+		err := verifyGardenerSet(falcoConf)
+		if err != nil {
+			return err
+		}
+	}
+	if *resource == "falcoctl" {
+		if falcoConf.FalcoCtl == nil {
+			return fmt.Errorf("falcoctl is set as resource but falcoctl property is not defined")
+		}
+		err := verifyFalcoCtl(falcoConf)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

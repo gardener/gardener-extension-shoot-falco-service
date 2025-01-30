@@ -8,7 +8,7 @@ import (
 	"errors"
 	"os"
 
-	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
+	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"

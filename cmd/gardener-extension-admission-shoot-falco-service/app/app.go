@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	componentbaseconfig "k8s.io/component-base/config"
+	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/version/verflag"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,11 +67,12 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			webhookServerOptions,
 			webhookSwitches,
 		)
-
-		aggOption = controllercmd.NewOptionAggregator(
+		falcoOptions = &validator.FalcoWebhookOptions{}
+		aggOption    = controllercmd.NewOptionAggregator(
 			restOpts,
 			mgrOpts,
 			webhookOptions,
+			falcoOptions,
 		)
 	)
 
@@ -116,6 +117,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
+			falcoOptions.Completed().Apply(&validator.DefautltFalcoWebhookOptions)
 			mgr, err := manager.New(restOpts.Completed().Config, managerOptions)
 			if err != nil {
 				runtimelog.Log.Error(err, "Could not instantiate manager")
@@ -147,7 +149,6 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				if err := mgr.AddReadyzCheck("source-informer-sync", gardenerhealthz.NewCacheSyncHealthz(sourceCluster.GetCache())); err != nil {
 					return err
 				}
-
 				if err = mgr.Add(sourceCluster); err != nil {
 					return err
 				}

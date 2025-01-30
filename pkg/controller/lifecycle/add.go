@@ -44,7 +44,7 @@ func AddToManager(ctx context.Context, mgr manager.Manager) error {
 	if err != nil {
 		return err
 	}
-	return extension.Add(ctx, mgr, extension.AddArgs{
+	return extension.Add(mgr, extension.AddArgs{
 		Actuator:          act,
 		ControllerOptions: DefaultAddOptions.ControllerOptions,
 		Name:              Name,
