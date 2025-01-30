@@ -69,7 +69,7 @@ func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
 
 func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
 	return &shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		restrictedUsage:          options.RestrictedUsage,
 		restrictedCentralLogging: options.RestrictedCentralizedLogging,
 	}
