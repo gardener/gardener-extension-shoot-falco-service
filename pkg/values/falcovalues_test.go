@@ -226,7 +226,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 
 	BeforeEach(func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
-		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
 		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
@@ -465,7 +465,7 @@ var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
 
 	BeforeEach(func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
-		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
 		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
@@ -484,7 +484,7 @@ var _ = Describe("Getter for Falco rules", Label("falcovalues"), func() {
 
 	BeforeEach(func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
-		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, 2)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
 		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
 	})
