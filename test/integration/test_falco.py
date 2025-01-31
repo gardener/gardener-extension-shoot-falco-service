@@ -2,16 +2,32 @@ import logging
 import json
 import sys
 import time
+import base64
 from datetime import datetime, timezone
 
+import jwt
 import pytest
 from kubernetes import client, config
 
-from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extension, annotate_shoot, get_latest_supported_falco_version, get_deprecated_falco_version, run_falco_event_generator, falcosidekick_pod_label_selector, falco_extension_deployed, add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed, wait_for_extension_undeployed, pod_logs_from_label_selector, falco_pod_label_selector, get_falco_sidekick_pods
+from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extension,\
+            annotate_shoot, get_latest_supported_falco_version,\
+            get_deprecated_falco_version, run_falco_event_generator,\
+            falcosidekick_pod_label_selector, falco_extension_deployed,\
+            add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed,\
+            wait_for_extension_undeployed, pod_logs_from_label_selector, \
+            falco_pod_label_selector, get_falco_sidekick_pods, get_secret,\
+            get_token_lifetime, get_token_public_key
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+@pytest.fixture(autouse=True)
+def run_around_tests(garden_api_client, shoot_api_client, project_namespace, shoot_name):
+    # initialization will go here
+    yield
+    logger.info("Undepoying falco extension")
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
 
 
 def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace, shoot_name):
@@ -35,11 +51,26 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
     wait_for_extension_deployed(shoot_api_client)
     
     logger.info("Reading logs from falco pods")
-    pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-    
-    logger.info("Undepoying falco extension")
-    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-    wait_for_extension_undeployed(shoot_api_client)
+    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
+    for k,v in logs.items():
+        logger.info(f"Logs from {k}\n{v}")
+
+    logger.info("checking access token")
+    secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
+    headers64 = secret.data["WEBHOOK_CUSTOMHEADERS"]
+    headers = str(base64.b64decode(headers64), "utf-8")
+    encoded_token = headers.split(":")[1].split(" ")[1].strip()
+    key = get_token_public_key(garden_api_client)
+    tok = jwt.decode(encoded_token, key=key, verify_signature=True, 
+                     algorithms=["RS256"], audience="falco-db")
+    logger.info("access token is valid")
+    expiration = int(tok["exp"])
+    now = int(time.time())
+    token_lifetime = get_token_lifetime(garden_api_client)  
+    assert expiration <= token_lifetime + now
+    logger.info("access token has expected lifetime")
+    assert expiration >= now + token_lifetime - (30*60)
+    logger.info("access token has almost full lifetime")
 
 
 def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, project_namespace, shoot_name):
