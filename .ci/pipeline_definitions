@@ -20,18 +20,18 @@ gardener-extension-shoot-falco-service:
       registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
       mappings:
       - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
-        attribute: global.image.repository
+        attribute: image.repository
       - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
-        attribute: global.image.tag
+        attribute: image.tag
     - &shoot-falco-service-admission-runtime
       name: admission-shoot-falco-service-runtime
       dir: charts/gardener-extension-admission-shoot-falco-service/charts/runtime
       registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/gardener/extensions
       mappings:
       - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
-        attribute: global.image.repository
+        attribute: image.repository
       - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
-        attribute: global.image.tag
+        attribute: image.tag
 
   base_definition:
     repo:
