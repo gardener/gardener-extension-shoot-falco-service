@@ -16,7 +16,7 @@ from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extensio
             add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed,\
             wait_for_extension_undeployed, pod_logs_from_label_selector, \
             falco_pod_label_selector, get_falco_sidekick_pods, get_secret,\
-            get_token_lifetime, get_token_public_key
+            get_token_lifetime, get_token_public_key, delete_configmap
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,8 @@ def run_around_tests(garden_api_client, shoot_api_client, project_namespace, sho
     # initialization will go here
     yield
     logger.info("Undepoying falco extension")
-    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
+    #ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+    #delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
 
 
 def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace, shoot_name):
@@ -35,7 +36,8 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
 
     logger.info("Falco extension is not deployed, deploying")
-    error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name)
+    custom_rules = "# custom rules go here"
+    error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, custom_rules=custom_rules)
     assert error is None
     if error is not None:
         body = json.loads(error.body)
@@ -54,6 +56,7 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
     logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
     for k,v in logs.items():
         logger.info(f"Logs from {k}\n{v}")
+        assert "/etc/falco/rules.d/myrules" in v
 
     logger.info("checking access token")
     secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
