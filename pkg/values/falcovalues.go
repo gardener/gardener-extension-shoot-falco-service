@@ -232,9 +232,6 @@ func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string,
 		},
 		"enabled":  true,
 		"fullfqdn": true,
-		"webui": map[string]bool{
-			"enabled": false,
-		},
 		"image": map[string]string{
 			"image": falcosidekickImage,
 		},
