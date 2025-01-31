@@ -24,18 +24,17 @@ logger.setLevel(logging.DEBUG)
 
 @pytest.fixture(autouse=True)
 def run_around_tests(garden_api_client, shoot_api_client, project_namespace, shoot_name):
-    # initialization will go here
+    logger.info(f"Making sure Falco extension is not deployed in shoot {shoot_name}")
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
+    delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
     yield
     logger.info("Undepoying falco extension")
-    #ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
-    #delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+    delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
 
 
 def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace, shoot_name):
-    
-    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-
-    logger.info("Falco extension is not deployed, deploying")
+    logger.info("Deploying Falco extension")
     custom_rules = "# custom rules go here"
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, custom_rules=custom_rules)
     assert error is None
@@ -76,11 +75,8 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
     logger.info("access token has almost full lifetime")
 
 
-def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, project_namespace, shoot_name):
-    
-    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-    
-    logger.info("Falco extension is not deployed, deploying")
+def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, project_namespace, shoot_name):    
+    logger.info("Deploying Falco extension")
     extension_config = { 
         "type": "shoot-falco-service",
         "providerConfig": {
@@ -119,11 +115,6 @@ def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, pr
         assert "/etc/falco/rules.d/falco_rules.yaml" in l
         assert "/etc/falco/rules.d/falco-incubating_rules.yaml" in l
         assert "/etc/falco/rules.d/falco-sandbox_rules.yaml" in l
-    
-    logger.info("Undepoying falco extension")
-    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-    wait_for_extension_undeployed(shoot_api_client)
-
 
 
 def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespace, shoot_name, falco_profile):
@@ -134,7 +125,8 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
         fv = version["version"]
         logger.info(f"Testing falco version {fv}")
         ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-        
+        delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
+
         logger.info("Falco extension is not deployed, deploying")
         error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, fv)
        
@@ -164,16 +156,9 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
             logger.info(f"Logs from {k}: {v}")
             assert "running HTTP server for endpoints defined in tlsserver.notlspaths"
 
-        logger.info("Undepoying falco extension")
-        remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-        wait_for_extension_undeployed(shoot_api_client)
-
 
 def test_event_generator(garden_api_client, shoot_api_client, project_namespace, shoot_name):
-
-    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-    
-    logger.info("Falco extension is not deployed, deploying")
+    logger.info("Deploying Falco extension")
     extension_config = { 
         "type": "shoot-falco-service",
         "providerConfig": {
@@ -200,15 +185,10 @@ def test_event_generator(garden_api_client, shoot_api_client, project_namespace,
     for k,v in logs.items():
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
-    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-    wait_for_extension_undeployed(shoot_api_client)
 
 
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
-    
-    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-    
-    logger.info("Falco extension is not deployed, deploying")
+    logger.info("Deploying Falco extension")
     fw = get_deprecated_falco_version(falco_profile)
     if fw is None:
         pytest.skip("No deprecated falco version found")
@@ -236,16 +216,10 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
     
     assert ext["providerConfig"]["falcoVersion"] == update_candiate
     logger.info(f"Falco version updated as expected from {fw} to {update_candiate}")
-    logger.info("Undepoying falco extension")
-    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-    wait_for_extension_undeployed(shoot_api_client)
 
 
 def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
-
-    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-    logger.info("Falco extension is not deployed, deploying")
-
+    logger.info("Deploying Falco extension")
     extension_config = {
         "type": "shoot-falco-service",
         "providerConfig": {
@@ -279,7 +253,4 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
         allLogs += l
     print (allLogs)
     assert "Warning Detected ptrace" in allLogs
-    
-    logger.info("Undepoying falco extension")
-    remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
-    wait_for_extension_undeployed(shoot_api_client)
+
