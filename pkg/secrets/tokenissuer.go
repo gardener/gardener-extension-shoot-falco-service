@@ -9,16 +9,17 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type TokenIssuer struct {
 	// private key for signing tokens
 	privateKey *rsa.PrivateKey
 	// validity of the token in days
-	tokenValidity int
+	tokenValidity *metav1.Duration
 }
 
-func NewTokenIssuer(key string, validity int) (*TokenIssuer, error) {
+func NewTokenIssuer(key string, validity *metav1.Duration) (*TokenIssuer, error) {
 
 	ti := &TokenIssuer{
 		tokenValidity: validity,
@@ -40,7 +41,7 @@ func (t *TokenIssuer) loadKey(keyPEM string) error {
 }
 
 func (t *TokenIssuer) calculateExipryDate() time.Time {
-	return time.Now().AddDate(0, 0, t.tokenValidity)
+	return time.Now().Add(*&t.tokenValidity.Duration)
 }
 
 func (t *TokenIssuer) IssueToken(clusterIdentity string) (string, error) {
