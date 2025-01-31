@@ -8,6 +8,8 @@ import subprocess
 from datetime import datetime, timezone
 import logging
 import semver
+from cryptography.hazmat.primitives.asymmetric import dsa, rsa
+from cryptography.hazmat.primitives import serialization
 from kubernetes import client, config
 
 
@@ -32,8 +34,60 @@ def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
     for pod in ret.items:
         #pod_logs(shoot_api_client, namespace, pod.metadata.name)
         logs[pod.metadata.name] = pod_logs(shoot_api_client, namespace, pod.metadata.name)
-    print(logs)
     return logs
+
+
+def get_controllerdeployment(garden_api_client, name):
+    resource_path = f"/apis/core.gardener.cloud/v1/controllerdeployments/{name}"
+    header_params = {
+         "Accept": "application/json, */*"
+    }
+    # Authentication setting
+    auth_settings = ['BearerToken']
+    data, status, headers = garden_api_client.call_api(
+        resource_path=resource_path,
+        method="GET",
+        auth_settings=auth_settings,
+        header_params=header_params,
+        response_type=object)
+    return data
+
+
+def get_token_lifetime(garden_api_client):
+    controller_deployment = get_controllerdeployment(garden_api_client, "extension-shoot-falco-service")
+    expiration_date = controller_deployment["helm"]["values"]["falco"]["tokenLifetime"]
+    if expiration_date[-1] == 'h':
+        expiration_date = int(expiration_date[:-1]) * 3600
+    elif str.isnumeric(expiration_date[-1]):
+        expiration_date = int(expiration_date)
+    else:
+        raise Exception("Invalid token lifetime format")
+    return expiration_date
+
+
+def get_token_public_key(garden_api_client):
+    controller_deployment = get_controllerdeployment(garden_api_client, "extension-shoot-falco-service")
+    key_raw = controller_deployment["helm"]["values"]["falco"]["tokenIssuerPrivateKey"].encode('utf-8')
+    print(key_raw)
+    print (type(key_raw))
+    private_key = serialization.load_pem_private_key(data=key_raw, password=None)
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return public_key
+
+
+def get_configmap(shoot_api_client, namespace, configmap_name):
+    v1 = client.CoreV1Api(shoot_api_client)
+    ret = v1.read_namespaced_config_map(namespace=namespace, name=configmap_name)
+    return ret
+
+
+def get_secret(shoot_api_client, namespace, secret_name):
+    v1 = client.CoreV1Api(shoot_api_client)
+    ret = v1.read_namespaced_secret(namespace=namespace, name=secret_name)
+    return ret
 
 
 def get_shoot(garden_api_client, project_namespace: str, shoot_name: str):
@@ -261,7 +315,7 @@ def wait_for_extension_deployed(shoot_api_client):
             logging.info("Not all expected falco pods are running or deployed")
             time.sleep(5)
         else:
-            logging.info("All falco pods are running, waitig a bit longer to re-check")
+            logging.info("All falco pods are running, waiting a bit longer to re-check")
             time.sleep(20)
             pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
             if len(pods.items) == 0:
