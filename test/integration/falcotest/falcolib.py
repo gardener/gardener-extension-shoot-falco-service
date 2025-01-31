@@ -8,6 +8,7 @@ import subprocess
 from datetime import datetime, timezone
 import logging
 import semver
+import pprint
 from cryptography.hazmat.primitives.asymmetric import dsa, rsa
 from cryptography.hazmat.primitives import serialization
 from kubernetes import client, config
@@ -138,9 +139,11 @@ def _falco_extension_deployed(shoot_spec):
 
 
 def ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace: str, shoot_name: str):
-    if falco_extension_deployed(garden_api_client, project_namespace, shoot_name):
+    extension = get_falco_extension(garden_api_client, project_namespace, shoot_name)
+    if extension is not None:
+        has_custom_rules = "customRules" in extension["providerConfig"]["gardener"]
         logger.info("Falco extension is deployed, undeploying")
-        remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name)
+        remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name, has_custom_rules)
         wait_for_extension_undeployed(shoot_api_client)
 
 
@@ -170,7 +173,7 @@ def get_shoot_kubeconfig(garden_api_client, project_namespace: str, shoot_name: 
     return config.new_client_from_config_dict(kc)
 
 
-def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_name: str):
+def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_name: str, has_custom_rules=False):
     shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
     idx= 0
     found = False
@@ -183,6 +186,11 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
             "op": "remove",
             "path": "/spec/extensions/" + str(idx)  
         }]
+        if has_custom_rules:
+            patch.append({
+                "op": "remove",
+                "path": "/spec/resources/0"
+            })
         header_params = {
             "Accept": "application/json, */*",
             "Content-Type": "application/json-patch+json"
@@ -204,7 +212,26 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
             response_type=object)
 
 
-def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: str, falco_version=None, extension_config=None):
+def create_configmap(garden_api_client, namespace, name, configmap_data):
+    v1 = client.CoreV1Api(garden_api_client)
+    cfg = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(name=name),
+        data=configmap_data,
+    )
+    v1.create_namespaced_config_map(namespace=namespace, body=cfg)
+
+
+def delete_configmap(garden_api_client, namespace, name):
+    v1 = client.CoreV1Api(garden_api_client)
+    try:
+        v1.delete_namespaced_config_map(namespace=namespace, name=name)
+    except client.exceptions.ApiException as e:
+        return e
+
+
+def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: str, falco_version=None, extension_config=None, custom_rules=None):
     shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
     if _falco_extension_deployed(shoot):
         raise Exception("Falco extension already deployed") 
@@ -226,11 +253,35 @@ def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: st
         if falco_version is not None:
             extension_config["providerConfig"]["falcoVersion"] = falco_version
 
+    custom_rule_resource = None
+    custom_rule_configmap = None
+    if custom_rules is not None:
+        extension_config["providerConfig"]["gardener"] = {
+            "customRules": ["custom-rules"]
+        }
+        custom_rule_resource = {
+              "name": "custom-rules",
+              "resourceRef": {
+                  "apiVersion": "v1",
+                  "kind": "ConfigMap",
+                  "name": "custom-rules-configmap"
+              }
+        }
     patch = {
         "spec": {
             "extensions": [ extension_config ]
         }
     }
+    if custom_rules is not None:
+        patch["spec"]["resources"] = [ custom_rule_resource ]
+        custom_rule_configmap = {
+            "myrules": custom_rules
+        }
+        try:
+          create_configmap(garden_api_client, project_namespace, "custom-rules-configmap", custom_rule_configmap)
+        except client.exceptions.ApiException as e:
+            return e
+
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
     logger.info(f"Adding falco extension to shoot {shoot_name}, resource {resource_path}, patch {patch}")
     try:
@@ -245,6 +296,7 @@ def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: st
             response_type=object)
         
     except client.exceptions.ApiException as e:
+        logger.error(f"Error adding falco extension to shoot {shoot_name}: {e}")
         return e
     
     return None
