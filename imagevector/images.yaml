@@ -72,7 +72,7 @@ images:
 - name: falcoctl
   sourceRepository: https://github.com/falcosecurity/falcoctl
   repository: falcosecurity/falcoctl
-  tag: 0.19.1
+  tag: 0.10.1
   version: 0.10.1
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -86,7 +86,7 @@ images:
 - name: falcoctl
   sourceRepository: https://github.com/falcosecurity/falcoctl
   repository: falcosecurity/falcoctl
-  tag: 0.11.0
+  tag: "0.11"
   version: 0.11.0
   labels:
   - name: 'gardener.cloud/cve-categorisation'
