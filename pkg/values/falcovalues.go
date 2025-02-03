@@ -97,7 +97,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	case "cluster":
 		valiHost := utils.ComputeValiHost(*cluster.Shoot, *cluster.Seed)
 		loki := map[string]interface{}{
-			"hostport": "https://" + valiHost,
+			"hostport":  "https://" + valiHost,
+			"endpoint":  "/vali/api/v1/push",
+			"format":    "json",
+			"checkcert": false,
 		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
