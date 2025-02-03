@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -22,24 +23,24 @@ var (
 
 func TestNewTokenIssuserFaultyKey(t *testing.T) {
 	key := "123"
-	validity := 2000
-	_, err := NewTokenIssuer(key, validity)
+	validity := metav1.Duration{Duration: 2000 * time.Second}
+	_, err := NewTokenIssuer(key, &validity)
 	if err == nil {
 		t.Error("Did not catch wrong key format")
 	}
 }
 
 func TestNewTokenIssuserValidKey(t *testing.T) {
-	validity := 2000
-	_, err := NewTokenIssuer(validKey, validity)
+	validity := metav1.Duration{Duration: 2000 * time.Second}
+	_, err := NewTokenIssuer(validKey, &validity)
 	if err != nil {
 		t.Error("Could not read correct key")
 	}
 }
 
 func TestTokenIssuer(t *testing.T) {
-	validity := 2000
-	issuer, err := NewTokenIssuer(validKey, validity)
+	validity := metav1.Duration{Duration: 20 * time.Hour * 24}
+	issuer, err := NewTokenIssuer(validKey, &validity)
 	if err != nil {
 		t.Error("Could not read correct key")
 	}
@@ -78,7 +79,7 @@ func TestTokenIssuer(t *testing.T) {
 		tm = time.Unix(v, 0)
 	}
 
-	if !tm.Truncate(24 * time.Hour).Equal(time.Now().AddDate(0, 0, validity).Truncate(24 * time.Hour)) {
+	if !tm.Truncate(24 * time.Hour).Equal(time.Now().Add(validity.Duration).Truncate(24 * time.Hour)) {
 		t.Error("JWT expiration is wrong")
 	}
 }

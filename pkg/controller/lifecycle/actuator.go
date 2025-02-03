@@ -41,8 +41,7 @@ import (
 
 // NewActuator returns an actuator responsible for Extension resources.
 func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Actuator, error) {
-	// tokenIssuer, err := secrets.NewTokenIssuer(config.Falco.TokenIssuerPrivateKey, config.Falco.TokenLifetime)
-	tokenIssuer, err := secrets.NewTokenIssuer(config.Falco.TokenIssuerPrivateKey, 2)
+	tokenIssuer, err := secrets.NewTokenIssuer(config.Falco.TokenIssuerPrivateKey, config.Falco.TokenLifetime)
 	if err != nil {
 		return nil, err
 	}
