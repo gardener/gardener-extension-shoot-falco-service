@@ -41,7 +41,7 @@ func (t *TokenIssuer) loadKey(keyPEM string) error {
 }
 
 func (t *TokenIssuer) calculateExipryDate() time.Time {
-	return time.Now().Add(*&t.tokenValidity.Duration)
+	return time.Now().Add(t.tokenValidity.Duration)
 }
 
 func (t *TokenIssuer) IssueToken(clusterIdentity string) (string, error) {
