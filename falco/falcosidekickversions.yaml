@@ -3,3 +3,5 @@
     classification: deprecated
   - version: 2.30.0
     classification: supported
+  - version: 2.30.1
+    classification: supported

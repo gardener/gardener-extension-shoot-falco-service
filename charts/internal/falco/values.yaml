@@ -1528,6 +1528,8 @@ falcosidekick:
       hostport: ""
       # -- user for Grafana Logs
       user: ""
+      # -- Format for the log entry value: json, text
+      format: "text"
       # -- API Key for Grafana Logs
       apikey: ""
       # -- Loki endpoint URL path, more info: <https://grafana.com/docs/loki/latest/api/#post-apiprompush>
@@ -1558,18 +1560,6 @@ falcosidekick:
       mutualtls: false
       # -- check if ssl certificate of the output is valid
       checkcert: true
-
-    policyreport:
-      # -- if true; policyreport output is *enabled*
-      enabled: false
-      # -- Kubeconfig file to use (only if falcosidekick is running outside the cluster)
-      kubeconfig: "~/.kube/config"
-      # -- the max number of events that can be in a policyreport
-      maxevents: 1000
-      # -- if true; the events with lowest severity are pruned first, in FIFO order
-      prunebypriority: false
-      # -- minimum priority of event to use this output, order is `emergency\|alert\|critical\|error\|warning\|notice\|informational\|debug or ""`
-      minimumpriority: ""
 
   service:
     # -- Service type

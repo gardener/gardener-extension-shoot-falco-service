@@ -128,6 +128,13 @@ var (
 	)
 
 	shootSpec = &extensions.Cluster{
+		Seed: &gardencorev1beta1.Seed{
+			Spec: gardencorev1beta1.SeedSpec{
+				Ingress: &gardencorev1beta1.Ingress{
+					Domain: "seed-mock-ingress.com",
+				},
+			},
+		},
 		Shoot: &gardencorev1beta1.Shoot{
 			Spec: gardencorev1beta1.ShootSpec{
 				Resources: []gardencorev1beta1.NamedResourceReference{
@@ -187,6 +194,16 @@ var (
 				CustomHeaders: stringValue("my-custom-headers"),
 				Checkcerts:    boolValue(true),
 			},
+		},
+	}
+	falcoServiceConfigCluster = &apisservice.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Resources:    &resources,
+		Gardener: &apisservice.Gardener{
+			UseFalcoRules: boolValue(true),
+		},
+		Output: &apisservice.Output{
+			EventCollector: stringValue("cluster"),
 		},
 	}
 	rulesConfigMap = &corev1.ConfigMapList{
@@ -294,10 +311,38 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		webhook := config["webhook"].(map[string]interface{})
 		Expect(webhook).To(HaveKey("address"))
 		Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
-		Expect(webhook).To(HaveKey("checkcerts"))
-		Expect(webhook["checkcerts"].(bool)).To(BeTrue())
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
 		Expect(webhook["customheaders"].(string)).To(Equal("my-custom-headers"))
+	})
+
+	It("Test cluster logging functionality", func(ctx SpecContext) {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCluster)
+		Expect(err).To(BeNil())
+		js, err := json.MarshalIndent((values), "", "    ")
+		Expect(err).To(BeNil())
+		Expect(len(js)).To(BeNumerically(">", 100))
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+
+		Expect(config).To(HaveKey("loki"))
+
+		loggingConf := config["loki"].(map[string]interface{})
+		Expect(loggingConf).To(HaveKey("hostport"))
+
+		Expect(loggingConf["hostport"].(string)).To(And(
+			ContainSubstring("https://v-"),
+			ContainSubstring(shootSpec.Seed.Spec.Ingress.Domain),
+		))
+
+		Expect(loggingConf).To(HaveKey("checkcert"))
+		Expect(loggingConf["checkcert"].(bool)).To(BeFalse())
+
+		Expect(loggingConf).To(HaveKey("format"))
+		Expect(loggingConf["format"].(string)).To(Equal("json"))
+
+		Expect(loggingConf).To(HaveKey("endpoint"))
+		Expect(loggingConf["endpoint"].(string)).To(Equal("/vali/api/v1/push"))
 	})
 
 	It("Test values generation gardener", func(ctx SpecContext) {
@@ -374,8 +419,8 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		webhook := config["webhook"].(map[string]interface{})
 		Expect(webhook).To(HaveKey("address"))
 		Expect(webhook["address"].(string)).To(Equal("https://ingestor.example.com"))
-		Expect(webhook).To(HaveKey("checkcerts"))
-		Expect(webhook["checkcerts"].(bool)).To(BeTrue())
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
 		Expect(webhook["customheaders"].(string)).To(ContainSubstring("Bearer"))
 
@@ -435,8 +480,8 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		webhook := config["webhook"].(map[string]interface{})
 		Expect(webhook).To(HaveKey("address"))
 		Expect(webhook["address"].(string)).To(Equal("https://ingestor.example.com"))
-		Expect(webhook).To(HaveKey("checkcerts"))
-		Expect(webhook["checkcerts"].(bool)).To(BeTrue())
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
 		Expect(webhook["customheaders"].(string)).To(ContainSubstring("Bearer"))
 
