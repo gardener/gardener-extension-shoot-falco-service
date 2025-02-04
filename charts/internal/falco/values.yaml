@@ -1559,18 +1559,6 @@ falcosidekick:
       # -- check if ssl certificate of the output is valid
       checkcert: true
 
-    policyreport:
-      # -- if true; policyreport output is *enabled*
-      enabled: false
-      # -- Kubeconfig file to use (only if falcosidekick is running outside the cluster)
-      kubeconfig: "~/.kube/config"
-      # -- the max number of events that can be in a policyreport
-      maxevents: 1000
-      # -- if true; the events with lowest severity are pruned first, in FIFO order
-      prunebypriority: false
-      # -- minimum priority of event to use this output, order is `emergency\|alert\|critical\|error\|warning\|notice\|informational\|debug or ""`
-      minimumpriority: ""
-
   service:
     # -- Service type
     type: ClusterIP
