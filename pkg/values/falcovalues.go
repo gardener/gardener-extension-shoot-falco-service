@@ -120,7 +120,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		webhook := map[string]interface{}{
 			"address":       ingestorAddress,
 			"customheaders": customHeaders,
-			"checkcert":    true,
+			"checkcert":     true,
 		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
