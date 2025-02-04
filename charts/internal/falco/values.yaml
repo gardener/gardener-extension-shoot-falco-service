@@ -1528,6 +1528,8 @@ falcosidekick:
       hostport: ""
       # -- user for Grafana Logs
       user: ""
+      # -- Format for the log entry value: json, text
+      format: "text"
       # -- API Key for Grafana Logs
       apikey: ""
       # -- Loki endpoint URL path, more info: <https://grafana.com/docs/loki/latest/api/#post-apiprompush>
