@@ -120,7 +120,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		webhook := map[string]interface{}{
 			"address":       ingestorAddress,
 			"customheaders": customHeaders,
-			"checkcerts":    true,
+			"checkcert":    true,
 		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
@@ -138,7 +138,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 
 		if customWebhook.Checkcerts != nil {
-			webhook["checkcerts"] = *customWebhook.Checkcerts
+			webhook["checkcert"] = *customWebhook.Checkcerts
 		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
