@@ -190,6 +190,52 @@ def test_event_generator(garden_api_client, shoot_api_client, project_namespace,
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
 
+
+def test_event_generator_to_loki(
+    garden_api_client, shoot_api_client, project_namespace, shoot_name
+):
+    logger.info("Deploying Falco extension")
+    extension_config = {
+        "type": "shoot-falco-service",
+        "providerConfig": {
+            "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+            "kind": "FalcoServiceConfig",
+            "resources": "gardener",
+            "gardener": {
+                "useFalcoRules": True,
+                "useFalcoIncubatingRules": True,
+                "useFalcoSandboxRules": True,
+            },
+            "output": {
+                "eventCollector": "cluster",
+                "logFalcoEvents": True,
+            },
+        },
+    }
+    error = add_falco_to_shoot(
+        garden_api_client,
+        project_namespace,
+        shoot_name,
+        extension_config=extension_config,
+    )
+    assert error is None
+
+    logs = run_falco_event_generator(shoot_api_client)
+    # something that appears at the start
+    assert (
+        "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
+    )
+
+    # make sure it is correctly persisted
+    logs = pod_logs_from_label_selector(
+        shoot_api_client, "kube-system", falcosidekick_pod_label_selector
+    )
+    postedOK = False
+    for _, v in logs.items():
+        postedOK = postedOK or "Loki - POST OK (204)" in v
+    assert postedOK
+
+
 @pytest.mark.skip(reason="This test is currently flaky - need more investigation")
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
     logger.info("Deploying Falco extension")
@@ -257,4 +303,3 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
         allLogs += l
     print (allLogs)
     assert "Warning Detected ptrace" in allLogs
-
