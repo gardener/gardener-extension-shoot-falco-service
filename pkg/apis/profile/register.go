@@ -10,7 +10,7 @@ import (
 )
 
 // GroupName is the group name use in this package
-const GroupName = "falcoprofiles.falco.gardener.cloud"
+const GroupName = "falco.gardener.cloud"
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
@@ -30,6 +30,7 @@ var (
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&FalcoProfile{},
+		&FalcoProfileList{},
 	)
 	return nil
 }

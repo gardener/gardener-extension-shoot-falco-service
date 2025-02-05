@@ -141,8 +141,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			falcoConfig := falcoCtrlOpts.Completed()
 			falcoConfig.Apply(&lifecycle.DefaultAddOptions.ServiceConfig)
 
-			fpm := profile.NewFalcoProfileManager(dynamicGardenCluster)
-			go fpm.StartWatch()
+			profile.NewFalcoProfileManager(dynamicGardenCluster)
 
 			if err := lifecycle.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)

@@ -17,6 +17,7 @@ type FalcoProfile struct {
 	Spec              Spec `json:"spec"`
 }
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type FalcoProfileList struct {

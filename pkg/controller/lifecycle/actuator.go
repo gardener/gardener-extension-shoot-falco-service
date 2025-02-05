@@ -52,22 +52,24 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 		config.Falco.DefaultEventLogger = &constants.DefaultEventLogger
 	}
 	return &actuator{
-		client:        mgr.GetClient(),
-		config:        mgr.GetConfig(),
-		decoder:       serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
-		serviceConfig: config,
-		configBuilder: configBuilder,
-		tokenIssuer:   tokenIssuer,
+		client:             mgr.GetClient(),
+		config:             mgr.GetConfig(),
+		decoder:            serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		serviceConfig:      config,
+		configBuilder:      configBuilder,
+		tokenIssuer:        tokenIssuer,
+		falcoProfileManger: profile.FalcoProfileManagerInstance,
 	}, nil
 }
 
 type actuator struct {
-	client        client.Client
-	config        *rest.Config
-	decoder       runtime.Decoder
-	serviceConfig config.Configuration
-	configBuilder *values.ConfigBuilder
-	tokenIssuer   *secrets.TokenIssuer
+	client             client.Client
+	config             *rest.Config
+	decoder            runtime.Decoder
+	serviceConfig      config.Configuration
+	configBuilder      *values.ConfigBuilder
+	tokenIssuer        *secrets.TokenIssuer
+	falcoProfileManger *profile.FalcoProfileManager
 }
 
 // Reconcile the Extension resource.
