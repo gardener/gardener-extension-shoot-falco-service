@@ -246,6 +246,39 @@ var (
 		}
 	}`
 
+	mutate7 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"eventCollector":"cluster"
+		}
+	}`
+
+	expectedMutate7 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":true,
+			"useFalcoIncubatingRules":false,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents": false,
+			"eventCollector": "cluster"
+		}
+	}`
+
 	genericShoot = &gardencorev1beta1.Shoot{
 		Spec: gardencorev1beta1.ShootSpec{
 			Extensions: []gardencorev1beta1.Extension{
@@ -679,5 +712,10 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed", err)
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate6), "Mutator did not return expected result")
+
+		err = f(mutate7)
+		Expect(err).To(BeNil(), "Mutator failed", err)
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate7), "Mutator did not return expected result")
 	})
 })

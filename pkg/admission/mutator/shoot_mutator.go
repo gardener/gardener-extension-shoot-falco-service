@@ -59,15 +59,23 @@ func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 }
 
 func setOutput(falcoConf *service.FalcoServiceConfig) {
+	trueVal := true
+	falseVal := false
 	if falcoConf.Output == nil {
-		defaultLog := false
 		falcoConf.Output = &service.Output{
-			LogFalcoEvents: &defaultLog,
+			LogFalcoEvents: &trueVal,
 		}
 	}
 	if falcoConf.Output.EventCollector == nil {
 		defaultEventCollector := "central"
 		falcoConf.Output.EventCollector = &defaultEventCollector
+	}
+	if falcoConf.Output.LogFalcoEvents == nil {
+		if *falcoConf.Output.EventCollector != "none" {
+			falcoConf.Output.LogFalcoEvents = &falseVal
+		} else {
+			falcoConf.Output.LogFalcoEvents = &trueVal
+		}
 	}
 }
 
