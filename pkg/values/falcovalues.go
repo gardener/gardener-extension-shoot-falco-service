@@ -207,6 +207,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"create": false,
 		},
 		"falcosidekick": falcosidekickConfig,
+		"gardener-extension-shoot-falco-service": map[string]interface{}{
+			"output": map[string]string{
+				"eventCollector": *falcoServiceConfig.Output.EventCollector,
+			},
+		},
 	}
 
 	if *falcoServiceConfig.Resources == "gardener" {

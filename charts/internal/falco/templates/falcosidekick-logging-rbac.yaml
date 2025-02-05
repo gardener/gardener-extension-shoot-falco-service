@@ -1,4 +1,4 @@
-{{- if .Values.falcosidekick.enabled }}
+{{- if eq .Values.gardener-extension-shoot-falco-service.output.eventCollector "cluster" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

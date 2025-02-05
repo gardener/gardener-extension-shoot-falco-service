@@ -1640,3 +1640,13 @@ falcosidekick:
   webui:
     # -- enable Falcosidekick-UI
     enabled: false
+
+###############################
+# Gardener #
+###############################
+
+gardener-extension-shoot-falco-service:
+  # -- Configure the deployment of the Falco service
+  output:
+    # -- Configure the destination of Falco events (e.g. central, cluster, custom, none)
+    eventCollector: "central"
