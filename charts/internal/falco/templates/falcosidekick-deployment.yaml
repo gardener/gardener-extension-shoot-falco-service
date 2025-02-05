@@ -39,7 +39,7 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      {{- if eq .Values.gardener-extension-shoot-falco-service.output.eventCollector "cluster" }}
+      {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "cluster" }}
       serviceAccountName: gardener-falcosidekick
       {{- end }}
       {{- if .Values.falcosidekick.priorityClassName }}
@@ -133,7 +133,7 @@ spec:
               value: {{ .Values.falcosidekick.config.tlsserver.notlsport | quote }}
             - name: TLSSERVER_NOTLSPATHS
               value: {{ .Values.falcosidekick.config.tlsserver.notlspaths | quote }}
-            {{- if eq .Values.gardener-extension-shoot-falco-service.output.eventCollector "cluster" }}
+            {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "cluster" }}
             - name: SERVICE_ACCOUNT_TOKEN 
               valueFrom:
                 secretKeyRef:

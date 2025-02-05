@@ -1642,10 +1642,10 @@ falcosidekick:
     enabled: false
 
 ###############################
-# Gardener #
+# Gardener                    #
 ###############################
 
-gardener-extension-shoot-falco-service:
+gardenerExtensionShootFalcoService:
   # -- Configure the deployment of the Falco service
   output:
     # -- Configure the destination of Falco events (e.g. central, cluster, custom, none)
