@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // +k8s:deepcopy-gen=package
-// +groupName="falcoprofiles.falco.gardener.cloud"
+// +groupName="falco.gardener.cloud"
 
 //go:generate ../../../hack/update-codegen.sh
 
