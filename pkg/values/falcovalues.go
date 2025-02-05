@@ -24,6 +24,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
 )
 
 var (
@@ -94,91 +95,54 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 		enableFalcoHttpOutput = false
 	case "cluster":
-		// TODO
-		falcosidekickConfig = map[string]interface{}{
-			"enabled": false,
+		valiHost := utils.ComputeValiHost(*cluster.Shoot, *cluster.Seed)
+		loki := map[string]interface{}{
+			"hostport":  "https://" + valiHost,
+			"endpoint":  "/vali/api/v1/push",
+			"format":    "json",
+			"checkcert": false,
 		}
-	case "central":
 
+		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
+		falcosidekickConfig["config"].(map[string]interface{})["loki"] = loki
+
+	case "central":
 		// Gardener managed event store
 		ingestorAddress := c.config.Falco.IngestorURL
+
 		// ok to generate new token on each reconcile
 		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
 		customHeadersMap := map[string]string{
 			"Authorization": "Bearer " + token,
 		}
+
 		customHeaders := serializeCustomHeaders(customHeadersMap)
 		webhook := map[string]interface{}{
 			"address":       ingestorAddress,
 			"customheaders": customHeaders,
-			"checkcerts":    true,
+			"checkcert":     true,
 		}
-		falcosidekickConfig = map[string]interface{}{
-			"podLabels": map[string]string{
-				"networking.gardener.cloud/to-dns":             "allowed",
-				"networking.gardener.cloud/to-public-networks": "allowed",
-			},
-			"enabled":  true,
-			"fullfqdn": true,
-			"webui": map[string]bool{
-				"enabled": false,
-			},
-			"image": map[string]string{
-				"image": falcosidekickImage,
-			},
-			"priorityClassName": *c.config.Falco.PriorityClassName,
-			"config": map[string]interface{}{
-				"debug": true,
-				"tlsserver": map[string]interface{}{
-					"deploy":        true,
-					"mutualtls":     false,
-					"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
-					"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
-					"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
-				},
-				"customfields": customFields,
-				"webhook":      webhook,
-			},
-		}
+
+		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
+		falcosidekickConfig["config"].(map[string]interface{})["webhook"] = webhook
+
 	case "custom":
 		// user has defined a custom location, we just pass it
 		customWebhook := falcoServiceConfig.Output.CustomWebhook
 		webhook := map[string]interface{}{
 			"address": *customWebhook.Address,
 		}
+
 		if customWebhook.CustomHeaders != nil {
 			webhook["customheaders"] = *customWebhook.CustomHeaders
 		}
+
 		if customWebhook.Checkcerts != nil {
-			webhook["checkcerts"] = *customWebhook.Checkcerts
+			webhook["checkcert"] = *customWebhook.Checkcerts
 		}
-		falcosidekickConfig = map[string]interface{}{
-			"podLabels": map[string]string{
-				"networking.gardener.cloud/to-dns":             "allowed",
-				"networking.gardener.cloud/to-public-networks": "allowed",
-			},
-			"enabled":  true,
-			"fullfqdn": true,
-			"webui": map[string]bool{
-				"enabled": false,
-			},
-			"image": map[string]string{
-				"image": falcosidekickImage,
-			},
-			"priorityClassName": *c.config.Falco.PriorityClassName,
-			"config": map[string]interface{}{
-				"debug": true,
-				"tlsserver": map[string]interface{}{
-					"deploy":        true,
-					"mutualtls":     false,
-					"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
-					"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
-					"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
-				},
-				"customfields": customFields,
-				"webhook":      webhook,
-			},
-		}
+
+		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
+		falcosidekickConfig["config"].(map[string]interface{})["webhook"] = webhook
 	}
 
 	var logFalcoEvents bool
@@ -243,6 +207,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"create": false,
 		},
 		"falcosidekick": falcosidekickConfig,
+		"gardenerExtensionShootFalcoService": map[string]interface{}{
+			"output": map[string]string{
+				"eventCollector": *falcoServiceConfig.Output.EventCollector,
+			},
+		},
 	}
 
 	if *falcoServiceConfig.Resources == "gardener" {
@@ -261,6 +230,32 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 	}
 	return falcoChartValues, nil
+}
+
+func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates, customFields string) map[string]interface{} {
+	return map[string]interface{}{
+		"podLabels": map[string]string{
+			"networking.gardener.cloud/to-dns":             "allowed",
+			"networking.gardener.cloud/to-public-networks": "allowed",
+		},
+		"enabled":  true,
+		"fullfqdn": true,
+		"image": map[string]string{
+			"image": falcosidekickImage,
+		},
+		"priorityClassName": *c.config.Falco.PriorityClassName,
+		"config": map[string]interface{}{
+			"debug": true,
+			"tlsserver": map[string]interface{}{
+				"deploy":        true,
+				"mutualtls":     false,
+				"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
+				"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
+				"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
+			},
+			"customfields": customFields,
+		},
+	}
 }
 
 func (c *ConfigBuilder) generateGardenerValues(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
