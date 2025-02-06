@@ -87,7 +87,7 @@ gardener-extension-shoot-falco-service:
           execute:
           - /bin/bash
           - -c
-          - '"mkdir -p falco && cp ${MAIN_REPO_DIR}/falco/falco-profile.yaml falco"'
+          - 'mkdir -p falco && cp "${MAIN_REPO_DIR}"/falco/falco-profile.yaml falco'
           output_dir: falco
     pull-request:
       traits:
@@ -108,7 +108,7 @@ gardener-extension-shoot-falco-service:
           execute:
           - /bin/bash
           - -c
-          - '"mkdir -p falco && cp ${MAIN_REPO_DIR}/falco/falco-profile.yaml falco"'
+          - 'mkdir -p falco && cp "${MAIN_REPO_DIR}"/falco/falco-profile.yaml falco'
           output_dir: falco
       traits:
         version:
