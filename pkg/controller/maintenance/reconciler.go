@@ -14,7 +14,6 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/controllerutils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
-	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,32 +43,32 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 	shoot := &gardencorev1beta1.Shoot{}
 	if err := r.Client.Get(ctx, request.NamespacedName, shoot); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Object is gone, stop reconciling")
+			logger.Info("Object is gone, stop reconciling")
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("error retrieving object from store: %w", err)
 	}
 
 	if shoot.DeletionTimestamp != nil {
-		log.Info("Skipping Shoot because it is marked for deletion")
+		logger.Info("Skipping Shoot because it is marked for deletion")
 		return reconcile.Result{}, nil
 	}
 
 	// Disbale for testing
 	requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
 	if !mustMaintainNow(shoot, r.Clock) {
-		log.Info("Skipping Shoot because it doesn't need to be maintained now")
-		log.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+		logger.Info("Skipping Shoot because it doesn't need to be maintained now")
+		logger.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	log.Infof("Maintaining Shoot %s:%s", shoot.Namespace, shoot.Name)
+	logger.Info(fmt.Sprintf("Maintaining Shoot %s:%s", shoot.Namespace, shoot.Name))
 	if err := r.reconcile(ctx, shoot); err != nil {
-		log.Errorf("Failed to maintain Shoot %s:%s: %v", shoot.Namespace, shoot.Name, err)
+		logger.Error(err, fmt.Sprintf("Failed to maintain Shoot %s:%s", shoot.Namespace, shoot.Name))
 		return reconcile.Result{RequeueAfter: time.Second * 10}, err
 	}
 
-	log.Info("Scheduled next maintenance for Shoot: ", nextMaintenance.Round(time.Minute))
+	logger.Info(fmt.Sprintf("Scheduled next maintenance for Shoot: %v", nextMaintenance.Round(time.Minute)))
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -97,7 +96,6 @@ func requeueAfterDuration(shoot *gardencorev1beta1.Shoot) (time.Duration, time.T
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Shoot) error {
-
 	falcoConf, err := r.mutator.ExtractFalcoConfig(shoot)
 	if err != nil {
 		return err
@@ -114,10 +112,10 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 
 	var versionToSet *string
 	if forceUpdate {
-		log.Info("Falco version expired, needs upgrade")
+		logger.Info("Falco version expired, needs upgrade")
 		versionToSet, err = mutator.GetForceUpdateVersion(*currentVersion, *availableVersions)
 	} else if autoUpdate {
-		log.Info("Falco AutoUpdate enabled")
+		logger.Info("Falco AutoUpdate enabled")
 		versionToSet, err = mutator.GetAutoUpdateVersion(*availableVersions)
 	}
 	if err != nil {
@@ -127,7 +125,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 	needToUpdate := versionToSet != nil && *versionToSet != *currentVersion
 
 	if !needToUpdate {
-		log.Info("Do not need to update Falco version")
+		logger.Info("Do not need to update Falco version")
 		return nil
 	}
 
@@ -150,7 +148,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 		return fmt.Errorf("falco maintenance update failed: %v", retryErr)
 	}
 
-	log.Infof("Falco shoot maintenance completed; updated from version %s to %s", *currentVersion, *versionToSet)
+	logger.Info(fmt.Sprintf("Falco shoot maintenance completed; updated from version %s to %s", *currentVersion, *versionToSet))
 	return nil
 }
 
