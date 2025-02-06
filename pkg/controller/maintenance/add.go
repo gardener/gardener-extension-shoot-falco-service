@@ -9,10 +9,12 @@ import (
 	"fmt"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -22,8 +24,11 @@ import (
 // ControllerName is the name of this controller.
 const CONTROLLERNAME = "shoot-maintenance-falco"
 
+var logger = log.Log.WithName(CONTROLLERNAME)
+
 func AddToManager(ctx context.Context, mgr manager.Manager) error { // , cfg config.ControllerManagerConfiguration) error {
 	// if err := (&maintenance.Reconciler{Config: cfg.Controllers.ShootMaintenance,}).AddToManager(mgr); err != nil {
+
 	r := &Reconciler{mutator: mutator.NewShoot(mgr)}
 	if err := r.AddToManager(mgr); err != nil {
 		return fmt.Errorf("failed adding maintenance reconciler: %w", err)
