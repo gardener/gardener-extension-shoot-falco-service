@@ -36,9 +36,9 @@ spec:
       tag: 2.30.0
       version: 2.30.0
     - architecture: amd64
-      repository: europe-docker.pkg.dev/gardener-project/releases/falcosidekick-fork
-      tag: 0.34.0-dev-8839623021823f8a74d743dceae1125e317a883a
-      version: 2.30.1
+      repository: falcosecurity/falcosidekick
+      tag: 2.31.1
+      version: 2.31.1
   versions:
     falco:
     - classification: deprecated
@@ -62,5 +62,5 @@ spec:
     - classification: supported
       version: 2.30.0
     - classification: supported
-      version: 2.30.1
+      version: 2.31.1
 
