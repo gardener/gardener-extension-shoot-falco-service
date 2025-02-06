@@ -83,6 +83,12 @@ gardener-extension-shoot-falco-service:
           image: &golang-test 'golang:1.23.6'
         verify-falco-rules:
           privilege_mode: privileged
+        provide-falco-profile:
+          execute:
+          - /bin/bash
+          - -c
+          - '"mkdir -p falco && cp ${MAIN_REPO_DIR}/falco/falco-profile.yaml falco"'
+          output_dir: falco
     pull-request:
       traits:
         pull-request: ~
@@ -98,6 +104,12 @@ gardener-extension-shoot-falco-service:
       steps:
         verify:
           image: *golang-test
+        provide-falco-profile:
+          execute:
+          - /bin/bash
+          - -c
+          - '"mkdir -p falco && cp ${MAIN_REPO_DIR}/falco/falco-profile.yaml falco"'
+          output_dir: falco
       traits:
         version:
           preprocess: 'finalize'
@@ -117,6 +129,12 @@ gardener-extension-shoot-falco-service:
             comment: |
               We use gosec (linter) for SAST scans, see: https://github.com/securego/gosec.
               Enabled by https://github.com/gardener/gardener-extension-shoot-falco-service/pull/87
+          - type: build-step-file
+            step_name: provide-falco-profile
+            step_output_dir: falco
+            path: 'falco-profile.yaml'
+            mode: single-file
+            name: falcoprofile
         publish:
           oci-builder: docker-buildx
           platforms:
