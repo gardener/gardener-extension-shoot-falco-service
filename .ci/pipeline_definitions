@@ -89,6 +89,12 @@ gardener-extension-shoot-falco-service:
           - -c
           - 'mkdir -p falco && cp "${MAIN_REPO_DIR}"/falco/falco-profile.yaml falco'
           output_dir: falco
+        provide-falco-rules:
+          execute:
+          - /bin/bash
+          - -c
+          - 'mkdir -p falco-rules && cp -r "${MAIN_REPO_DIR}"/falco/rules falco-rules'
+          output_dir: falco-rules
     pull-request:
       traits:
         pull-request: ~
@@ -110,6 +116,12 @@ gardener-extension-shoot-falco-service:
           - -c
           - 'mkdir -p falco && cp "${MAIN_REPO_DIR}"/falco/falco-profile.yaml falco'
           output_dir: falco
+        provide-falco-rules:
+          execute:
+          - /bin/bash
+          - -c
+          - 'mkdir -p falco-rules && cp -r "${MAIN_REPO_DIR}"/falco/rules falco-rules'
+          output_dir: falco-rules
       traits:
         version:
           preprocess: 'finalize'
@@ -135,6 +147,13 @@ gardener-extension-shoot-falco-service:
             path: 'falco-profile.yaml'
             mode: single-file
             name: falcoprofile
+          - type: build-step-file
+            step_name: provide-falco-rules
+            step_output_dir: falco-rules
+            path: falco-rules/*
+            mode: tar
+            name: falco-rules
+
         publish:
           oci-builder: docker-buildx
           platforms:
