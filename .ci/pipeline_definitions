@@ -95,6 +95,12 @@ gardener-extension-shoot-falco-service:
           - -c
           - 'mkdir -p falco-rules && cp -r "${MAIN_REPO_DIR}"/falco/rules falco-rules'
           output_dir: falco-rules
+        provide-falco-crds:
+          execute:
+          - /bin/bash
+          - -c
+          - 'mkdir -p falco-crds && cp -r "${MAIN_REPO_DIR}"/crds falco-crds'
+          output_dir: falco-crds
     pull-request:
       traits:
         pull-request: ~
@@ -122,6 +128,13 @@ gardener-extension-shoot-falco-service:
           - -c
           - 'mkdir -p falco-rules && cp -r "${MAIN_REPO_DIR}"/falco/rules falco-rules'
           output_dir: falco-rules
+        provide-falco-crds:
+          execute:
+          - /bin/bash
+          - -c
+          - 'mkdir -p falco-crds && cp -r "${MAIN_REPO_DIR}"/crds falco-crds'
+          output_dir: falco-crds
+
       traits:
         version:
           preprocess: 'finalize'
@@ -153,6 +166,12 @@ gardener-extension-shoot-falco-service:
             path: rules/*
             mode: tar
             name: falco-rules
+          - type: build-step-file
+            step_name: provide-falco-crds
+            step_output_dir: falco-crds
+            path: *
+            mode: tar
+            name: falco-crds
 
         publish:
           oci-builder: docker-buildx
