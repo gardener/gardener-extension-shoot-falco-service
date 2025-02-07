@@ -150,7 +150,7 @@ gardener-extension-shoot-falco-service:
           - type: build-step-file
             step_name: provide-falco-rules
             step_output_dir: falco-rules
-            path: falco-rules/*
+            path: rules/*
             mode: tar
             name: falco-rules
 
