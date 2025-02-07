@@ -39,9 +39,9 @@ var (
 	}
 	images = map[string]Image{
 		dummyVer: {
-			Repository:   "test/test",
-			Tag:          dummyVer,
-			Version:      dummyVer,
+			Repository: "test/test",
+			Tag:        dummyVer,
+			Version:    dummyVer,
 		},
 	}
 )

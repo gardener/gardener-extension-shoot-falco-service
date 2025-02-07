@@ -23,9 +23,9 @@ import (
 )
 
 type Image struct {
-	Repository   string
-	Tag          string
-	Version      string
+	Repository string
+	Tag        string
+	Version    string
 }
 
 type Version struct {
@@ -138,9 +138,9 @@ func (p *FalcoProfileManager) rebuild() {
 	for _, profile := range p.falcoProfiles {
 		for _, q := range profile.Spec.Images.Falco {
 			im := Image{
-				Repository:   q.Repository,
-				Tag:          q.Tag,
-				Version:      q.Version,
+				Repository: q.Repository,
+				Tag:        q.Tag,
+				Version:    q.Version,
 			}
 			p.falcoImages[q.Version] = im
 		}
@@ -155,9 +155,9 @@ func (p *FalcoProfileManager) rebuild() {
 		}
 		for _, q := range profile.Spec.Images.Falcosidekick {
 			im := Image{
-				Repository:   q.Repository,
-				Tag:          q.Tag,
-				Version:      q.Version,
+				Repository: q.Repository,
+				Tag:        q.Tag,
+				Version:    q.Version,
 			}
 			p.falcosidekickImages[q.Version] = im
 		}
@@ -171,9 +171,9 @@ func (p *FalcoProfileManager) rebuild() {
 		}
 		for _, q := range profile.Spec.Images.Falcoctl {
 			im := Image{
-				Repository:   q.Repository,
-				Tag:          q.Tag,
-				Version:      q.Version,
+				Repository: q.Repository,
+				Tag:        q.Tag,
+				Version:    q.Version,
 			}
 			p.falcoctlImages[q.Version] = im
 		}
@@ -240,9 +240,9 @@ func (p *FalcoProfileManager) GetFalcoImage(version string) *Image {
 		return nil
 	}
 	return &Image{
-		Repository:   i.Repository,
-		Tag:          i.Tag,
-		Version:      i.Version,
+		Repository: i.Repository,
+		Tag:        i.Tag,
+		Version:    i.Version,
 	}
 }
 
@@ -254,9 +254,9 @@ func (p *FalcoProfileManager) GetFalcosidekickImage(version string) *Image {
 		return nil
 	}
 	return &Image{
-		Repository:   i.Repository,
-		Tag:          i.Tag,
-		Version:      i.Version,
+		Repository: i.Repository,
+		Tag:        i.Tag,
+		Version:    i.Version,
 	}
 }
 
@@ -268,9 +268,9 @@ func (p *FalcoProfileManager) GetFalcoctlImage(version string) *Image {
 		return nil
 	}
 	return &Image{
-		Repository:   i.Repository,
-		Tag:          i.Tag,
-		Version:      i.Version,
+		Repository: i.Repository,
+		Tag:        i.Tag,
+		Version:    i.Version,
 	}
 
 }
