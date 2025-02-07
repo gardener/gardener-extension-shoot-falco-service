@@ -279,16 +279,6 @@ string
 </tr>
 <tr>
 <td>
-<code>architecture</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
 <code>repository</code></br>
 <em>
 string

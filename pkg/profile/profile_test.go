@@ -41,7 +41,6 @@ var (
 		dummyVer: {
 			Repository:   "test/test",
 			Tag:          dummyVer,
-			Architectrue: "testarch",
 			Version:      dummyVer,
 		},
 	}

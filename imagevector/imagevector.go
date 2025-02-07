@@ -5,10 +5,8 @@
 package imagevector
 
 import (
-	"crypto/sha256"
 	_ "embed"
 	"os"
-	"strings"
 
 	"github.com/gardener/gardener/pkg/utils/imagevector"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -49,34 +47,30 @@ type imageSourceKey struct {
 	Version        string
 	RuntimeVersion string
 	TargetVersion  string
-	Architectures  [32]byte
 }
 
 func computeKey(source *imagevector.ImageSource) imageSourceKey {
 	var (
 		runtimeVersion, targetVersion, version string
-		architectures                          [32]byte
 	)
 
 	if source.RuntimeVersion != nil {
 		runtimeVersion = *source.RuntimeVersion
 	}
+
 	if source.TargetVersion != nil {
 		targetVersion = *source.TargetVersion
 	}
-	if source.Architectures != nil {
-		archs := strings.Join(source.Architectures, "")
-		architectures = sha256.Sum256([]byte(archs))
-	}
+
 	if source.Version != nil {
 		version = *source.Version
 	}
+
 	return imageSourceKey{
 		Name:           source.Name,
 		Version:        version,
 		RuntimeVersion: runtimeVersion,
 		TargetVersion:  targetVersion,
-		Architectures:  architectures,
 	}
 }
 
@@ -133,16 +127,10 @@ func mergeImageSources(old, override *imagevector.ImageSource) *imagevector.Imag
 		targetVersion = old.TargetVersion
 	}
 
-	architectures := override.Architectures
-	if architectures == nil {
-		architectures = old.Architectures
-	}
-
 	return &imagevector.ImageSource{
 		Name:           override.Name,
 		RuntimeVersion: runtimeVersion,
 		TargetVersion:  targetVersion,
-		Architectures:  architectures,
 		Repository:     override.Repository,
 		Tag:            tag,
 		Version:        version,

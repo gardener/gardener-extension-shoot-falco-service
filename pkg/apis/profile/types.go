@@ -63,7 +63,6 @@ type FalcoctlVersion struct {
 
 type ImageSpec struct {
 	Version      string
-	Architecture string
 	Repository   string
 	Tag          string
 }

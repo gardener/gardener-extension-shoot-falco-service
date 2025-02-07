@@ -69,21 +69,18 @@ falcoctl_images = []
 for im in image_vector["images"]:
     if im["name"] == "falco":
         falco_images.append({
-            "architecture": "amd64",
             "repository": im["repository"],
             "tag": im["tag"],
             "version": im["version"],
         })
     if im["name"] == "falcosidekick":
         falcosidekick_images.append({
-            "architecture": "amd64",
             "repository": im["repository"],
             "tag": im["tag"],
             "version": im["version"],
         })
     if im["name"] == "falcoctl":
         falcoctl_images.append({
-            "architecture": "amd64",
             "repository": im["repository"],
             "tag": im["tag"],
             "version": im["version"],

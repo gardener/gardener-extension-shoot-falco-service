@@ -93,7 +93,6 @@ var (
 			"0.38.0": {
 				Repository:   "falcosecurity/falco",
 				Tag:          "0.38.0",
-				Architectrue: "amd64",
 				Version:      "0.38.0",
 			},
 		},
@@ -107,7 +106,6 @@ var (
 			"1.2.3": {
 				Repository:   "falcosecurity/falcosidekick",
 				Tag:          "1.2.3",
-				Architectrue: "amd64",
 				Version:      "1.2.3",
 			},
 		},
@@ -121,7 +119,6 @@ var (
 			"0.9.23": {
 				Repository:   "falcosecurity/falcoctl",
 				Tag:          "0.9.23",
-				Architectrue: "amd64",
 				Version:      "0.9.23",
 			},
 		},

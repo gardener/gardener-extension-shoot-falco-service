@@ -65,7 +65,6 @@ type FalcoctlVersion struct {
 
 type ImageSpec struct {
 	Version      string `json:"version"`
-	Architecture string `json:"architecture"`
 	Repository   string `json:"repository"`
 	Tag          string `json:"tag"`
 }

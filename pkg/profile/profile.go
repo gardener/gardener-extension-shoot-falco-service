@@ -25,7 +25,6 @@ import (
 type Image struct {
 	Repository   string
 	Tag          string
-	Architectrue string
 	Version      string
 }
 
@@ -141,7 +140,6 @@ func (p *FalcoProfileManager) rebuild() {
 			im := Image{
 				Repository:   q.Repository,
 				Tag:          q.Tag,
-				Architectrue: q.Architecture,
 				Version:      q.Version,
 			}
 			p.falcoImages[q.Version] = im
@@ -159,7 +157,6 @@ func (p *FalcoProfileManager) rebuild() {
 			im := Image{
 				Repository:   q.Repository,
 				Tag:          q.Tag,
-				Architectrue: q.Architecture,
 				Version:      q.Version,
 			}
 			p.falcosidekickImages[q.Version] = im
@@ -176,7 +173,6 @@ func (p *FalcoProfileManager) rebuild() {
 			im := Image{
 				Repository:   q.Repository,
 				Tag:          q.Tag,
-				Architectrue: q.Architecture,
 				Version:      q.Version,
 			}
 			p.falcoctlImages[q.Version] = im
@@ -246,7 +242,6 @@ func (p *FalcoProfileManager) GetFalcoImage(version string) *Image {
 	return &Image{
 		Repository:   i.Repository,
 		Tag:          i.Tag,
-		Architectrue: i.Architectrue,
 		Version:      i.Version,
 	}
 }
@@ -261,7 +256,6 @@ func (p *FalcoProfileManager) GetFalcosidekickImage(version string) *Image {
 	return &Image{
 		Repository:   i.Repository,
 		Tag:          i.Tag,
-		Architectrue: i.Architectrue,
 		Version:      i.Version,
 	}
 }
@@ -276,7 +270,6 @@ func (p *FalcoProfileManager) GetFalcoctlImage(version string) *Image {
 	return &Image{
 		Repository:   i.Repository,
 		Tag:          i.Tag,
-		Architectrue: i.Architectrue,
 		Version:      i.Version,
 	}
 
