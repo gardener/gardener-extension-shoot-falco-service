@@ -14,11 +14,11 @@ metadata:
     {{- if .Values.falcoRules }}
     checksum/falcoRules: {{ include (print $.Template.BasePath "/falco-rules.yaml") . | sha256sum }}
     {{- end }}
-    {{- if .Values.sandboxRules }}
-    checksum/sanboxRules: {{ include (print $.Template.BasePath "/falco-sandbox-rules.yaml") . | sha256sum }}
+    {{- if .Values.falcoSandboxRules }}
+    checksum/falcoSandboxRules: {{ include (print $.Template.BasePath "/falco-sandbox-rules.yaml") . | sha256sum }}
     {{- end }}
-    {{- if .Values.incubatingRules }}
-    checksum/incubatingRules: {{ include (print $.Template.BasePath "/falco-incubating-rules.yaml") . | sha256sum }}
+    {{- if .Values.falcoIncubatingRules }}
+    checksum/falcoIncubatingRules: {{ include (print $.Template.BasePath "/falco-incubating-rules.yaml") . | sha256sum }}
     {{- end }}
     {{- if .Values.customRules }}
     checksum/customRules: {{ include (print $.Template.BasePath "/falco-custom-rules.yaml") . | sha256sum }}
