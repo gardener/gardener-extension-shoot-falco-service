@@ -631,8 +631,11 @@ func decompressRulesFile(data64gz string) (string, error) {
 		return "", err
 	}
 
-	data := make([]byte, isize, isize)
-	_, err = reader.Read(data) // Read the entire compressed data
+	// Create a LimitedReader to limit the number of bytes read to isize
+	limitedReader := io.LimitedReader{R: reader, N: int64(isize)}
+
+	data := make([]byte, 0)
+	_, err = io.ReadFull(&limitedReader, data) // Read the entire compressed data
 	if err != nil {
 		return "", fmt.Errorf("failed to read gzipped data: %v", err)
 	}
