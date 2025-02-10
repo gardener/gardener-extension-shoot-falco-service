@@ -240,7 +240,6 @@ func Convert_profile_FalcosidekickVersion_To_v1alpha1_FalcosidekickVersion(in *p
 
 func autoConvert_v1alpha1_ImageSpec_To_profile_ImageSpec(in *ImageSpec, out *profile.ImageSpec, s conversion.Scope) error {
 	out.Version = in.Version
-	out.Architecture = in.Architecture
 	out.Repository = in.Repository
 	out.Tag = in.Tag
 	return nil
@@ -253,7 +252,6 @@ func Convert_v1alpha1_ImageSpec_To_profile_ImageSpec(in *ImageSpec, out *profile
 
 func autoConvert_profile_ImageSpec_To_v1alpha1_ImageSpec(in *profile.ImageSpec, out *ImageSpec, s conversion.Scope) error {
 	out.Version = in.Version
-	out.Architecture = in.Architecture
 	out.Repository = in.Repository
 	out.Tag = in.Tag
 	return nil

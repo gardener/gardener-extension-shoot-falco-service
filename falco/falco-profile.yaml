@@ -5,38 +5,30 @@ metadata:
 spec:
   images:
     falco:
-    - architecture: amd64
-      repository: falcosecurity/falco-distroless
+    - repository: falcosecurity/falco-distroless
       tag: 0.39.1
       version: 0.39.1
-    - architecture: amd64
-      repository: falcosecurity/falco-distroless
+    - repository: falcosecurity/falco-distroless
       tag: 0.39.2
       version: 0.39.2
-    - architecture: amd64
-      repository: falcosecurity/falco
+    - repository: falcosecurity/falco
       tag: 0.40.0
       version: 0.40.0
     falcoctl:
-    - architecture: amd64
-      repository: falcosecurity/falcoctl
+    - repository: falcosecurity/falcoctl
       tag: 0.10.1
       version: 0.10.1
-    - architecture: amd64
-      repository: falcosecurity/falcoctl
+    - repository: falcosecurity/falcoctl
       tag: '0.11'
       version: 0.11.0
     falcosidekick:
-    - architecture: amd64
-      repository: falcosecurity/falcosidekick
+    - repository: falcosecurity/falcosidekick
       tag: 2.29.0
       version: 2.29.0
-    - architecture: amd64
-      repository: falcosecurity/falcosidekick
+    - repository: falcosecurity/falcosidekick
       tag: 2.30.0
       version: 2.30.0
-    - architecture: amd64
-      repository: falcosecurity/falcosidekick
+    - repository: falcosecurity/falcosidekick
       tag: 2.31.1
       version: 2.31.1
   versions:
