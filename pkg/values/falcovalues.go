@@ -5,8 +5,13 @@
 package values
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 
@@ -568,6 +573,15 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 	rules := make([]customRulesFile, len(ruleFiles))
 	i := 0
 	for name, content := range ruleFiles {
+		// check if name has gzip ending
+		if name[len(name)-3:] == ".gz" {
+			data, err := base64.StdEncoding.DecodeString(content)
+			if err != nil {
+				return nil, fmt.Errorf("rule file has .gz type but data is not base64 encoded: %v", err)
+			}
+			content = string(data)
+		}
+
 		rules[i] = customRulesFile{
 			Filename: name,
 			Content:  content,
@@ -598,4 +612,65 @@ func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string)
 	} else {
 		return string(f[:]), nil
 	}
+}
+
+func decompressRulesFile(data64gz string) (string, error) {
+	datagz, err := base64.StdEncoding.DecodeString(data64gz)
+	if err != nil {
+		return "", fmt.Errorf("rule file has .gz type but data is not base64 encoded: %v", err)
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(datagz))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %v", err)
+	}
+	defer reader.Close()
+
+	isize, err := checkUncompressedSize(reader)
+	if err != nil {
+		return "", err
+	}
+
+	data := make([]byte, isize, isize)
+	_, err = reader.Read(data) // Read the entire compressed data
+	if err != nil {
+		return "", fmt.Errorf("failed to read gzipped data: %v", err)
+	}
+	return string(data), nil
+}
+
+// Check wether the advertised uncompressed size is less than expected
+func checkUncompressedSize(r *gzip.Reader) (uint32, error) {
+	_, isize, err := readGzTrailer(r)
+	if err != nil {
+		return 0, err
+	}
+
+	if isize > 1<<20 { // gzip is using base2 -> 1MB
+		return 0, fmt.Errorf("uncompressed size is larger than 1 MB: %d bytes", isize)
+	}
+
+	return isize, nil
+}
+
+// Read the gzip trailer from the given gzip reader as its not exposed by module
+func readGzTrailer(r *gzip.Reader) (uint32, uint32, error) {
+	// Read the entire compressed data to reach the trailer
+	_, err := io.ReadAll(r)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read gzipped data: %v", err)
+	}
+
+	// The trailer is the last 8 bytes of the gzip stream
+	trailer := make([]byte, 8)
+	_, err = r.Read(trailer)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read gzip trailer: %v", err)
+	}
+
+	// Extract the CRC32 and ISIZE from the trailer
+	crc32 := binary.LittleEndian.Uint32(trailer[0:4])
+	isize := binary.LittleEndian.Uint32(trailer[4:8])
+
+	return crc32, isize, nil
 }
