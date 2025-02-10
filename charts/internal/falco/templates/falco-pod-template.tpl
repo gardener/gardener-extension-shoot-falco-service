@@ -11,8 +11,17 @@ metadata:
     {{- end }}
   annotations:
     checksum/config: {{ include (print $.Template.BasePath "/falco-configmap.yaml") . | sha256sum }}
+    {{- if .Values.falcoRules }}
+    checksum/falcoRules: {{ include (print $.Template.BasePath "/falco-rules.yaml") . | sha256sum }}
+    {{- end }}
+    {{- if .Values.sandboxRules }}
+    checksum/sanboxRules: {{ include (print $.Template.BasePath "/falco-sandbox-rules.yaml") . | sha256sum }}
+    {{- end }}
+    {{- if .Values.incubatingRules }}
+    checksum/incubatingRules: {{ include (print $.Template.BasePath "/falco-incubating-rules.yaml") . | sha256sum }}
+    {{- end }}
     {{- if .Values.customRules }}
-    checksum/rules: {{ include (print $.Template.BasePath "/falco-custom-rules.yaml") . | sha256sum }}
+    checksum/customRules: {{ include (print $.Template.BasePath "/falco-custom-rules.yaml") . | sha256sum }}
     {{- end }}
     {{- if and .Values.certs (not .Values.certs.existingSecret) }}
     checksum/certs: {{ include (print $.Template.BasePath "/falco-certs-secret.yaml") . | sha256sum }}
