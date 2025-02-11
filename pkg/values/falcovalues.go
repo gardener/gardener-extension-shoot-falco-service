@@ -551,7 +551,8 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 }
 
 func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps map[string]string) ([]customRulesFile, error) {
-	ruleFiles := map[string]string{}
+	ruleFilesData := map[string]string{}
+	ruleFilesBinaryData := map[string][]byte{}
 	for ruleRef, configMapName := range selectedConfigMaps {
 		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
 		configMap := corev1.ConfigMap{}
@@ -565,31 +566,31 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %w", refConfigMapName, ruleRef, err)
 		}
 		for name, file := range configMap.Data {
-			if _, ok := ruleFiles[name]; ok {
+			if !strings.HasSuffix("name", ".yaml") {
+				return nil, fmt.Errorf("rule file %s is not a yaml file", name)
+			}
+			if _, ok := ruleFilesData[name]; ok {
 				return nil, fmt.Errorf("duplicate rule file %s", name)
 			}
-			ruleFiles[name] = file
+			ruleFilesData[name] = file
+		}
+
+		for name, file := range configMap.BinaryData {
+			if !strings.HasSuffix("name", ".yaml.gz") {
+				return nil, fmt.Errorf("rule file %s is not a gzipped yaml file", name)
+			}
+			if _, ok := ruleFilesBinaryData[name]; ok {
+				return nil, fmt.Errorf("duplicate rule file %s", name)
+			}
+			ruleFilesBinaryData[name] = file
 		}
 	}
-	return loadRulesFromRulesFiles(ruleFiles)
+	return loadRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
 }
 
-func loadRulesFromRulesFiles(ruleFiles map[string]string) ([]customRulesFile, error) {
+func loadRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryData map[string][]byte) ([]customRulesFile, error) {
 	rules := make([]customRulesFile, 0)
-	for name, content := range ruleFiles {
-		// check if name has gzip ending
-		if name[len(name)-3:] == ".gz" {
-			dataGz, err := base64.StdEncoding.DecodeString(content)
-			if err != nil {
-				return nil, fmt.Errorf("rule file has .gz type but data is not base64 encoded: %v", err)
-			}
-
-			content, err = decompressRulesFile(string(dataGz))
-			if err != nil {
-				return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
-			}
-		}
-
+	for name, content := range ruleFilesData {
 		if err := validateYaml(content); err != nil {
 			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
 		}
@@ -599,6 +600,29 @@ func loadRulesFromRulesFiles(ruleFiles map[string]string) ([]customRulesFile, er
 			Content:  content,
 		})
 	}
+
+	for name, content := range ruleFilesBinaryData {
+		dataGz := make([]byte, 0)
+		_, err := base64.StdEncoding.Decode(dataGz, content)
+		if err != nil {
+			return nil, fmt.Errorf("rule file has .gz type but data is not base64 encoded: %v", err)
+		}
+
+		rawData, err := decompressRulesFile(dataGz)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
+		}
+
+		if err := validateYaml(rawData); err != nil {
+			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
+		}
+
+		rules = append(rules, customRulesFile{
+			Filename: name,
+			Content:  rawData,
+		})
+	}
+
 	slices.SortFunc(rules, func(a, b customRulesFile) int {
 		return strings.Compare(a.Filename, b.Filename)
 	})
@@ -625,8 +649,8 @@ func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string)
 	}
 }
 
-func decompressRulesFile(datagz string) (string, error) {
-	reader, err := gzip.NewReader(bytes.NewReader([]byte(datagz)))
+func decompressRulesFile(datagz []byte) (string, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(datagz))
 	if err != nil {
 		return "", fmt.Errorf("failed to create gzip reader: %v", err)
 	}
@@ -661,8 +685,8 @@ func decompressRulesFile(datagz string) (string, error) {
 }
 
 // Checks wether the advertised uncompressed size is less than expected
-func checkUncompressedSize(datagz string) (uint32, error) {
-	_, isize, err := readGzTrailer([]byte(datagz))
+func checkUncompressedSize(datagz []byte) (uint32, error) {
+	_, isize, err := readGzTrailer(datagz)
 	if err != nil {
 		return 0, err
 	}
