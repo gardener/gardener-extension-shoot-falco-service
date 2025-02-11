@@ -19,6 +19,7 @@ import (
 	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/go-logr/logr"
 	"golang.org/x/mod/semver"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -574,7 +575,7 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 }
 
 func loadRulesFromRulesFiles(ruleFiles map[string]string) ([]customRulesFile, error) {
-	rules := make([]customRulesFile, len(ruleFiles))
+	rules := make([]customRulesFile, 0)
 	for name, content := range ruleFiles {
 		// check if name has gzip ending
 		if name[len(name)-3:] == ".gz" {
@@ -587,6 +588,10 @@ func loadRulesFromRulesFiles(ruleFiles map[string]string) ([]customRulesFile, er
 			if err != nil {
 				return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
 			}
+		}
+
+		if err := validateYaml(content); err != nil {
+			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
 		}
 
 		rules = append(rules, customRulesFile{
@@ -671,16 +676,25 @@ func checkUncompressedSize(datagz string) (uint32, error) {
 
 // Reads the gzip trailer from the given gzip reader
 func readGzTrailer(datagz []byte) (uint32, uint32, error) {
-    if len(datagz) < 8 {
-        return 0, 0, fmt.Errorf("gzip data is too short to contain a valid trailer")
-    }
+	if len(datagz) < 8 {
+		return 0, 0, fmt.Errorf("gzip data is too short to contain a valid trailer")
+	}
 
-    // The trailer is the last 8 bytes of the gzip stream
-    trailer := datagz[len(datagz)-8:]
+	// The trailer is the last 8 bytes of the gzip stream
+	trailer := datagz[len(datagz)-8:]
 
-    // Extract the CRC32 and ISIZE from the trailer
-    crc32 := binary.LittleEndian.Uint32(trailer[0:4])
-    isize := binary.LittleEndian.Uint32(trailer[4:8])
+	// Extract the CRC32 and ISIZE from the trailer
+	crc32 := binary.LittleEndian.Uint32(trailer[0:4])
+	isize := binary.LittleEndian.Uint32(trailer[4:8])
 
-    return crc32, isize, nil
+	return crc32, isize, nil
+}
+
+// Validates the given data as YAML
+func validateYaml(data string) error {
+	var yamlData interface{}
+	if err := yaml.Unmarshal([]byte(data), &yamlData); err != nil {
+		return fmt.Errorf("data is not in valid yaml format: %v", err)
+	}
+	return nil
 }
