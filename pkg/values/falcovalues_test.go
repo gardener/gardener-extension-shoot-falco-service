@@ -567,7 +567,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 			"rule2.yaml": "valid_yaml_content_2",
 		}
 
-		rules, err := loadRulesFromRulesFiles(ruleFiles)
+		rules, err := loadRulesFromRulesFiles(ruleFiles, nil)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(2))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
@@ -584,13 +584,13 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		Expect(err).To(BeNil())
 		gz.Close()
 
-		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
+        encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-		ruleFiles := map[string]string{
-			"rule1.yaml.gz": encodedContent,
-		}
+        ruleFilesBinaryData := map[string][]byte{
+            "rule1.yaml.gz": []byte(encodedContent),
+        }
 
-		rules, err := loadRulesFromRulesFiles(ruleFiles)
+		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(1))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml.gz"))
@@ -598,11 +598,11 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 	})
 
 	It("should return an error for invalid base64 encoded gzip content", func() {
-		ruleFiles := map[string]string{
-			"rule1.yaml.gz": "invalid_base64_content",
+		ruleFiles := map[string][]byte{
+			"rule1.yaml.gz": []byte("invalid_base64_content"),
 		}
 
-		rules, err := loadRulesFromRulesFiles(ruleFiles)
+		rules, err := loadRulesFromRulesFiles(nil, ruleFiles)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("rule file has .gz type but data is not base64 encoded"))
 		Expect(rules).To(BeNil())
@@ -611,11 +611,11 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 	It("should return an error for invalid gzip content", func() {
 		invalidGzipContent := base64.StdEncoding.EncodeToString([]byte("invalid_gzip_content"))
 
-		ruleFiles := map[string]string{
-			"rule1.yaml.gz": invalidGzipContent,
+		ruleFiles := map[string][]byte{
+			"rule1.yaml.gz": []byte(invalidGzipContent),
 		}
 
-		rules, err := loadRulesFromRulesFiles(ruleFiles)
+		rules, err := loadRulesFromRulesFiles(nil, ruleFiles)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
 		Expect(rules).To(BeNil())
@@ -634,13 +634,13 @@ key1:
 		Expect(err).To(BeNil())
 		gz.Close()
 
-		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
+      encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-		ruleFiles := map[string]string{
-			"rule1.yaml.gz": encodedContent,
-		}
+        ruleFilesBinaryData := map[string][]byte{
+            "rule1.yaml.gz": []byte(encodedContent),
+        }
 
-		rules, err := loadRulesFromRulesFiles(ruleFiles)
+		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml.gz is not valid yaml"))
 		Expect(rules).To(BeNil())
@@ -665,19 +665,19 @@ var _ = Describe("decompressRulesFile", func() {
 		Expect(err).To(BeNil())
 		gz.Close()
 
-		decompressedContent, err := decompressRulesFile(buf.String())
+		decompressedContent, err := decompressRulesFile(buf.Bytes())
 		Expect(err).To(BeNil())
 		Expect(decompressedContent).To(Equal(falcoRuleYaml))
 	})
 
 	It("should return an error for invalid gzip content", func() {
-		invalidGzipContent := base64.StdEncoding.EncodeToString([]byte("invalid_gzip_content"))
+        invalidGzipContent := []byte("invalid_gzip_content")
 
-		decompressedContent, err := decompressRulesFile(invalidGzipContent)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
-		Expect(decompressedContent).To(BeEmpty())
-	})
+        decompressedContent, err := decompressRulesFile(invalidGzipContent)
+        Expect(err).NotTo(BeNil())
+        Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
+        Expect(decompressedContent).To(BeEmpty())
+    })
 
 	It("should return an error when isize is smaller than expected", func() {
 		// Create a gzip compressed content
@@ -694,7 +694,7 @@ var _ = Describe("decompressRulesFile", func() {
 		gzipContent[len(gzipContent)-2] = 0x00
 		gzipContent[len(gzipContent)-1] = 0x00
 
-		decompressedContent, err := decompressRulesFile(string(gzipContent))
+		decompressedContent, err := decompressRulesFile(gzipContent)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("isize in gzip trailer did not match the actual uncompressed size"))
 		Expect(decompressedContent).To(BeEmpty())
@@ -715,7 +715,7 @@ var _ = Describe("decompressRulesFile", func() {
 		gzipContent[len(gzipContent)-2] = 0xFF
 		gzipContent[len(gzipContent)-1] = 0xFF
 
-		decompressedContent, err := decompressRulesFile(string(gzipContent))
+		decompressedContent, err := decompressRulesFile(gzipContent)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("uncompressed size is larger than 1 MiB"))
 		Expect(decompressedContent).To(BeEmpty())
@@ -739,7 +739,7 @@ var _ = Describe("decompressRulesFile", func() {
 		}
 
 		// Call decompressRulesFile
-		decompressedContent, err := decompressRulesFile(string(gzipContent))
+		decompressedContent, err := decompressRulesFile(gzipContent)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("failed to read gzipped data"))
 		Expect(decompressedContent).To(BeEmpty())
