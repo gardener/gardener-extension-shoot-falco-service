@@ -584,11 +584,11 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		Expect(err).To(BeNil())
 		gz.Close()
 
-        encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
+		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-        ruleFilesBinaryData := map[string][]byte{
-            "rule1.yaml.gz": []byte(encodedContent),
-        }
+		ruleFilesBinaryData := map[string][]byte{
+			"rule1.yaml.gz": []byte(encodedContent),
+		}
 
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).To(BeNil())
@@ -634,16 +634,46 @@ key1:
 		Expect(err).To(BeNil())
 		gz.Close()
 
-      encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
+		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-        ruleFilesBinaryData := map[string][]byte{
-            "rule1.yaml.gz": []byte(encodedContent),
-        }
+		ruleFilesBinaryData := map[string][]byte{
+			"rule1.yaml.gz": []byte(encodedContent),
+		}
 
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml.gz is not valid yaml"))
 		Expect(rules).To(BeNil())
+	})
+
+	It("should load and sort rules from mixed valid rule files and gzipped content", func() {
+		// Create a gzip compressed content for rule3.yaml.gz
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(falcoRuleYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+		ruleFilesData := map[string]string{
+			"rule3.yaml": "valid_yaml_content_3",
+			"rule1.yaml": "valid_yaml_content_1",
+		}
+
+		ruleFilesBinaryData := map[string][]byte{
+			"rule2.yaml.gz": []byte(encodedContent),
+		}
+
+		rules, err := loadRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
+		Expect(err).To(BeNil())
+		Expect(len(rules)).To(Equal(3))
+		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
+		Expect(rules[0].Content).To(Equal("valid_yaml_content_1"))
+		Expect(rules[1].Filename).To(Equal("rule2.yaml.gz"))
+		Expect(rules[1].Content).To(Equal(falcoRuleYaml))
+		Expect(rules[2].Filename).To(Equal("rule3.yaml"))
+		Expect(rules[2].Content).To(Equal("valid_yaml_content_3"))
 	})
 })
 
@@ -671,13 +701,13 @@ var _ = Describe("decompressRulesFile", func() {
 	})
 
 	It("should return an error for invalid gzip content", func() {
-        invalidGzipContent := []byte("invalid_gzip_content")
+		invalidGzipContent := []byte("invalid_gzip_content")
 
-        decompressedContent, err := decompressRulesFile(invalidGzipContent)
-        Expect(err).NotTo(BeNil())
-        Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
-        Expect(decompressedContent).To(BeEmpty())
-    })
+		decompressedContent, err := decompressRulesFile(invalidGzipContent)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
+		Expect(decompressedContent).To(BeEmpty())
+	})
 
 	It("should return an error when isize is smaller than expected", func() {
 		// Create a gzip compressed content
