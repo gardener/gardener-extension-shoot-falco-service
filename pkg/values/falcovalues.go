@@ -575,7 +575,6 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 
 func loadRulesFromRulesFiles(ruleFiles map[string]string) ([]customRulesFile, error) {
 	rules := make([]customRulesFile, len(ruleFiles))
-	i := 0
 	for name, content := range ruleFiles {
 		// check if name has gzip ending
 		if name[len(name)-3:] == ".gz" {
@@ -590,11 +589,10 @@ func loadRulesFromRulesFiles(ruleFiles map[string]string) ([]customRulesFile, er
 			}
 		}
 
-		rules[i] = customRulesFile{
+		rules = append(rules, customRulesFile{
 			Filename: name,
 			Content:  content,
-		}
-		i++
+		})
 	}
 	slices.SortFunc(rules, func(a, b customRulesFile) int {
 		return strings.Compare(a.Filename, b.Filename)
