@@ -602,7 +602,7 @@ func loadRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryDat
 	}
 
 	for name, content := range ruleFilesBinaryData {
-		dataGz := make([]byte, 0)
+		dataGz := make([]byte, base64.StdEncoding.DecodedLen(len(content)))
 		_, err := base64.StdEncoding.Decode(dataGz, content)
 		if err != nil {
 			return nil, fmt.Errorf("rule file has .gz type but data is not base64 encoded: %v", err)
