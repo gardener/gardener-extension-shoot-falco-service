@@ -658,7 +658,7 @@ func decompressRulesFile(datagz []byte) (string, error) {
 
 	isize, err := checkUncompressedSize(datagz)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Create a LimitedReader to limit the number of bytes read to isize
