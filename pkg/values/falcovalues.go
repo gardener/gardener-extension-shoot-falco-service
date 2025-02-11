@@ -566,7 +566,7 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %w", refConfigMapName, ruleRef, err)
 		}
 		for name, file := range configMap.Data {
-			if !strings.HasSuffix("name", ".yaml") {
+			if !strings.HasSuffix(name, ".yaml") {
 				return nil, fmt.Errorf("rule file %s is not a yaml file", name)
 			}
 			if _, ok := ruleFilesData[name]; ok {
@@ -576,7 +576,7 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 		}
 
 		for name, file := range configMap.BinaryData {
-			if !strings.HasSuffix("name", ".yaml.gz") {
+			if !strings.HasSuffix(name, ".yaml.gz") {
 				return nil, fmt.Errorf("rule file %s is not a gzipped yaml file", name)
 			}
 			if _, ok := ruleFilesBinaryData[name]; ok {
