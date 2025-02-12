@@ -584,10 +584,10 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 			ruleFilesBinaryData[name] = file
 		}
 	}
-	return loadRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
+	return extractRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
 }
 
-func loadRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryData map[string][]byte) ([]customRulesFile, error) {
+func extractRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryData map[string][]byte) ([]customRulesFile, error) {
 	rules := make([]customRulesFile, 0)
 	for name, content := range ruleFilesData {
 		if err := validateYaml(content); err != nil {

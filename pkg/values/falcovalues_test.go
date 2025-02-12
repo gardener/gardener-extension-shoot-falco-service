@@ -565,7 +565,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 			"rule2.yaml": "valid_yaml_content_2",
 		}
 
-		rules, err := loadRulesFromRulesFiles(ruleFilesData, nil)
+		rules, err := extractRulesFromRulesFiles(ruleFilesData, nil)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(2))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
@@ -586,7 +586,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 			"rule1.yaml.gz": buf.Bytes(),
 		}
 
-		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(1))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
@@ -600,7 +600,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 			"rule1.yaml.gz": invalidGzipContent,
 		}
 
-		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("failed to decompress rule file"))
 		Expect(rules).To(BeNil())
@@ -623,7 +623,7 @@ key1:
 			"rule1.yaml.gz": buf.Bytes(),
 		}
 
-		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml is not valid yaml"))
 		Expect(rules).To(BeNil())
@@ -646,7 +646,7 @@ key1:
 			"rule2.yaml.gz": buf.Bytes(),
 		}
 
-		rules, err := loadRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
+		rules, err := extractRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(3))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
