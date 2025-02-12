@@ -148,17 +148,22 @@ test-cov:
 test-clean:
 	@bash $(GARDENER_HACK_DIR)/test-cover-clean.sh
 
-.PHONY: verify
-verify: check format test sast
 
 .PHONY: generate-profile
 generate-profile:
 	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml falco/falcoctlversions.yaml >falco/falco-profile.yaml
 
+.PHON: validate-imagevector
+validate-imagevector:
+	@$(HACK_DIR)/validate-imagevector.py imagevector/images.yaml
+
 .PHONY: validate-falco-rules
 validate-falco-rules:
 	$(HACK_DIR)/validate-falco-rules falco/falco-profile.yaml falco/rules
 
+.PHONY: verify
+verify: check format test sast validate-imagevector
+
 .PHONY: verify-extended
-verify-extended: check-generate check format generate-profile test sast-report
+verify-extended: check-generate check format validate-imagevector generate-profile test sast-report
 #verify-extended: check-generate check format test test-cov test-clean
