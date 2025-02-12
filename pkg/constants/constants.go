@@ -54,6 +54,8 @@ const (
 	FalcoIncubatingRules = "falco-incubating_rules.yaml"
 	FalcoSandboxRules    = "falco-sandbox_rules.yaml"
 
+	CustomRulesMaxSize = 1048576 // 1 << 20 == 1MiB
+
 	ProjectEnableAnnotation = "falco.gardener.cloud/enabled"
 )
 

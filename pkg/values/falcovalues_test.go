@@ -5,6 +5,8 @@
 package values
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -540,6 +542,122 @@ var _ = Describe("Getter for Falco rules", Label("falcovalues"), func() {
 	})
 })
 
+var falcoRuleYaml = `
+- rule: Test rule
+  desc: Test rule description
+  condition: test_condition
+  output: test_output
+  priority: test_priority
+  tags: test_tags
+  examples: test_examples
+
+- macro: test_macro
+  condition: test_condition
+
+- list: shell_binaries
+  items: [ash, bash, csh, ksh, sh, tcsh, zsh, dash]
+`
+
+var _ = Describe("loadRulesFromRulesFiles", func() {
+	It("should load rules from valid rule files", func() {
+		ruleFilesData := map[string]string{
+			"rule1.yaml": "valid_yaml_content_1",
+			"rule2.yaml": "valid_yaml_content_2",
+		}
+
+		rules, err := extractRulesFromRulesFiles(ruleFilesData, nil)
+		Expect(err).To(BeNil())
+		Expect(len(rules)).To(Equal(2))
+		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
+		Expect(rules[0].Content).To(Equal("valid_yaml_content_1"))
+		Expect(rules[1].Filename).To(Equal("rule2.yaml"))
+		Expect(rules[1].Content).To(Equal("valid_yaml_content_2"))
+	})
+
+	It("should decompress gzip content", func() {
+		// Create a gzip compressed content
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(falcoRuleYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		ruleFilesBinaryData := map[string][]byte{
+			"rule1.yaml.gz": buf.Bytes(),
+		}
+
+		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		Expect(err).To(BeNil())
+		Expect(len(rules)).To(Equal(1))
+		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
+		Expect(rules[0].Content).To(Equal(falcoRuleYaml))
+	})
+
+	It("should return an error for invalid gzip content", func() {
+		invalidGzipContent := []byte("invalid_gzip_content")
+
+		ruleFilesBinaryData := map[string][]byte{
+			"rule1.yaml.gz": invalidGzipContent,
+		}
+
+		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("failed to decompress rule file"))
+		Expect(rules).To(BeNil())
+	})
+
+	It("should return an error for gzipped content that fails YAML validation", func() {
+		invalidYaml := `
+key1:
+  subkey1: value1
+ subkey2: value2  # Incorrect indentation
+`
+		// Create a gzip compressed content
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(invalidYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		ruleFilesBinaryData := map[string][]byte{
+			"rule1.yaml.gz": buf.Bytes(),
+		}
+
+		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml is not valid yaml"))
+		Expect(rules).To(BeNil())
+	})
+
+	It("should load and sort rules from mixed valid rule files and gzipped content", func() {
+		// Create a gzip compressed content for rule2.yaml.gz
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(falcoRuleYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		ruleFilesData := map[string]string{
+			"rule3.yaml": "valid_yaml_content_3",
+			"rule1.yaml": "valid_yaml_content_1",
+		}
+
+		ruleFilesBinaryData := map[string][]byte{
+			"rule2.yaml.gz": buf.Bytes(),
+		}
+
+		rules, err := extractRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
+		Expect(err).To(BeNil())
+		Expect(len(rules)).To(Equal(3))
+		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
+		Expect(rules[0].Content).To(Equal("valid_yaml_content_1"))
+		Expect(rules[1].Filename).To(Equal("rule2.yaml"))
+		Expect(rules[1].Content).To(Equal(falcoRuleYaml))
+		Expect(rules[2].Filename).To(Equal("rule3.yaml"))
+		Expect(rules[2].Content).To(Equal("valid_yaml_content_3"))
+	})
+})
+
 func getManifest(release *chartrenderer.RenderedChart, name string) *releaseutil.Manifest {
 	for _, mf := range release.Manifests {
 		if mf.Name == name {
@@ -548,3 +666,116 @@ func getManifest(release *chartrenderer.RenderedChart, name string) *releaseutil
 	}
 	return nil
 }
+
+var _ = Describe("decompressRulesFile", func() {
+	It("should decompress valid base64 encoded gzip content", func() {
+		// Create a gzip compressed content
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(falcoRuleYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		decompressedContent, err := decompressRulesFile(buf.Bytes())
+		Expect(err).To(BeNil())
+		Expect(decompressedContent).To(Equal(falcoRuleYaml))
+	})
+
+	It("should return an error for invalid gzip content", func() {
+		invalidGzipContent := []byte("invalid_gzip_content")
+
+		decompressedContent, err := decompressRulesFile(invalidGzipContent)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
+		Expect(decompressedContent).To(BeEmpty())
+	})
+
+	It("should return an error when isize is smaller than expected", func() {
+		// Create a gzip compressed content
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(falcoRuleYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		// Modify the isize in the gzip trailer to be smaller than the actual size
+		gzipContent := buf.Bytes()
+		gzipContent[len(gzipContent)-4] = 0x00
+		gzipContent[len(gzipContent)-3] = 0x00
+		gzipContent[len(gzipContent)-2] = 0x00
+		gzipContent[len(gzipContent)-1] = 0x00
+
+		decompressedContent, err := decompressRulesFile(gzipContent)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("isize in gzip trailer did not match the actual uncompressed size"))
+		Expect(decompressedContent).To(BeEmpty())
+	})
+
+	It("should return an error when isize is larger than expected", func() {
+		// Create a gzip compressed content
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte(falcoRuleYaml))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		// Modify the isize in the gzip trailer to be larger than the actual size
+		gzipContent := buf.Bytes()
+		gzipContent[len(gzipContent)-4] = 0xFF
+		gzipContent[len(gzipContent)-3] = 0xFF
+		gzipContent[len(gzipContent)-2] = 0xFF
+		gzipContent[len(gzipContent)-1] = 0xFF
+
+		decompressedContent, err := decompressRulesFile(gzipContent)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("uncompressed size is larger than 1 MiB"))
+		Expect(decompressedContent).To(BeEmpty())
+	})
+
+	It("should return an error for broken gzip data", func() {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write([]byte("valid content for gzip but later destoryed"))
+		Expect(err).To(BeNil())
+		gz.Close()
+
+		// Corrupt the gzip data
+		gzipContent := buf.Bytes()
+		for i := 10; i < 15; i++ {
+			if gzipContent[i] == 0xFF {
+				gzipContent[i] = 0x00
+			} else {
+				gzipContent[i] = 0xFF
+			}
+		}
+
+		// Call decompressRulesFile
+		decompressedContent, err := decompressRulesFile(gzipContent)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("failed to read gzipped data"))
+		Expect(decompressedContent).To(BeEmpty())
+	})
+})
+
+var _ = Describe("validateYaml", func() {
+	It("should return nil for valid YAML content", func() {
+		validYaml := `
+key1:
+  subkey1: value1
+  subkey2: value2
+`
+		err := validateYaml(validYaml)
+		Expect(err).To(BeNil())
+	})
+
+	It("should return an error for invalid YAML content", func() {
+		invalidYaml := `
+key1:
+  subkey1: value1
+ subkey2: value2  # Incorrect indentation
+`
+		err := validateYaml(invalidYaml)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("data is not in valid yaml format"))
+	})
+})

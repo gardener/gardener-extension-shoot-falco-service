@@ -5,8 +5,12 @@
 package values
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 
@@ -14,6 +18,7 @@ import (
 	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/go-logr/logr"
 	"golang.org/x/mod/semver"
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -545,7 +550,8 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 }
 
 func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps map[string]string) ([]customRulesFile, error) {
-	ruleFiles := map[string]string{}
+	ruleFilesData := make(map[string]string)
+	ruleFilesBinaryData := make(map[string][]byte)
 	for ruleRef, configMapName := range selectedConfigMaps {
 		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
 		configMap := corev1.ConfigMap{}
@@ -559,21 +565,59 @@ func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, nam
 			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %w", refConfigMapName, ruleRef, err)
 		}
 		for name, file := range configMap.Data {
-			if _, ok := ruleFiles[name]; ok {
+			if !strings.HasSuffix(name, ".yaml") {
+				return nil, fmt.Errorf("rule file %s is not a yaml file", name)
+			}
+			if _, ok := ruleFilesData[name]; ok {
 				return nil, fmt.Errorf("duplicate rule file %s", name)
 			}
-			ruleFiles[name] = file
+			ruleFilesData[name] = file
+		}
+
+		for name, file := range configMap.BinaryData {
+			if !strings.HasSuffix(name, ".yaml.gz") {
+				return nil, fmt.Errorf("rule file %s is not a gzipped yaml file", name)
+			}
+			if _, ok := ruleFilesBinaryData[name]; ok {
+				return nil, fmt.Errorf("duplicate rule file %s", name)
+			}
+			ruleFilesBinaryData[name] = file
 		}
 	}
-	rules := make([]customRulesFile, len(ruleFiles))
-	i := 0
-	for name, content := range ruleFiles {
-		rules[i] = customRulesFile{
+	return extractRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
+}
+
+func extractRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryData map[string][]byte) ([]customRulesFile, error) {
+	rules := make([]customRulesFile, 0)
+	for name, content := range ruleFilesData {
+		if err := validateYaml(content); err != nil {
+			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
+		}
+
+		rules = append(rules, customRulesFile{
 			Filename: name,
 			Content:  content,
-		}
-		i++
+		})
 	}
+
+	for name, content := range ruleFilesBinaryData {
+		rawData, err := decompressRulesFile(content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
+		}
+
+		name = strings.TrimSuffix(name, ".gz")
+
+		if err := validateYaml(rawData); err != nil {
+			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
+		}
+
+		rules = append(rules, customRulesFile{
+			Filename: name,
+			Content:  rawData,
+		})
+	}
+
 	slices.SortFunc(rules, func(a, b customRulesFile) int {
 		return strings.Compare(a.Filename, b.Filename)
 	})
@@ -598,4 +642,78 @@ func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string)
 	} else {
 		return string(f[:]), nil
 	}
+}
+
+func decompressRulesFile(datagz []byte) (string, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(datagz))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %v", err)
+	}
+	defer reader.Close()
+
+	isize, err := checkUncompressedSize(datagz)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a LimitedReader to limit the number of bytes read to isize
+	limitedReader := io.LimitedReader{R: reader, N: int64(isize)}
+
+	data := make([]byte, isize)
+	n, err := io.ReadFull(&limitedReader, data) // Read the entire compressed data
+	if err != nil {
+		return "", fmt.Errorf("failed to read gzipped data: %v", err)
+	}
+
+	if n != int(isize) {
+		return "", fmt.Errorf("failed to read gzipped data: read %d bytes, expected %d bytes", n, isize)
+	}
+
+	// Check if there are any bytes left in the gzip reader
+	extraByte := make([]byte, 1)
+	_, err = reader.Read(extraByte)
+	if err != io.EOF {
+		return "", fmt.Errorf("isize in gzip trailer did not match the actual uncompressed size")
+	}
+
+	return string(data), nil
+}
+
+// Checks wether the advertised uncompressed size is less than expected
+func checkUncompressedSize(datagz []byte) (uint32, error) {
+	_, isize, err := readGzTrailer(datagz)
+	if err != nil {
+		return 0, err
+	}
+
+	if isize > constants.CustomRulesMaxSize {
+		return 0, fmt.Errorf("uncompressed size is larger than 1 MiB: %d bytes", isize)
+	}
+
+	return isize, nil
+}
+
+// Reads the gzip trailer from the given gzip reader
+func readGzTrailer(datagz []byte) (uint32, uint32, error) {
+	if len(datagz) < 8 {
+		return 0, 0, fmt.Errorf("gzip data is too short to contain a valid trailer")
+	}
+
+	// The trailer is the last 8 bytes of the gzip stream
+	trailer := datagz[len(datagz)-8:]
+
+	// Extract the CRC32 and ISIZE from the trailer
+	crc32 := binary.LittleEndian.Uint32(trailer[0:4])
+	isize := binary.LittleEndian.Uint32(trailer[4:8])
+
+	return crc32, isize, nil
+}
+
+// Validates the given data as YAML
+func validateYaml(data string) error {
+	var yamlData interface{}
+	if err := yaml.Unmarshal([]byte(data), &yamlData); err != nil {
+		return fmt.Errorf("data is not in valid yaml format: %v", err)
+	}
+	return nil
 }
