@@ -561,13 +561,12 @@ var falcoRuleYaml = `
 
 var _ = Describe("loadRulesFromRulesFiles", func() {
 	It("should load rules from valid rule files", func() {
-
-		ruleFiles := map[string]string{
+		ruleFilesData := map[string]string{
 			"rule1.yaml": "valid_yaml_content_1",
 			"rule2.yaml": "valid_yaml_content_2",
 		}
 
-		rules, err := loadRulesFromRulesFiles(ruleFiles, nil)
+		rules, err := loadRulesFromRulesFiles(ruleFilesData, nil)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(2))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
@@ -576,7 +575,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		Expect(rules[1].Content).To(Equal("valid_yaml_content_2"))
 	})
 
-	It("should decode base64 encoded gzip content", func() {
+	It("should decompress gzip content", func() {
 		// Create a gzip compressed content
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
@@ -584,10 +583,8 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		Expect(err).To(BeNil())
 		gz.Close()
 
-		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
-
 		ruleFilesBinaryData := map[string][]byte{
-			"rule1.yaml.gz": []byte(encodedContent),
+			"rule1.yaml.gz": buf.Bytes(),
 		}
 
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
@@ -597,14 +594,16 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		Expect(rules[0].Content).To(Equal(falcoRuleYaml))
 	})
 
-	It("should return an error for invalid base64 encoded gzip content", func() {
-		ruleFiles := map[string][]byte{
-			"rule1.yaml.gz": []byte("invalid_base64_content"),
+	It("should return an error for invalid gzip content", func() {
+		invalidGzipContent := []byte("invalid_gzip_content")
+
+		ruleFilesBinaryData := map[string][]byte{
+			"rule1.yaml.gz": invalidGzipContent,
 		}
 
-		rules, err := loadRulesFromRulesFiles(nil, ruleFiles)
+		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("rule file has .gz type but data is not base64 encoded"))
+		Expect(err.Error()).To(ContainSubstring("failed to decompress rule file"))
 		Expect(rules).To(BeNil())
 	})
 
@@ -634,10 +633,8 @@ key1:
 		Expect(err).To(BeNil())
 		gz.Close()
 
-		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
-
 		ruleFilesBinaryData := map[string][]byte{
-			"rule1.yaml.gz": []byte(encodedContent),
+			"rule1.yaml.gz": []byte(buf.Bytes()),
 		}
 
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
@@ -654,15 +651,13 @@ key1:
 		Expect(err).To(BeNil())
 		gz.Close()
 
-		encodedContent := base64.StdEncoding.EncodeToString(buf.Bytes())
-
 		ruleFilesData := map[string]string{
 			"rule3.yaml": "valid_yaml_content_3",
 			"rule1.yaml": "valid_yaml_content_1",
 		}
 
 		ruleFilesBinaryData := map[string][]byte{
-			"rule2.yaml.gz": []byte(encodedContent),
+			"rule2.yaml.gz": []byte(buf.Bytes()),
 		}
 
 		rules, err := loadRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
