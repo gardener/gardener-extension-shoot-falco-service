@@ -606,6 +606,8 @@ func loadRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryDat
 			return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
 		}
 
+		name = strings.TrimSuffix(name, ".gz")
+
 		if err := validateYaml(rawData); err != nil {
 			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
 		}

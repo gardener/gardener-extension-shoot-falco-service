@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -590,7 +589,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(1))
-		Expect(rules[0].Filename).To(Equal("rule1.yaml.gz"))
+		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
 		Expect(rules[0].Content).To(Equal(falcoRuleYaml))
 	})
 
@@ -604,19 +603,6 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("failed to decompress rule file"))
-		Expect(rules).To(BeNil())
-	})
-
-	It("should return an error for invalid gzip content", func() {
-		invalidGzipContent := base64.StdEncoding.EncodeToString([]byte("invalid_gzip_content"))
-
-		ruleFiles := map[string][]byte{
-			"rule1.yaml.gz": []byte(invalidGzipContent),
-		}
-
-		rules, err := loadRulesFromRulesFiles(nil, ruleFiles)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("failed to create gzip reader"))
 		Expect(rules).To(BeNil())
 	})
 
@@ -634,17 +620,17 @@ key1:
 		gz.Close()
 
 		ruleFilesBinaryData := map[string][]byte{
-			"rule1.yaml.gz": []byte(buf.Bytes()),
+			"rule1.yaml.gz": buf.Bytes(),
 		}
 
 		rules, err := loadRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml.gz is not valid yaml"))
+		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml is not valid yaml"))
 		Expect(rules).To(BeNil())
 	})
 
 	It("should load and sort rules from mixed valid rule files and gzipped content", func() {
-		// Create a gzip compressed content for rule3.yaml.gz
+		// Create a gzip compressed content for rule2.yaml.gz
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
 		_, err := gz.Write([]byte(falcoRuleYaml))
@@ -657,7 +643,7 @@ key1:
 		}
 
 		ruleFilesBinaryData := map[string][]byte{
-			"rule2.yaml.gz": []byte(buf.Bytes()),
+			"rule2.yaml.gz": buf.Bytes(),
 		}
 
 		rules, err := loadRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
@@ -665,7 +651,7 @@ key1:
 		Expect(len(rules)).To(Equal(3))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
 		Expect(rules[0].Content).To(Equal("valid_yaml_content_1"))
-		Expect(rules[1].Filename).To(Equal("rule2.yaml.gz"))
+		Expect(rules[1].Filename).To(Equal("rule2.yaml"))
 		Expect(rules[1].Content).To(Equal(falcoRuleYaml))
 		Expect(rules[2].Filename).To(Equal("rule3.yaml"))
 		Expect(rules[2].Content).To(Equal("valid_yaml_content_3"))
