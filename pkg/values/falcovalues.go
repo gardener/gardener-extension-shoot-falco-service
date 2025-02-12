@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -551,8 +550,8 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 }
 
 func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps map[string]string) ([]customRulesFile, error) {
-	ruleFilesData := map[string]string{}
-	ruleFilesBinaryData := map[string][]byte{}
+	ruleFilesData := make(map[string]string)
+	ruleFilesBinaryData := make(map[string][]byte)
 	for ruleRef, configMapName := range selectedConfigMaps {
 		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
 		configMap := corev1.ConfigMap{}
@@ -602,13 +601,7 @@ func loadRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryDat
 	}
 
 	for name, content := range ruleFilesBinaryData {
-		dataGz := make([]byte, base64.StdEncoding.DecodedLen(len(content)))
-		_, err := base64.StdEncoding.Decode(dataGz, content)
-		if err != nil {
-			return nil, fmt.Errorf("rule file has .gz type but data is not base64 encoded: %v", err)
-		}
-
-		rawData, err := decompressRulesFile(dataGz)
+		rawData, err := decompressRulesFile(content)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
 		}
