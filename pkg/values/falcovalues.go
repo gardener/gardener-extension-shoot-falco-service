@@ -684,7 +684,7 @@ func checkUncompressedSize(datagz []byte) (uint32, error) {
 		return 0, err
 	}
 
-	if isize > 1<<20 { // gzip is using base2 -> 1MiB
+	if isize > constants.CustomRulesMaxSize {
 		return 0, fmt.Errorf("uncompressed size is larger than 1 MiB: %d bytes", isize)
 	}
 
