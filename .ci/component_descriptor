@@ -5,6 +5,7 @@ import dataclasses
 import os
 
 import dacite
+import yaml
 
 import ci.util
 import ocm
@@ -99,6 +100,13 @@ def main():
     )
 
     component.resources.extend(iter_resources(image_vector))
+
+    with open(component_descriptor_path, 'w') as f:
+        yaml.dump(
+            data=dataclasses.asdict(component_descriptor),
+            Dumper=ocm.EnumValueYamlDumper,
+            stream=f,
+        )
 
 
 if __name__ == '__main__':
