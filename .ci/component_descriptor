@@ -13,6 +13,10 @@ import ocm
 component_descriptor_base_path = os.path.abspath(os.environ['BASE_DEFINITION_PATH'])
 component_descriptor_path = os.path.abspath(os.environ['COMPONENT_DESCRIPTOR_PATH'])
 
+own_dir = os.path.abspath(os.path.dirname(__file__))
+repo_dir = os.path.abspath(os.path.join(own_dir, '..'))
+image_vector_path = os.path.join(repo_dir, 'imagevector', 'images.yaml')
+
 
 def parse_component_descriptor():
     component_descriptor = ocm.ComponentDescriptor.from_dict(
@@ -91,7 +95,7 @@ def main():
 
     image_vector = dacite.from_dict(
         data_class=ImageVector,
-        data=ci.util.parse_yaml_file('../imagevector/images.yaml')
+        data=ci.util.parse_yaml_file(image_vector_path)
     )
 
     component.resources.extend(iter_resources(image_vector))
