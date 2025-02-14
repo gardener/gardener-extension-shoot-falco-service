@@ -1,8 +1,101 @@
-#!/usr/bin/env bash
-#
-# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
-#
-# SPDX-License-Identifier: Apache-2.0
+#!/usr/bin/env python3
 
-COMPONENT_PREFIXES="europe-docker.pkg.dev/gardener-project" \
-                   "$(dirname $0)"/hack/component_descriptor "$(dirname $0)"/..
+import collections.abc
+import dataclasses
+import os
+
+import dacite
+
+import ci.util
+import ocm
+
+
+component_descriptor_base_path = os.path.abspath(os.environ['BASE_DEFINITION_PATH'])
+component_descriptor_path = os.path.abspath(os.environ['COMPONENT_DESCRIPTOR_PATH'])
+
+
+def parse_component_descriptor():
+    component_descriptor = ocm.ComponentDescriptor.from_dict(
+        component_descriptor_dict=ci.util.parse_yaml_file(component_descriptor_base_path),
+    )
+    return component_descriptor
+
+
+def version_from_file(
+    version_file_path: str,
+) -> str:
+    with open(version_file_path) as version_file:
+        version = version_file.read().strip()
+    return version
+
+
+@dataclasses.dataclass(frozen=True)
+class ImageVectorEntry:
+    name: str
+    sourceRepository: str
+    repository: str
+    tag: str
+    version: str
+    labels: list[dict]
+
+
+@dataclasses.dataclass(frozen=True)
+class ImageVector:
+    images: list[ImageVectorEntry]
+
+
+def iter_resources(image_vector: ImageVector) -> collections.abc.Generator[ocm.Resource, None, None]:
+    for image_vector_entry in image_vector.images:
+        relation = ocm.ResourceRelation.EXTERNAL
+
+        if image_vector_entry.sourceRepository.startswith('https://github.com/gardener'):
+            relation = ocm.ResourceRelation.LOCAL
+
+        image_reference = f'{image_vector_entry.repository}:{image_vector_entry.tag}'
+
+        yield ocm.Resource(
+            name=image_vector_entry.name,
+            version=image_vector_entry.version,
+            type=ocm.ArtefactType.OCI_IMAGE,
+            access=ocm.OciAccess(
+                imageReference=image_reference,
+            ),
+            relation=relation,
+            labels=[
+                *[
+                    ocm.Label(
+                        name=label_raw['name'],
+                        value=label_raw['value'],
+                    )
+                    for label_raw in image_vector_entry.labels
+                ],
+                ocm.Label(
+                    name='imagevector.gardener.cloud/name',
+                    value=image_vector_entry.name,
+                ),
+                ocm.Label(
+                    name='imagevector.gardener.cloud/repository',
+                    value=image_vector_entry.repository,
+                ),
+                ocm.Label(
+                    name='imagevector.gardener.cloud/source-repository',
+                    value=image_vector_entry.sourceRepository,
+                ),
+            ],
+        )
+
+
+def main():
+    component_descriptor = parse_component_descriptor()
+    component = component_descriptor.component
+
+    image_vector = dacite.from_dict(
+        data_class=ImageVector,
+        data=ci.util.parse_yaml_file('../imagevector/images.yaml')
+    )
+
+    component.resources.extend(iter_resources(image_vector))
+
+
+if __name__ == '__main__':
+    main()
