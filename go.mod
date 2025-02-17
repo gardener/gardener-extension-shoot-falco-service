@@ -4,7 +4,7 @@ go 1.23.6
 
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/gardener/gardener v1.112.0
+	github.com/gardener/gardener v1.112.1
 	github.com/go-logr/logr v1.4.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/hashicorp/go-version v1.7.0
