@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener
+# contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -8,16 +9,7 @@ import os
 import sys
 import yaml
 import tempfile
-import shutil
 import subprocess
-import time
-import dockerutil
-
-# usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> 
-
-# def get_rule_versions(falco_profile):
-#     rule_versions = {}
-#     for fv in falco_profile["spec"]["versions"]["falco"]
 
 
 falcoyaml = """
@@ -30,21 +22,22 @@ program_output:
   keep_alive: false
   program: 'jq ''{text: .output}'' | curl -d @- -X POST https://hooks.slack.com/services/XXX'
 rule_matching: first
-rules_files:
-- /etc/falco/falco_rules.yaml
-- /etc/falco/falco-incubating_rules.yaml
-- /etc/falco/falco-sandbox_rules.yaml
 stdout_output:
   enabled: true
-syscall_buf_size_preset: 4
 time_format_iso_8601: false
 watch_config_files: true
 webserver:
   enabled: false
 """
 
+
 def ci_init():
-    dockerutil.launch_dockerd_if_not_running()
+    try:
+        import dockerutil
+        dockerutil.launch_dockerd_if_not_running()
+    except ImportError:
+        print("assumme we are not runing in CI environment")
+
 
 def get_image_for_falco_version(falco_profile, version):
     for im in falco_profile["spec"]["images"]["falco"]:
@@ -53,14 +46,20 @@ def get_image_for_falco_version(falco_profile, version):
     sys.stderr.write(f"no image for Falco version {version}\n")
     sys.exit(1)
 
+
 def load_rules(rules_dir, rules_version):
-    files = ["falco_rules.yaml", "falco-incubating_rules.yaml", "falco-sandbox_rules.yaml"]
+    files = [
+        "falco_rules.yaml", 
+        "falco-incubating_rules.yaml", 
+        "falco-sandbox_rules.yaml"
+        ]
     rules = {}
     for file in files:
         filename = os.path.join(rules_dir, rules_version, file)
         with open(filename) as f:
             rules[file] = f.read()
     return rules
+
 
 def build_config_dir(rules_files):
     temp_dir = tempfile.TemporaryDirectory()
@@ -75,10 +74,13 @@ def build_config_dir(rules_files):
             f.write(v)
     return temp_dir
 
+
 def run_validate(config_dir, repo, tag):
     print("Validating rules for " + repo + ":" + tag)
     res = subprocess.run([
-        "docker", "run", "-t", "-v", config_dir.name + ":/etc/falco", repo + ":" + tag,
+        "docker", "run", "-t", "-v",
+        config_dir.name + ":/etc/falco", 
+        repo + ":" + tag,
         "falco", "-c", "/etc/falco/falco.yaml", 
         "--validate", "/etc/falco/falco_rules.yaml", 
         "--validate", "/etc/falco/falco-incubating_rules.yaml",
@@ -89,6 +91,7 @@ def run_validate(config_dir, repo, tag):
     else:
         return False
 
+
 def validate_rules(falco_profile, rules_dir, falco_version, rules_version):
     rules_files = load_rules(rules_dir, rules_version)
     config_dir = build_config_dir(rules_files)
@@ -96,23 +99,31 @@ def validate_rules(falco_profile, rules_dir, falco_version, rules_version):
     return run_validate(config_dir, repo, tag)
 
 
-if len(sys.argv) != 3:
-    sys.stderr.write("usage: validate-falco-rules <falco-profile> <rules-dir>\n")
-    sys.exit(1)
+def main():
+    if len(sys.argv) != 3:
+        sys.stderr.write(
+            "usage: validate-falco-rules <falco-profile> <rules-dir>\n"
+            )
+        sys.exit(1)
 
-ci_init()
+    with open(sys.argv[1]) as f:
+        falco_profile = yaml.safe_load(f)
 
-with open(sys.argv[1]) as f:
-    falco_profile = yaml.safe_load(f)
+    rules_dir = sys.argv[2]
 
-rules_dir = sys.argv[2]
+    has_error = False
+    for fv in falco_profile["spec"]["versions"]["falco"]:
+        has_error |= validate_rules(
+            falco_profile, rules_dir,
+            fv["version"], fv["rulesVersion"]
+        )
+    if has_error:
+        sys.stderr.write("At least one rule file has errors.\n")
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
-has_error = False
-for fv in falco_profile["spec"]["versions"]["falco"]:
-    has_error |= validate_rules(falco_profile, rules_dir, fv["version"], fv["rulesVersion"])
 
-if has_error:
-    sys.stderr.write("At least one rule file has errors.\n")
-    sys.exit(1)
-else:
-    sys.exit(0)
+if __name__ == "__main__":
+    ci_init()
+    main()

@@ -52,6 +52,11 @@ type customRulesFile struct {
 	Content  string `json:"content"`
 }
 
+type customRuleRef struct {
+	RefName       string
+	ConfigMapName string
+}
+
 func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, profile *profile.FalcoProfileManager) *ConfigBuilder {
 	return &ConfigBuilder{
 		client:      client,
@@ -110,7 +115,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
 		falcosidekickConfig["config"].(map[string]interface{})["loki"] = loki
-
 	case "central":
 		// Gardener managed event store
 		ingestorAddress := c.config.Falco.IngestorURL
@@ -130,7 +134,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
 		falcosidekickConfig["config"].(map[string]interface{})["webhook"] = webhook
-
 	case "custom":
 		// user has defined a custom location, we just pass it
 		customWebhook := falcoServiceConfig.Output.CustomWebhook
@@ -519,7 +522,7 @@ func serializeCustomHeaders(customHeadersMap map[string]string) string {
 	return customHeaders[:len(customHeaders)-1]
 }
 
-func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]string, error) {
+func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRuleRef, error) {
 	if len(falcoServiceConfig.Gardener.CustomRules) == 0 {
 		// no custom rules to apply
 		return nil, nil
@@ -530,10 +533,14 @@ func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoSer
 			allConfigMaps[r.Name] = r.ResourceRef.Name
 		}
 	}
-	selectedConfigMaps := make(map[string]string)
+	var selectedConfigMaps []customRuleRef
 	for _, customRule := range falcoServiceConfig.Gardener.CustomRules {
 		if configMapName, ok := allConfigMaps[customRule]; ok {
-			selectedConfigMaps[customRule] = configMapName
+			cr := customRuleRef{
+				RefName:       customRule,
+				ConfigMapName: configMapName,
+			}
+			selectedConfigMaps = append(selectedConfigMaps, cr)
 		} else {
 			return nil, fmt.Errorf("no resource for custom rule reference %s found", customRule)
 		}
@@ -549,79 +556,81 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 	return c.loadRuleConfig(ctx, log, namespace, selectedConfigMaps)
 }
 
-func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps map[string]string) ([]customRulesFile, error) {
-	ruleFilesData := make(map[string]string)
-	ruleFilesBinaryData := make(map[string][]byte)
-	for ruleRef, configMapName := range selectedConfigMaps {
-		log.Info("loading custom rule", "ruleRef", ruleRef, "configMapName", configMapName)
-		configMap := corev1.ConfigMap{}
-		refConfigMapName := "ref-" + configMapName
-		err := c.client.Get(ctx,
-			client.ObjectKey{
-				Namespace: namespace,
-				Name:      refConfigMapName},
-			&configMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get custom rule configmap %s (resource %s): %w", refConfigMapName, ruleRef, err)
-		}
-		for name, file := range configMap.Data {
-			if !strings.HasSuffix(name, ".yaml") {
-				return nil, fmt.Errorf("rule file %s is not a yaml file", name)
-			}
-			if _, ok := ruleFilesData[name]; ok {
-				return nil, fmt.Errorf("duplicate rule file %s", name)
-			}
-			ruleFilesData[name] = file
-		}
+// load rule files from named configmap and retrun them in alphanumeric order
+// based on the filename
+func (c *ConfigBuilder) loadRulesFromConfigmap(ctx context.Context, log logr.Logger, ruleFilenames map[string]bool, namespace string, configmapName string) ([]customRulesFile, error) {
 
-		for name, file := range configMap.BinaryData {
-			if !strings.HasSuffix(name, ".yaml.gz") {
-				return nil, fmt.Errorf("rule file %s is not a gzipped yaml file", name)
-			}
-			if _, ok := ruleFilesBinaryData[name]; ok {
-				return nil, fmt.Errorf("duplicate rule file %s", name)
-			}
-			ruleFilesBinaryData[name] = file
-		}
+	var files []customRulesFile
+	refConfigMapName := "ref-" + configmapName
+	log.Info("loading custom rule configmap", "ruleRef", refConfigMapName, "configMapName", configmapName)
+	configMap := corev1.ConfigMap{}
+	err := c.client.Get(ctx,
+		client.ObjectKey{
+			Namespace: namespace,
+			Name:      refConfigMapName},
+		&configMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get custom rule configmap %s: %w", refConfigMapName, err)
 	}
-	return extractRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
-}
-
-func extractRulesFromRulesFiles(ruleFilesData map[string]string, ruleFilesBinaryData map[string][]byte) ([]customRulesFile, error) {
-	rules := make([]customRulesFile, 0)
-	for name, content := range ruleFilesData {
-		if err := validateYaml(content); err != nil {
-			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
+	if len(configMap.Data)+len(configMap.BinaryData) > constants.MaxCustomRulesFilesPerConfigMap {
+		return nil, fmt.Errorf("too many custom rule files in configmap \"%s\"", refConfigMapName)
+	}
+	for name, file := range configMap.Data {
+		if !strings.HasSuffix(name, ".yaml") {
+			return nil, fmt.Errorf("rule file %s is not a yaml file", name)
 		}
-
-		rules = append(rules, customRulesFile{
+		if _, ok := ruleFilenames[name]; ok {
+			return nil, fmt.Errorf("duplicate rule file %s", name)
+		}
+		if err := validateYaml(file); err != nil {
+			return nil, fmt.Errorf("rule file %s of configmap %s is not valid yaml: %v", name, configmapName, err)
+		}
+		ruleFilenames[name] = true
+		files = append(files, customRulesFile{
 			Filename: name,
-			Content:  content,
+			Content:  file,
 		})
 	}
-
-	for name, content := range ruleFilesBinaryData {
-		rawData, err := decompressRulesFile(content)
+	for name, file := range configMap.BinaryData {
+		if !strings.HasSuffix(name, ".yaml.gz") {
+			return nil, fmt.Errorf("rule file %s of configmap %s is not a gzipped yaml file", name, configmapName)
+		}
+		nogzName := name[:len(name)-3]
+		if _, ok := ruleFilenames[nogzName]; ok {
+			return nil, fmt.Errorf("duplicate rule file %s", name)
+		}
+		rawData, err := decompressRulesFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decompress rule file %s: %v", name, err)
 		}
-
-		name = strings.TrimSuffix(name, ".gz")
-
 		if err := validateYaml(rawData); err != nil {
-			return nil, fmt.Errorf("rule file %s is not valid yaml: %v", name, err)
+			return nil, fmt.Errorf("rule file %s of configmap %s is not valid yaml: %v", name, configmapName, err)
 		}
-
-		rules = append(rules, customRulesFile{
-			Filename: name,
+		ruleFilenames[nogzName] = true
+		files = append(files, customRulesFile{
+			Filename: nogzName,
 			Content:  rawData,
 		})
 	}
-
-	slices.SortFunc(rules, func(a, b customRulesFile) int {
+	slices.SortFunc(files, func(a, b customRulesFile) int {
 		return strings.Compare(a.Filename, b.Filename)
 	})
-	return rules, nil
+	return files, nil
+}
+
+func (c *ConfigBuilder) loadRuleConfig(ctx context.Context, log logr.Logger, namespace string, selectedConfigMaps []customRuleRef) ([]customRulesFile, error) {
+	ruleFilenames := map[string]bool{}
+	var customRules []customRulesFile
+
+	for _, crf := range selectedConfigMaps {
+		configMapName := crf.ConfigMapName
+		crf, err := c.loadRulesFromConfigmap(ctx, log, ruleFilenames, namespace, configMapName)
+		if err != nil {
+			return nil, err
+		}
+		customRules = append(customRules, crf...)
+	}
+	return customRules, nil
 }
 
 func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string) (string, error) {

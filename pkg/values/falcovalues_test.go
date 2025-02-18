@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -57,6 +58,28 @@ var (
 		},
 		Output: &service.Output{
 			EventCollector: stringValue("central"),
+		},
+	}
+	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Resources:    stringValue("gardener"),
+		Gardener: &service.Gardener{
+			UseFalcoRules: boolValue(true),
+			CustomRules:   []string{"rulesm2", "rulesm3", "rulesm1"},
+		},
+		Output: &service.Output{
+			EventCollector: stringValue("central"),
+		},
+	}
+	shootExtensionTooManyCustomRuleFiles = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Resources:    stringValue("gardener"),
+		Gardener: &service.Gardener{
+			UseFalcoRules: boolValue(true),
+			CustomRules:   []string{"too-many-rule-files"},
+		},
+		Output: &service.Output{
+			EventCollector: stringValue("cluster"),
 		},
 	}
 	shootExtensionFalcoctl = &service.FalcoServiceConfig{
@@ -153,6 +176,38 @@ var (
 							APIVersion: "v1",
 						},
 					},
+					{
+						Name: "rulesm2",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "ConfigMap",
+							Name:       "rulesm2",
+							APIVersion: "v1",
+						},
+					},
+					{
+						Name: "rulesm3",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "ConfigMap",
+							Name:       "arulesm3",
+							APIVersion: "v1",
+						},
+					},
+					{
+						Name: "rulesm1",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "ConfigMap",
+							Name:       "rulesm1",
+							APIVersion: "v1",
+						},
+					},
+					{
+						Name: "too-many-rule-files",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "ConfigMap",
+							Name:       "too-many-rule-files",
+							APIVersion: "v1",
+						},
+					},
 				},
 			},
 			Status: gardencorev1beta1.ShootStatus{
@@ -234,9 +289,126 @@ var (
 					"dummyrules-other.yaml": "# dummy rules 3",
 				},
 			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-rulesm1",
+				},
+				Data: map[string]string{
+					"dummyrulesm1-1.yaml": "# dummy rules m1-1",
+					"dummyrulesm1-2.yaml": "# dummy rules m1-2",
+					"a-rules.yaml":        "# dummy rules m1-3",
+					"1-rules.yaml":        "# dummy rules m1-4",
+				},
+				BinaryData: map[string][]byte{
+					"edummyrulesm1-3.yaml.gz": decode("H4sICH1rs2cAA3J1bGVjLnlhbWwAU1ZIzs8tKEotLk5NUSgqzUlVMOQCABv4YJ8UAAAA"),
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-rulesm2",
+				},
+				Data: map[string]string{
+					"brules-m2-1.yaml":    "# dummy rules m2-1",
+					"dummyrulesm2.2.yaml": "# dummy rules 2",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-arulesm3",
+				},
+				Data: map[string]string{
+					"dummyrulesm3-1.yaml":  "# dummy rules m3-1",
+					"zdummyrulesm3-2.yaml": "# dummy rules m3-2",
+					"adummyrulesm3-3.yaml": "# dummy rules m3-3",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-too-many-rule-files",
+				},
+				Data: map[string]string{
+					"rules1.yaml":  "dummy rules 1",
+					"rules2.yaml":  "dummy rules 2",
+					"rules3.yaml":  "dummy rules 3",
+					"rules4.yaml":  "dummy rules 4",
+					"rules5.yaml":  "dummy rules 5",
+					"rules6.yaml":  "dummy rules 6",
+					"rules7.yaml":  "dummy rules 7",
+					"rules8.yaml":  "dummy rules 8",
+					"rules9.yaml":  "dummy rules 9",
+					"rules10.yaml": "dummy rules 10",
+					"rules11.yaml": "dummy rules 11",
+					"rules12.yaml": "dummy rules 12",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-test1",
+				},
+				Data: map[string]string{
+					"rule1.yaml": "valid_yaml_content_1",
+					"rule2.yaml": "valid_yaml_content_2",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-invalidgzip",
+				},
+				BinaryData: map[string][]byte{
+					"broken.yaml.gz": []byte("this is not gzipped"),
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-correctyamlingzip",
+				},
+				BinaryData: map[string][]byte{
+					"correct-yaml-in.gip.yaml.gz": zip(`
+key1:
+
+			subkey1: value1
+			subkey2: value2`),
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-brokenyamlingzip",
+				},
+				BinaryData: map[string][]byte{
+					"broken-yaml-in.gip.yaml.gz": zip(`
+key1:
+
+			 subkey1: value1
+			subkey2: value2  # Incorrect indentation`),
+				},
+			},
 		},
 	}
 )
+
+func decode(encoded string) []byte {
+	data, _ := base64.StdEncoding.DecodeString(encoded)
+	return data
+}
+
+func zip(data string) []byte {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	_, err := gz.Write([]byte(data))
+	if err != nil {
+		fmt.Println(err)
+	}
+	gz.Close()
+	return buf.Bytes()
+}
 
 var _ = Describe("Test value generation for helm chart", Label("falcovalues"), func() {
 
@@ -252,8 +424,8 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		res, err := configBuilder.extractCustomRules(shootSpec, falcoServiceConfig)
 		Expect(err).To(BeNil())
 		Expect(len(res)).To(Equal(2))
-		Expect(res).To(HaveKey("rules1"))
-		Expect(res).To(HaveKey("rules3"))
+		Expect(res[0].RefName).To(Equal("rules1"))
+		Expect(res[1].RefName).To(Equal("rules3"))
 
 		_, err = configBuilder.extractCustomRules(shootSpec, falcoServiceConfigBad)
 		Expect(err).NotTo(BeNil())
@@ -262,18 +434,30 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	It("Test loading rules from configmap", func(ctx SpecContext) {
 		err := configBuilder.client.Get(context.TODO(), client.ObjectKey{Namespace: "shoot--test--foo", Name: "ref-rules1"}, &corev1.ConfigMap{})
 		Expect(err).To(BeNil())
-		selectedConfigs := map[string]string{
-			"rules1": "rules1",
-			"rules2": "rules2",
+		selectedConfigs := []customRuleRef{
+			{
+				RefName:       "rules1",
+				ConfigMapName: "rules1",
+			},
+			{
+				RefName:       "rules2",
+				ConfigMapName: "rules2",
+			},
 		}
 		res, err := configBuilder.loadRuleConfig(context.TODO(), logger, "shoot--test--foo", selectedConfigs)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("duplicate rule file dummyrules.yaml"))
 		Expect(res).To(BeNil())
 
-		selectedConfigs = map[string]string{
-			"rules1": "rules1",
-			"rules3": "rules3",
+		selectedConfigs = []customRuleRef{
+			{
+				RefName:       "rules1",
+				ConfigMapName: "rules1",
+			},
+			{
+				RefName:       "rules3",
+				ConfigMapName: "rules3",
+			},
 		}
 		res, err = configBuilder.loadRuleConfig(context.TODO(), logger, "shoot--test--foo", selectedConfigs)
 		Expect(err).To(BeNil())
@@ -294,6 +478,52 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(res).To(ContainElement(cr2))
 		Expect(res).NotTo(ContainElement(cr3))
 
+	})
+
+	It("Test loading many rules from configmap preserving order", func(ctx SpecContext) {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionManyCustomRules)
+		Expect(err).To(BeNil())
+		js, err := json.MarshalIndent((values), "", "    ")
+		Expect(err).To(BeNil())
+		Expect(len(js)).To(BeNumerically(">", 100))
+		cr := values["customRules"].([]customRulesFile)
+		Expect(len(cr)).To(Equal(10))
+		Expect(cr[0].Filename).To(Equal("brules-m2-1.yaml"))
+		Expect(cr[0].Content).To(Equal("# dummy rules m2-1"))
+		Expect(cr[1].Filename).To(Equal("dummyrulesm2.2.yaml"))
+		Expect(cr[1].Content).To(Equal("# dummy rules 2"))
+
+		Expect(cr[2].Filename).To(Equal("adummyrulesm3-3.yaml"))
+		Expect(cr[2].Content).To(Equal("# dummy rules m3-3"))
+		Expect(cr[3].Filename).To(Equal("dummyrulesm3-1.yaml"))
+		Expect(cr[3].Content).To(Equal("# dummy rules m3-1"))
+		Expect(cr[4].Filename).To(Equal("zdummyrulesm3-2.yaml"))
+		Expect(cr[4].Content).To(Equal("# dummy rules m3-2"))
+
+		Expect(cr[5].Filename).To(Equal("1-rules.yaml"))
+		Expect(cr[5].Content).To(Equal("# dummy rules m1-4"))
+		Expect(cr[6].Filename).To(Equal("a-rules.yaml"))
+		Expect(cr[6].Content).To(Equal("# dummy rules m1-3"))
+		Expect(cr[7].Filename).To(Equal("dummyrulesm1-1.yaml"))
+		Expect(cr[7].Content).To(Equal("# dummy rules m1-1"))
+		Expect(cr[8].Filename).To(Equal("dummyrulesm1-2.yaml"))
+		Expect(cr[8].Content).To(Equal("# dummy rules m1-2"))
+		Expect(cr[9].Filename).To(Equal("edummyrulesm1-3.yaml"))
+		Expect(cr[9].Content).To(Equal("# compressed rule 1\n"))
+
+		frules := values["falcoRules"].(string)
+		Expect(len(frules)).To(BeNumerically(">", 1000))
+		_, ok := values["falcoIncubatingRules"]
+		Expect(ok).To(BeFalse())
+		_, ok = values["falcoSandboxRules"]
+		Expect(ok).To(BeFalse())
+
+	})
+
+	It("Test configmap with too many rule files", func(ctx SpecContext) {
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionTooManyCustomRuleFiles)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(Equal("too many custom rule files in configmap \"ref-too-many-rule-files\""))
 	})
 
 	It("Test custom webhook functionality", func(ctx SpecContext) {
@@ -559,13 +789,19 @@ var falcoRuleYaml = `
 `
 
 var _ = Describe("loadRulesFromRulesFiles", func() {
-	It("should load rules from valid rule files", func() {
-		ruleFilesData := map[string]string{
-			"rule1.yaml": "valid_yaml_content_1",
-			"rule2.yaml": "valid_yaml_content_2",
-		}
 
-		rules, err := extractRulesFromRulesFiles(ruleFilesData, nil)
+	BeforeEach(func() {
+		fakeclient := crfake.NewFakeClient(rulesConfigMap)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+		Expect(err).To(BeNil())
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+	})
+
+	It("should load rules from valid rule files", func() {
+
+		rf := map[string]bool{}
+		rules, err := configBuilder.loadRulesFromConfigmap(context.TODO(), logger, rf, "shoot--test--foo", "test1")
 		Expect(err).To(BeNil())
 		Expect(len(rules)).To(Equal(2))
 		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
@@ -574,87 +810,23 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		Expect(rules[1].Content).To(Equal("valid_yaml_content_2"))
 	})
 
-	It("should decompress gzip content", func() {
-		// Create a gzip compressed content
-		var buf bytes.Buffer
-		gz := gzip.NewWriter(&buf)
-		_, err := gz.Write([]byte(falcoRuleYaml))
-		Expect(err).To(BeNil())
-		gz.Close()
-
-		ruleFilesBinaryData := map[string][]byte{
-			"rule1.yaml.gz": buf.Bytes(),
-		}
-
-		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
-		Expect(err).To(BeNil())
-		Expect(len(rules)).To(Equal(1))
-		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
-		Expect(rules[0].Content).To(Equal(falcoRuleYaml))
-	})
-
 	It("should return an error for invalid gzip content", func() {
-		invalidGzipContent := []byte("invalid_gzip_content")
 
-		ruleFilesBinaryData := map[string][]byte{
-			"rule1.yaml.gz": invalidGzipContent,
-		}
-
-		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
+		rf := map[string]bool{}
+		rules, err := configBuilder.loadRulesFromConfigmap(context.TODO(), logger, rf, "shoot--test--foo", "invalidgzip")
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("failed to decompress rule file"))
 		Expect(rules).To(BeNil())
 	})
 
 	It("should return an error for gzipped content that fails YAML validation", func() {
-		invalidYaml := `
-key1:
-  subkey1: value1
- subkey2: value2  # Incorrect indentation
-`
-		// Create a gzip compressed content
-		var buf bytes.Buffer
-		gz := gzip.NewWriter(&buf)
-		_, err := gz.Write([]byte(invalidYaml))
-		Expect(err).To(BeNil())
-		gz.Close()
 
-		ruleFilesBinaryData := map[string][]byte{
-			"rule1.yaml.gz": buf.Bytes(),
-		}
+		rf := map[string]bool{}
+		rules, err := configBuilder.loadRulesFromConfigmap(context.TODO(), logger, rf, "shoot--test--foo", "brokenyamlingzip")
 
-		rules, err := extractRulesFromRulesFiles(nil, ruleFilesBinaryData)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("rule file rule1.yaml is not valid yaml"))
+		Expect(err.Error()).To(ContainSubstring("rule file broken-yaml-in.gip.yaml.gz of configmap brokenyamlingzip is not valid yaml: data is not in valid yaml format: yaml: line 4: found character that cannot start any token"))
 		Expect(rules).To(BeNil())
-	})
-
-	It("should load and sort rules from mixed valid rule files and gzipped content", func() {
-		// Create a gzip compressed content for rule2.yaml.gz
-		var buf bytes.Buffer
-		gz := gzip.NewWriter(&buf)
-		_, err := gz.Write([]byte(falcoRuleYaml))
-		Expect(err).To(BeNil())
-		gz.Close()
-
-		ruleFilesData := map[string]string{
-			"rule3.yaml": "valid_yaml_content_3",
-			"rule1.yaml": "valid_yaml_content_1",
-		}
-
-		ruleFilesBinaryData := map[string][]byte{
-			"rule2.yaml.gz": buf.Bytes(),
-		}
-
-		rules, err := extractRulesFromRulesFiles(ruleFilesData, ruleFilesBinaryData)
-		Expect(err).To(BeNil())
-		Expect(len(rules)).To(Equal(3))
-		Expect(rules[0].Filename).To(Equal("rule1.yaml"))
-		Expect(rules[0].Content).To(Equal("valid_yaml_content_1"))
-		Expect(rules[1].Filename).To(Equal("rule2.yaml"))
-		Expect(rules[1].Content).To(Equal(falcoRuleYaml))
-		Expect(rules[2].Filename).To(Equal("rule3.yaml"))
-		Expect(rules[2].Content).To(Equal("valid_yaml_content_3"))
 	})
 })
 
