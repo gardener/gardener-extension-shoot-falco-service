@@ -402,7 +402,10 @@ func decode(encoded string) []byte {
 func zip(data string) []byte {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
-	gz.Write([]byte(data))
+	_, err := gz.Write([]byte(data))
+	if err != nil {
+		fmt.Println(err)
+	}
 	gz.Close()
 	return buf.Bytes()
 }
