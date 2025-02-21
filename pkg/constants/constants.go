@@ -57,6 +57,9 @@ const (
 	CustomRulesMaxSize = 1048576 // 1 << 20 == 1MiB
 
 	ProjectEnableAnnotation = "falco.gardener.cloud/enabled"
+
+	// limit the number of rule files with custom rules per config map
+	MaxCustomRulesFilesPerConfigMap = 10
 )
 
 var (
