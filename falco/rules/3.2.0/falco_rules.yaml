@@ -1260,3 +1260,9 @@
 - macro: allowed_clear_log_files
   condition: >
     proc.exepath = /opt/bin/valitail or fd.name=/var/log/positions.yaml-new
+
+# exception for dynatrace
+- list: known_ptrace_binaries
+  items: [oneagenthelper]
+  override:
+    items: append
