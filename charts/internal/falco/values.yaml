@@ -78,7 +78,8 @@ podSecurityContext: {}
 #      - SYS_PTRACE
 #
 # -- Set securityContext for the Falco container.For more info see the "falco.securityContext" helper in "pod-template.tpl"
-containerSecurityContext: {}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
 
 scc:
   # -- Create OpenShift's Security Context Constraint.
