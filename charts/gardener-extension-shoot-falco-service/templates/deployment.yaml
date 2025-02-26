@@ -85,6 +85,8 @@ spec:
         resources:
 {{ toYaml .Values.resources | trim | indent 10 }}
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: extension-shoot-falco-service-config
           mountPath: /etc/extension-config

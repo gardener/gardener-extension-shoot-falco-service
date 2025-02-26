@@ -1390,7 +1390,8 @@ falcosidekick:
   fsGroup: 1234
 
   # -- Sidekick container securityContext
-  securityContext: {}
+  securityContext:
+    allowPrivilegeEscalation: false
 
   # One or more secrets to be used when pulling images
   # -- Secrets for the registry
