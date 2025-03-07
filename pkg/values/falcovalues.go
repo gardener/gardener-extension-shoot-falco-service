@@ -90,10 +90,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		return nil, err
 	}
 
-	customFieldsMap := map[string]string{
+	customFields := map[string]string{
 		"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
 	}
-	customFields := serializeCustomHeaders(customFieldsMap)
 
 	var falcosidekickConfig map[string]interface{}
 	var enableFalcoHttpOutput bool = true
@@ -111,6 +110,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"endpoint":  "/vali/api/v1/push",
 			"format":    "json",
 			"checkcert": false,
+			"customheaders": map[string]string{
+				"Authorization": "Bearer LOKI_TOKEN",
+			},
 		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
@@ -121,11 +123,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 		// ok to generate new token on each reconcile
 		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
-		customHeadersMap := map[string]string{
+		customHeaders := map[string]string{
 			"Authorization": "Bearer " + token,
 		}
 
-		customHeaders := serializeCustomHeaders(customHeadersMap)
+		// customHeaders := serializeCustomHeaders(customHeadersMap)
 		webhook := map[string]interface{}{
 			"address":       ingestorAddress,
 			"customheaders": customHeaders,
@@ -240,7 +242,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	return falcoChartValues, nil
 }
 
-func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates, customFields string) map[string]interface{} {
+func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates, customFields map[string]string) map[string]interface{} {
 	return map[string]interface{}{
 		"podLabels": map[string]string{
 			"networking.gardener.cloud/to-dns":             "allowed",

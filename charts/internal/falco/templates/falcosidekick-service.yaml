@@ -22,7 +22,7 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
-    {{- if not (eq .Values.falcosidekick.config.tlsserver.notlspaths "") }}
+    {{- if gt (len .Values.falcosidekick.config.tlsserver.notlspaths) 0 }}
     - port: {{ .Values.falcosidekick.config.tlsserver.notlsport }}
       targetPort: http-notls
       protocol: TCP

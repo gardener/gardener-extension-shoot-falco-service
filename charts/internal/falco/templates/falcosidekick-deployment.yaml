@@ -49,6 +49,25 @@ spec:
       securityContext:
       {{- toYaml .Values.falcosidekick.podSecurityContext | nindent 8}}
       {{- end }}
+      {{- if .Values.falcosidekick.config.loki.hostport }}
+      initContainers:
+        - name: configure
+          image: {{ .Values.falcosidekick.image.image }}
+          command:
+            - sh
+          args:
+            - -c
+            - awk 'BEGIN{getline l < "/etc/falcosidekick-token/token"}/TOK/{gsub("LOKI_TOKEN",l)}1' /etc/falcosidekick-config-template/config.yaml > /etc/falcosidekick/config.yaml
+          volumeMounts:
+            - mountPath: /etc/falcosidekick-config-template
+              name: falcosidekick-secrets
+            - mountPath: /etc/falcosidekick-token
+              name: loki-token
+            - mountPath: /etc/falcosidekick
+              name: secrets-init-volume
+          securityContext:
+            allowPrivilegeEscalation: false
+      {{- end }}
       containers:
         - name: falcosidekick
           {{- if ne .Values.falcosidekick.image.image "" }}
@@ -90,73 +109,26 @@ spec:
           securityContext:
           {{- toYaml .Values.falcosidekick.securityContext | nindent 12 }}
           {{- end }}
-          {{- if .Values.falcosidekick.config.extraArgs }}
           args:
+          - --config-file=/etc/falcosidekick/config.yaml
+          {{- if .Values.falcosidekick.config.extraArgs }}
           {{ toYaml .Values.falcosidekick.config.extraArgs | nindent 12 }}
           {{- end }}
-          envFrom:
-            - secretRef:
-                {{- if .Values.falcosidekick.config.existingSecret }}
-                name: {{ .Values.falcosidekick.config.existingSecret }}
-                {{- else }}
-                name: falcosidekick
-                {{- end }}
-
+          {{- if .Values.falcosidekick.config.extraEnv }}
           env:
-            - name: DEBUG
-              value: {{ .Values.falcosidekick.config.debug | quote }}
-            - name: CUSTOMFIELDS
-              value: {{ .Values.falcosidekick.config.customfields | quote }}
-            - name: TEMPLATEDFIELDS
-              value: {{ .Values.falcosidekick.config.templatedfields | quote }}
-            - name: BRACKETREPLACER
-              value: {{ .Values.falcosidekick.config.bracketreplacer | quote }}
-            - name: MUTUALTLSFILESPATH
-              value: {{ .Values.falcosidekick.config.mutualtlsfilespath | quote }}
-            - name: MUTUALTLSCLIENT_CERTFILE
-              value: {{ .Values.falcosidekick.config.mutualtlsclient.certfile | quote }}
-            - name: MUTUALTLSCLIENT_KEYFILE
-              value: {{ .Values.falcosidekick.config.mutualtlsclient.keyfile | quote }}
-            - name: MUTUALTLSCLIENT_CACERTFILE
-              value: {{ .Values.falcosidekick.config.mutualtlsclient.cacertfile | quote }}
-            - name: TLSSERVER_DEPLOY
-              value: {{ .Values.falcosidekick.config.tlsserver.deploy | quote }}
-            - name: TLSSERVER_CERTFILE
-              value: {{ .Values.falcosidekick.config.tlsserver.certfile | quote }}
-            - name: TLSSERVER_KEYFILE
-              value: {{ .Values.falcosidekick.config.tlsserver.keyfile | quote }}
-            - name: TLSSERVER_CACERTFILE
-              value: {{ .Values.falcosidekick.config.tlsserver.cacertfile | quote }}
-            - name: TLSSERVER_MUTUALTLS
-              value: {{ .Values.falcosidekick.config.tlsserver.mutualtls | quote }}
-            - name: TLSSERVER_NOTLSPORT
-              value: {{ .Values.falcosidekick.config.tlsserver.notlsport | quote }}
-            - name: TLSSERVER_NOTLSPATHS
-              value: {{ .Values.falcosidekick.config.tlsserver.notlspaths | quote }}
-            {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "cluster" }}
-            - name: SERVICE_ACCOUNT_TOKEN 
-              valueFrom:
-                secretKeyRef:
-                  name: gardener-falcosidekick
-                  key: token
-            - name: LOKI_CHECKCERT
-              value: {{ .Values.falcosidekick.config.loki.checkcert | quote }}
-            - name: LOKI_CUSTOMHEADERS
-              value: "Authorization:Bearer $(SERVICE_ACCOUNT_TOKEN)"
-            - name: LOKI_HOSTPORT
-              value: {{ .Values.falcosidekick.config.loki.hostport | quote }}
-            - name: LOKI_ENDPOINT
-              value: {{ .Values.falcosidekick.config.loki.endpoint | quote }}
-            - name: LOKI_FORMAT
-              value: {{ .Values.falcosidekick.config.loki.format | quote }}
-            {{- end }}
-            {{- if .Values.falcosidekick.config.extraEnv }}
-            {{ toYaml .Values.falcosidekick.config.extraEnv | nindent 12 }}
-            {{- end }}
+          {{ toYaml .Values.falcosidekick.config.extraEnv | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.falcosidekick.resources | nindent 12 }}
-        {{- if or .Values.falcosidekick.extraVolumeMounts (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt)) }}
           volumeMounts:
+            - mountPath: /etc/falcosidekick
+              {{- if .Values.falcosidekick.config.loki.hostport }}
+              name: secrets-init-volume
+              {{- else }}
+              name: falcosidekick-secrets
+              {{- end }}
+              readOnly: true
+          {{- if or .Values.falcosidekick.extraVolumeMounts (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt)) }}
         {{- if and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt) }}
             - mountPath: /etc/certs/server
               name: certs-volume
@@ -180,6 +152,13 @@ spec:
     {{- end }}
     {{- if or .Values.falcosidekick.extraVolumes (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.server_ca_crt)) }}
       volumes:
+        - name: secrets-init-volume
+          emptyDir:
+            medium: Memory
+        - name: falcosidekick-secrets
+          secret:
+            secretName: falcosidekick
+            readOnly: true
     {{- if and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt) }}
         - name: certs-volume
           secret:
@@ -188,6 +167,14 @@ spec:
             {{- else }}
             secretName: falcosidekick-certs
             {{- end }}
+    {{- end }}
+    {{- if .Values.falcosidekick.config.loki.hostport }}
+        - name: loki-token
+          secret:
+            secretName: gardener-falcosidekick
+            items:
+              - key: token
+                path: token
     {{- end }}
     {{- if or .Values.falcosidekick.extraVolumes }}
 {{ toYaml .Values.falcosidekick.extraVolumes | indent 8 }}

@@ -1482,11 +1482,11 @@ falcosidekick:
     # -- Extra command-line arguments
     extraArgs: []
     # -- DEBUG environment variable
-    debug: false
-    # -- a list of escaped comma separated custom fields to add to falco events, syntax is "key:value\,key:value"
-    customfields: ""
-    # -- a list of escaped comma separated Go templated fields to add to falco events, syntax is "key:template\,key:template"
-    templatedfields: ""
+    debug: true
+    # -- a map of custom fields to add to falco events, syntax is
+    customfields: {}
+    # -- a map of escaped Go templated fields to add to falco events
+    templatedfields: {}
     # -- if not empty, the brackets in keys of Output Fields are replaced
     bracketreplacer: ""
     # -- folder which will used to store client.crt, client.key and ca.crt files for mutual tls for outputs, will be deprecated in the future (default: "/etc/certs")
@@ -1522,7 +1522,10 @@ falcosidekick:
       # -- port to serve http server serving selected endpoints
       notlsport: 2810
       # -- a comma separated list of endpoints, if not empty, and tlsserver.deploy is true, a separate http server will be deployed for the specified endpoints (/ping endpoint needs to be notls for Kubernetes to be able to perform the healthchecks)
-      notlspaths: "/ping,/metrics,/healthz"
+      notlspaths:
+      - "/ping"
+      - "/metrics"
+      - "/healthz"
 
     loki:
       # -- Loki <http://host:port>, if not `empty`, Loki is *enabled*
@@ -1534,13 +1537,13 @@ falcosidekick:
       # -- API Key for Grafana Logs
       apikey: ""
       # -- Loki endpoint URL path, more info: <https://grafana.com/docs/loki/latest/api/#post-apiprompush>
-      endpoint: "/loki/api/v1/push"
+      endpoint: "/vali/api/v1/push"
       # -- Loki tenant, if not `empty`, Loki tenant is *enabled*
       tenant: ""
       # -- comma separated list of fields to use as labels additionally to rule, source, priority, tags and custom_fields
       extralabels: ""
-      # -- a list of comma separated custom headers to add, syntax is "key:value,key:value"
-      customheaders: ""
+      # -- a map of custom headers to add
+      customheaders: {}
       # -- minimum priority of event to use this output, order is `emergency\|alert\|critical\|error\|warning\|notice\|informational\|debug or ""`
       minimumpriority: ""
       # -- if true, checkcert flag will be ignored (server cert will always be checked)
@@ -1553,8 +1556,8 @@ falcosidekick:
       address: ""
       # -- HTTP method: POST or PUT
       method: "POST"
-      # -- a list of comma separated custom headers to add, syntax is "key:value\,key:value"
-      customheaders: ""
+      # -- a map of custom headers to add
+      customheaders: {}
       # -- minimum priority of event to use this output, order is `emergency\|alert\|critical\|error\|warning\|notice\|informational\|debug or ""`
       minimumpriority: ""
       # -- if true, checkcert flag will be ignored (server cert will always be checked)
