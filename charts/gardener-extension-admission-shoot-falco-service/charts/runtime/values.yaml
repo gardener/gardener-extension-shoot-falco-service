@@ -1,4 +1,8 @@
+# flag to restrict Falco usage to allowed projects
 restrictedUsage: false
+
+# allow project clusters to send events to central logging instance
+restrictedCentralizedLogging: true
 
 image:
   repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/admission-shoot-falco-service

@@ -64,6 +64,8 @@ start-admission:
 		--webhook-config-mode=$(WEBHOOK_CONFIG_MODE) \
 		--health-bind-address=:8082 \
 		--metrics-bind-address=:8083 \
+		--restricted-usage \
+		--restricted-centralized-logging \
         $(WEBHOOK_PARAM)
 
 #################################################################

@@ -45,6 +45,12 @@ spec:
         - --webhook-config-mode=service
         {{- end}}
         - --webhook-config-namespace={{ .Release.Namespace }}
+        {{- if .Values.restrictedUsage }}
+        - --restricted-usage
+        {{- end }}
+        {{- if .Values.restrictedCentralizedLogging }}
+        - --restricted-centralized-logging
+        {{- end }}
         {{- if .Values.kubeconfig }}
         - --kubeconfig=/etc/gardener-extension-admission-falco-falco-service/kubeconfig/kubeconfig
         {{- end }}

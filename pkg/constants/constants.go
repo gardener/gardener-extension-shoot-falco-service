@@ -56,17 +56,19 @@ const (
 
 	CustomRulesMaxSize = 1048576 // 1 << 20 == 1MiB
 
-	ProjectEnableAnnotation = "falco.gardener.cloud/enabled"
+	ProjectEnableAnnotation         = "falco.gardener.cloud/enabled"
+	ProjectCentralLoggingAnnotation = "falco.gardener.cloud/central-logging"
 
 	// limit the number of rule files with custom rules per config map
 	MaxCustomRulesFilesPerConfigMap = 10
 )
 
 var (
-	AlwaysEnabledProjects = []string{"garden"}
-	AllowedOutputs        = []string{"none", "cluster", "central", "custom"}
+	AlwaysEnabledProjects         = []string{"garden"}
+	CentralLoggingAllowedProjects = []string{"garden"}
+	AllowedOutputs                = []string{"none", "cluster", "central", "custom"}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventLogger)
-	DefaultEventLogger string = "central"
+	DefaultEventLogger string = "cluster"
 )
