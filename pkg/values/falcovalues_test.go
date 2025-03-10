@@ -651,8 +651,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(webhook).To(HaveKey("checkcert"))
 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
-		Expect(webhook["customheaders"].(string)).To(ContainSubstring("Bearer"))
-
+		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
 	})
 
 	It("Test values generation falcoctl", func(ctx SpecContext) {
@@ -712,7 +711,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(webhook).To(HaveKey("checkcert"))
 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
-		Expect(webhook["customheaders"].(string)).To(ContainSubstring("Bearer"))
+		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
 
 		// check falcoctl configuration
 		falcoCtlConfigmap := getManifest(release, "falco/templates/falcoctl-configmap.yaml")
