@@ -68,9 +68,17 @@ func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
 }
 
 func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
+
+	restrictedUsage := options.RestrictedUsage
+	// environment overwrites command line option
+	if val, exists := os.LookupEnv("RESTRICTED_USAGE"); exists {
+		if envOverwrite, err := strconv.ParseBool(val); err == nil {
+			restrictedUsage = envOverwrite
+		}
+	}
 	return &shoot{
 		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
-		restrictedUsage:          options.RestrictedUsage,
+		restrictedUsage:          restrictedUsage,
 		restrictedCentralLogging: options.RestrictedCentralizedLogging,
 	}
 }
@@ -109,12 +117,16 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 
 	oldFalcoConf, oldFalcoConfErr := s.extractFalcoConfig(oldShoot)
 
-	alphaUsage, err := strconv.ParseBool(os.Getenv("RESTRICTED_USAGE"))
-	if err == nil && alphaUsage {
+	if s.restrictedUsage {
 		if oldFalcoConfErr != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
 			if ok := verifyProjectEligibility(shoot.Namespace); !ok {
 				return fmt.Errorf("project is not eligible for Falco extension")
 			}
+		}
+	}
+	if s.restrictedCentralLogging && centralLoggingNewlyEnabled(falcoConf, oldFalcoConf) {
+		if ok := verifyProjectEligibilityForCentralLogging(shoot.Namespace); !ok {
+			return fmt.Errorf("project is not eligible for centralized logging")
 		}
 	}
 
@@ -308,4 +320,47 @@ func verifyProjectEligibility(namespace string) bool {
 		return false
 	}
 	return enabled
+}
+
+func verifyProjectEligibilityForCentralLogging(namespace string) bool {
+	project, ok := ProjectsInstance.projects[namespace]
+	if !ok {
+		return false
+	}
+
+	always := slices.Contains(constants.CentralLoggingAllowedProjects[:], project.Name)
+	if always {
+		return true
+	}
+
+	val, ok := project.Annotations[constants.ProjectCentralLoggingAnnotation]
+	if !ok {
+		return false
+	}
+
+	enabled, err := strconv.ParseBool(val)
+	if err != nil {
+		return false
+	}
+	return enabled
+}
+
+// returns true if central loggging was newly enabled or this is a new cluster
+func centralLoggingNewlyEnabled(falcoConfigNew, falcoConfigOld *service.FalcoServiceConfig) bool {
+
+	if falcoConfigNew.Output != nil && falcoConfigNew.Output.EventCollector != nil && *falcoConfigNew.Output.EventCollector == "central" {
+
+		if falcoConfigOld == nil {
+			// new cluster
+			return true
+		}
+		fmt.Println("----------------------------------------")
+		fmt.Println(*falcoConfigOld.Output.EventCollector)
+		if falcoConfigOld.Output != nil && falcoConfigOld.Output.EventCollector != nil && *falcoConfigOld.Output.EventCollector != "central" {
+			// cluster did exist but central logging was not enabled
+			fmt.Println("central logging was not enabled (but it now)")
+			return true
+		}
+	}
+	return false
 }
