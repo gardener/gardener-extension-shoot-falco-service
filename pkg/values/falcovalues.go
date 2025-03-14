@@ -159,8 +159,17 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				webhook["address"] = string(address)
 			}
 
+			if method, ok := secret.Data["method"]; ok {
+				webhook["method"] = string(method)
+			}
+
 			if customHeaders, ok := secret.Data["customheaders"]; ok {
-				webhook["customheaders"] = string(customHeaders)
+
+				customHeadersMap := map[string]string{}
+				if err := yaml.Unmarshal(customHeaders, &customHeadersMap); err != nil {
+					return nil, fmt.Errorf("failed to parse custom headers: %w", err)
+				}
+				webhook["customheaders"] = customHeadersMap
 			}
 
 			if checkcerts, ok := secret.Data["checkcerts"]; ok {
@@ -177,6 +186,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 			if customWebhook.Address != nil {
 				webhook["address"] = *customWebhook.Address
+			}
+
+			if customWebhook.Method != nil {
+				webhook["method"] = *customWebhook.Method
 			}
 
 			if customWebhook.CustomHeaders != nil {

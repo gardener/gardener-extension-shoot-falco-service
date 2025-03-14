@@ -150,7 +150,6 @@ test-cov:
 test-clean:
 	@bash $(GARDENER_HACK_DIR)/test-cover-clean.sh
 
-
 .PHONY: generate-profile
 generate-profile:
 	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml falco/falcoctlversions.yaml >falco/falco-profile.yaml
