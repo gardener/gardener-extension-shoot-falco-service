@@ -208,6 +208,14 @@ var (
 							APIVersion: "v1",
 						},
 					},
+					{
+						Name: "custom-webhook-secret",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "Secret",
+							Name:       "custom-webhook-secret-secret",
+							APIVersion: "v1",
+						},
+					},
 				},
 			},
 			Status: gardencorev1beta1.ShootStatus{
@@ -243,13 +251,29 @@ var (
 		Output: &apisservice.Output{
 			EventCollector: stringValue("custom"),
 			CustomWebhook: &apisservice.Webhook{
-				Enabled:       boolValue(true),
-				Address:       stringValue("https://webhook.example.com"),
-				CustomHeaders: stringValue("my-custom-headers"),
-				Checkcerts:    boolValue(true),
+				Enabled: boolValue(true),
+				Address: stringValue("https://webhook.example.com"),
+				CustomHeaders: &map[string]string{
+					"Authorization": "Bearer my-token",
+				},
+				Checkcerts: boolValue(true),
 			},
 		},
 	}
+	falcoServiceConfigCustomWebhookWithSecret = &apisservice.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Resources:    &resources,
+		Gardener: &apisservice.Gardener{
+			UseFalcoRules: boolValue(true),
+		},
+		Output: &apisservice.Output{
+			EventCollector: stringValue("custom"),
+			CustomWebhook: &apisservice.Webhook{
+				SecretRef: stringValue("custom-webhook-secret"),
+			},
+		},
+	}
+
 	falcoServiceConfigCluster = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    &resources,
@@ -258,6 +282,22 @@ var (
 		},
 		Output: &apisservice.Output{
 			EventCollector: stringValue("cluster"),
+		},
+	}
+	webhookSecrets = &corev1.SecretList{
+		Items: []corev1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-custom-webhook-secret-secret",
+				},
+				Data: map[string][]byte{
+					"address":   []byte("https://webhook.example.com"),
+					"checkcert": []byte("true"),
+					"customheaders": []byte(`
+Authorization: Bearer my-token`),
+				},
+			},
 		},
 	}
 	rulesConfigMap = &corev1.ConfigMapList{
@@ -413,7 +453,7 @@ func zip(data string) []byte {
 var _ = Describe("Test value generation for helm chart", Label("falcovalues"), func() {
 
 	BeforeEach(func() {
-		fakeclient := crfake.NewFakeClient(rulesConfigMap)
+		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
 		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
@@ -543,7 +583,26 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(webhook).To(HaveKey("checkcert"))
 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
-		Expect(webhook["customheaders"].(string)).To(Equal("my-custom-headers"))
+		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
+	})
+
+	It("Test custom webhook functionality with secret", func(ctx SpecContext) {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)
+		Expect(err).To(BeNil())
+		js, err := json.MarshalIndent((values), "", "    ")
+		Expect(err).To(BeNil())
+		Expect(len(js)).To(BeNumerically(">", 100))
+		// fmt.Println(string(js))
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+
+		Expect(config).To(HaveKey("webhook"))
+		webhook := config["webhook"].(map[string]interface{})
+		Expect(webhook).To(HaveKey("address"))
+		Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
+		Expect(webhook).To(HaveKey("customheaders"))
+		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {

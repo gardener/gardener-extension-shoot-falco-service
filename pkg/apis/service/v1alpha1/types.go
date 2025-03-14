@@ -87,10 +87,12 @@ type Gardener struct {
 }
 
 type Webhook struct {
-	Enabled       *bool   `json:"enabled,omitempty"`
-	Address       *string `json:"address,omitempty"`
-	CustomHeaders *string `json:"customHeaders,omitempty"`
-	Checkcerts    *bool   `json:"checkcerts,omitempty"`
+	Enabled       *bool              `json:"enabled,omitempty"`
+	Address       *string            `json:"address,omitempty"`
+	Method        *string            `json:"method,omitempty"`
+	CustomHeaders *map[string]string `json:"customHeaders,omitempty"`
+	Checkcerts    *bool              `json:"checkcerts,omitempty"`
+	SecretRef     *string            `json:"secretRef,omitempty"`
 }
 
 type Output struct {

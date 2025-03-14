@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
@@ -137,18 +138,73 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
 		falcosidekickConfig["config"].(map[string]interface{})["webhook"] = webhook
 	case "custom":
-		// user has defined a custom location, we just pass it
+		// User has defined a custom endpoint to receive Falco events
 		customWebhook := falcoServiceConfig.Output.CustomWebhook
-		webhook := map[string]interface{}{
-			"address": *customWebhook.Address,
+
+		if customWebhook == nil {
+			return nil, fmt.Errorf("custom webhook configuration is missing")
 		}
 
-		if customWebhook.CustomHeaders != nil {
-			webhook["customheaders"] = *customWebhook.CustomHeaders
+		webhook := map[string]interface{}{}
+
+		if customWebhook.SecretRef != nil {
+
+			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *customWebhook.SecretRef)
+
+			if err != nil {
+				return nil, err
+			}
+
+			if address, ok := secret.Data["address"]; ok {
+				webhook["address"] = string(address)
+			}
+
+			if method, ok := secret.Data["method"]; ok {
+				webhook["method"] = string(method)
+			}
+
+			if customHeaders, ok := secret.Data["customheaders"]; ok {
+
+				customHeadersMap := map[string]string{}
+				if err := yaml.Unmarshal(customHeaders, &customHeadersMap); err != nil {
+					return nil, fmt.Errorf("failed to parse custom headers: %w", err)
+				}
+				webhook["customheaders"] = customHeadersMap
+			}
+
+			if checkcerts, ok := secret.Data["checkcerts"]; ok {
+
+				checkcertsBool, err := strconv.ParseBool(string(checkcerts))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse checkcerts value: %w", err)
+				}
+				webhook["checkcert"] = checkcertsBool
+			} else {
+				webhook["checkcert"] = true
+			}
+		} else {
+
+			if customWebhook.Address != nil {
+				webhook["address"] = *customWebhook.Address
+			}
+
+			if customWebhook.Method != nil {
+				webhook["method"] = *customWebhook.Method
+			}
+
+			if customWebhook.CustomHeaders != nil {
+				webhook["customheaders"] = *customWebhook.CustomHeaders
+			}
+
+			if customWebhook.Checkcerts != nil {
+				webhook["checkcert"] = *customWebhook.Checkcerts
+			} else {
+				webhook["checkcert"] = true
+			}
 		}
 
-		if customWebhook.Checkcerts != nil {
-			webhook["checkcert"] = *customWebhook.Checkcerts
+		if webhook["address"] == nil {
+			return nil, fmt.Errorf("custom webhook address is missing")
 		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
@@ -556,6 +612,35 @@ func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, clu
 		return nil, err
 	}
 	return c.loadRuleConfig(ctx, log, namespace, selectedConfigMaps)
+}
+
+func (c *ConfigBuilder) loadCustomWebhookSecret(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, secretRefName string) (*corev1.Secret, error) {
+	secretName := ""
+	for _, ref := range cluster.Shoot.Spec.Resources {
+		if ref.ResourceRef.Kind == "Secret" && ref.ResourceRef.APIVersion == "v1" && ref.Name == secretRefName {
+			secretName = ref.ResourceRef.Name
+			break
+		}
+	}
+
+	if secretName == "" {
+		return nil, fmt.Errorf("custom webhook secretRef %s not found in resources", secretRefName)
+	}
+
+	customWebhookSecretName := "ref-" + secretName
+
+	secret := corev1.Secret{}
+	err := c.client.Get(ctx,
+		client.ObjectKey{
+			Namespace: namespace,
+			Name:      customWebhookSecretName,
+		},
+		&secret)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get custom webhook secretRef %s: %v", customWebhookSecretName, err)
+	}
+	return &secret, err
 }
 
 // load rule files from named configmap and retrun them in alphanumeric order

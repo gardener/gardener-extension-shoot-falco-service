@@ -87,8 +87,10 @@ type Gardener struct {
 type Webhook struct {
 	Enabled       *bool
 	Address       *string
-	CustomHeaders *string
+	Method        *string
+	CustomHeaders *map[string]string
 	Checkcerts    *bool
+	SecretRef     *string
 }
 
 type Output struct {

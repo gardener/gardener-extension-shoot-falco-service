@@ -173,9 +173,9 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 }
 
 func verifyWebhook(webhook *service.Webhook) error {
-	if webhook.Address == nil {
-		return fmt.Errorf("webhook address is not set")
-	}
+	// if webhook.Address == nil {
+	// 	return fmt.Errorf("webhook address is not set")
+	// }
 	return nil
 }
 
@@ -354,8 +354,6 @@ func centralLoggingNewlyEnabled(falcoConfigNew, falcoConfigOld *service.FalcoSer
 			// new cluster
 			return true
 		}
-		fmt.Println("----------------------------------------")
-		fmt.Println(*falcoConfigOld.Output.EventCollector)
 		if falcoConfigOld.Output != nil && falcoConfigOld.Output.EventCollector != nil && *falcoConfigOld.Output.EventCollector != "central" {
 			// cluster did exist but central logging was not enabled
 			fmt.Println("central logging was not enabled (but it now)")

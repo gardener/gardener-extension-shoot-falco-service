@@ -151,7 +151,10 @@ var (
 			"eventCollector":"custom",
 			"customWebhook": {
 				"address": "https://mywebhook.com",
-				"customHeaders": "a:b,c:d",
+				"customHeaders": {
+					"a": "b",
+					"c": "d"
+				},
 				"checkcerts": true
 			}
 		}
