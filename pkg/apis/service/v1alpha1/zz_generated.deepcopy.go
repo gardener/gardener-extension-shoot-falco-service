@@ -278,6 +278,11 @@ func (in *Webhook) DeepCopyInto(out *Webhook) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.SecretRef != nil {
+		in, out := &in.SecretRef, &out.SecretRef
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

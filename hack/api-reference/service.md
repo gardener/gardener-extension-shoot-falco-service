@@ -488,6 +488,16 @@ bool
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>secretRef</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <hr/>

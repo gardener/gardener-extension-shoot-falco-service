@@ -285,6 +285,7 @@ func autoConvert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.W
 	out.Address = (*string)(unsafe.Pointer(in.Address))
 	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
 	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
+	out.SecretRef = (*string)(unsafe.Pointer(in.SecretRef))
 	return nil
 }
 
@@ -298,6 +299,7 @@ func autoConvert_service_Webhook_To_v1alpha1_Webhook(in *service.Webhook, out *W
 	out.Address = (*string)(unsafe.Pointer(in.Address))
 	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
 	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
+	out.SecretRef = (*string)(unsafe.Pointer(in.SecretRef))
 	return nil
 }
 
