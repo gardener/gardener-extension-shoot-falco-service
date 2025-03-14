@@ -91,6 +91,7 @@ type Webhook struct {
 	Address       *string `json:"address,omitempty"`
 	CustomHeaders *string `json:"customHeaders,omitempty"`
 	Checkcerts    *bool   `json:"checkcerts,omitempty"`
+	SecretRef     *string `json:"secretRef,omitempty"`
 }
 
 type Output struct {

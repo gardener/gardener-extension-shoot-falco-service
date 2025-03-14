@@ -89,6 +89,7 @@ type Webhook struct {
 	Address       *string
 	CustomHeaders *string
 	Checkcerts    *bool
+	SecretRef     *string
 }
 
 type Output struct {
