@@ -173,9 +173,9 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 }
 
 func verifyWebhook(webhook *service.Webhook) error {
-	// if webhook.Address == nil {
-	// 	return fmt.Errorf("webhook address is not set")
-	// }
+	if webhook == nil {
+		return fmt.Errorf("custom webhook is not set")
+	}
 	return nil
 }
 
