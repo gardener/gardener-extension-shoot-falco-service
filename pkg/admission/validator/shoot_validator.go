@@ -172,13 +172,6 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func verifyWebhook(webhook *service.Webhook) error {
-	if webhook == nil {
-		return fmt.Errorf("custom webhook is not set")
-	}
-	return nil
-}
-
 func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 	output := falcoConf.Output
 	if output == nil {
@@ -191,8 +184,8 @@ func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 		if output.CustomWebhook == nil {
 			return fmt.Errorf("output.eventCollector is set to custom but customWebhook is not defined")
 		}
-		return verifyWebhook(falcoConf.Output.CustomWebhook)
 	}
+
 	if *output.EventCollector == "none" && !*output.LogFalcoEvents {
 		return fmt.Errorf("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated")
 	}
