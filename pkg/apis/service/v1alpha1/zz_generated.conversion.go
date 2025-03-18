@@ -283,8 +283,10 @@ func Convert_service_Output_To_v1alpha1_Output(in *service.Output, out *Output, 
 func autoConvert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webhook, s conversion.Scope) error {
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Address = (*string)(unsafe.Pointer(in.Address))
-	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
+	out.Method = (*string)(unsafe.Pointer(in.Method))
+	out.CustomHeaders = (*map[string]string)(unsafe.Pointer(in.CustomHeaders))
 	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
+	out.SecretRef = (*string)(unsafe.Pointer(in.SecretRef))
 	return nil
 }
 
@@ -296,8 +298,10 @@ func Convert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webho
 func autoConvert_service_Webhook_To_v1alpha1_Webhook(in *service.Webhook, out *Webhook, s conversion.Scope) error {
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Address = (*string)(unsafe.Pointer(in.Address))
-	out.CustomHeaders = (*string)(unsafe.Pointer(in.CustomHeaders))
+	out.Method = (*string)(unsafe.Pointer(in.Method))
+	out.CustomHeaders = (*map[string]string)(unsafe.Pointer(in.CustomHeaders))
 	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
+	out.SecretRef = (*string)(unsafe.Pointer(in.SecretRef))
 	return nil
 }
 

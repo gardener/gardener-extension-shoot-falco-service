@@ -268,14 +268,30 @@ func (in *Webhook) DeepCopyInto(out *Webhook) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.CustomHeaders != nil {
-		in, out := &in.CustomHeaders, &out.CustomHeaders
+	if in.Method != nil {
+		in, out := &in.Method, &out.Method
 		*out = new(string)
 		**out = **in
+	}
+	if in.CustomHeaders != nil {
+		in, out := &in.CustomHeaders, &out.CustomHeaders
+		*out = new(map[string]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string]string, len(*in))
+			for key, val := range *in {
+				(*out)[key] = val
+			}
+		}
 	}
 	if in.Checkcerts != nil {
 		in, out := &in.Checkcerts, &out.Checkcerts
 		*out = new(bool)
+		**out = **in
+	}
+	if in.SecretRef != nil {
+		in, out := &in.SecretRef, &out.SecretRef
+		*out = new(string)
 		**out = **in
 	}
 	return

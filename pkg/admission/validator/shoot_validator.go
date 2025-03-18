@@ -172,13 +172,6 @@ func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-func verifyWebhook(webhook *service.Webhook) error {
-	if webhook.Address == nil {
-		return fmt.Errorf("webhook address is not set")
-	}
-	return nil
-}
-
 func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 	output := falcoConf.Output
 	if output == nil {
@@ -191,8 +184,8 @@ func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 		if output.CustomWebhook == nil {
 			return fmt.Errorf("output.eventCollector is set to custom but customWebhook is not defined")
 		}
-		return verifyWebhook(falcoConf.Output.CustomWebhook)
 	}
+
 	if *output.EventCollector == "none" && !*output.LogFalcoEvents {
 		return fmt.Errorf("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated")
 	}
@@ -354,8 +347,6 @@ func centralLoggingNewlyEnabled(falcoConfigNew, falcoConfigOld *service.FalcoSer
 			// new cluster
 			return true
 		}
-		fmt.Println("----------------------------------------")
-		fmt.Println(*falcoConfigOld.Output.EventCollector)
 		if falcoConfigOld.Output != nil && falcoConfigOld.Output.EventCollector != nil && *falcoConfigOld.Output.EventCollector != "central" {
 			// cluster did exist but central logging was not enabled
 			fmt.Println("central logging was not enabled (but it now)")
