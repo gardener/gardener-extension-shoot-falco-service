@@ -40,7 +40,7 @@ spec:
     - classification: supported
       rulesVersion: 3.2.0
       version: 0.39.2
-    - classification: preview
+    - classification: supported
       rulesVersion: 3.2.0
       version: 0.40.0
     falcoctl:
