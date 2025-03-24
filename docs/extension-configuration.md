@@ -1,15 +1,14 @@
-
 # Gardener Falco Extension Configuration
 
 The Gardner Falco extension consists of an extension binary
-(gardener-extension-shoot-falco-service) as well as an admission binary
-(gardener-extension-admission-shoot-falco-service) which contains a 
+(`gardener-extension-shoot-falco-service`) as well as an admission binary
+(`gardener-extension-admission-shoot-falco-service`) which contains a
 mutating- and validating webhook as well as the maintenacne controller.
 
 ## The extension
 
-The extension binary takes one non-standard configuration parameter 
-`--config-file` whih points to a configuration yaml file as shown below:
+The extension binary uses a non-standard configuration parameter
+`--config-file` whih points to a configuration YAML file as shown below:
 
 ```
 apiVersion: falco.extensions.config.gardener.cloud/v1alpha1 
@@ -25,32 +24,29 @@ falco:
     ...
 ```
 
-* `certifcateLifetime`: the lifetime of generated certificates for the 
-communication between Falco and Falcosidekick.
-* `certificateRenewAfter`: time period after which certificates will be 
-renewed.
-* `priorityClassName`: priority class which will be used for Falco when deployed
-* `tokenLifetime`: on each reconcile the extension will generate a new JWT
-token with this lifetime for sending events to the central storage. 
-* `ingestorURL`: URL of the Falco event ingestor
-* `tokenIssuerPrivateKey`: private key used for issuing the JWT token
+* `certificateLifetime`: Lifetime of certificates generated for communication between Falco and Falcosidekick.
+* `certificateRenewAfter`: Time period after which certificates are renewed.
+* `priorityClassName`: Priority class used for Falco when deployed.
+* `tokenLifetime`: Lifetime of the JWT token generated during each reconcile for sending events to central storage.
+* `ingestorURL`: URL of the Falco event ingestor.
+* `tokenIssuerPrivateKey`: Private key used for issuing the JWT token.
 
 ## The webhook
 
 The webhook can be configured to enforce usage restrictions:
 
-- The extension may only deploy Falco in gardener projects annotated with 
+- The extension may only deploy Falco in gardener projects annotated with
 
-```
+```yaml
 falco.gardener.cloud/enabled=true
 ```
 
 - The "central" storage option may only be configured from shoot clusters if 
 their project is annotated with 
 
-```
+```yaml
 falco.gardener.cloud/centralized-logging=true
 ```
 
-The restrictions can be enabled by passing `--restricted-usage` and 
+The restrictions can be enabled by passing `--restricted-usage` and
 `--restricted-centralized-logging` to the webhook binary.
