@@ -1,12 +1,11 @@
 # Falco Profile
 
-Similar to the cloud profile there is a Falco profile resource in the 
-Garden cluster which lists available Falco versions and supporting 
-components such as Falcosidekick and falcoctl. The purpose of this resource is
-to maintain available version for the user as well as for the Gardener 
+Similar to the cloud profile, the Falco profile resource in the Garden
+cluster lists available Falco versions and supporting components such as Falcosidekick
+and Falcoctl. This resource helps manage available versions for users and the Gardener
 Falco extension.
 
-```
+```bash
 $ kubectl get falcoprofile falco -o yaml
 apiVersion: falco.gardener.cloud/v1alpha1
 kind: FalcoProfile
@@ -60,9 +59,9 @@ spec:
       version: 2.31.1
 ```
 
-Any of the non-expired Falco versions can be configured in the shoot manifest. 
-If no version is specified in the shoot manifest the latest Falco version 
+Any of the non-expired Falco versions can be configured in the shoot manifest.
+If no version is specified in the shoot manifest the latest Falco version
 tagged as "supported" will be used.
 
-The falcoctl and falcosidekick sections are used internally by the 
-extension to select a suitable version.
+The `falcoctl` and `falcosidekick` sections are used internally by the extension
+to select compatible versions.
