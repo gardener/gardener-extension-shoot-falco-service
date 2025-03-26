@@ -260,28 +260,48 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if err != nil {
 		return err
 	}
-	if falcoConf == nil {
-		return nil
+
+	if isEmptyFalcoConf(falcoConf) {
+		falcoConf = &service.FalcoServiceConfig{
+			StandardRules: &[]string{"falco-rules"},
+		}
 	}
 
 	if err = setFalcoVersion(falcoConf); err != nil {
 		return err
 	}
+	setAutoUpdate(falcoConf)
 
 	log := logr.New(nil)
 
-	c := "central"
-	falcoConf = migration.MigrateFalcoServiceConfig(log, falcoConf, &c)
+	if !migration.IsIssue215Migrated(falcoConf) {
 
-	s.mutateFalcoCtl(falcoConf)
-
-	setAutoUpdate(falcoConf)
-
-	setResources(falcoConf)
-
-	setOutput(falcoConf)
-
+		c := "central"
+		falcoConf = migration.MigrateFalcoServiceConfig(log, falcoConf, &c)
+		s.mutateFalcoCtl(falcoConf)
+		setResources(falcoConf)
+		setOutput(falcoConf)
+		migration.MigrateIssue215(log, falcoConf)
+	} else {
+		setEvents(falcoConf)
+	}
 	return s.UpdateFalcoConfig(new, falcoConf)
+}
+
+func isEmptyFalcoConf(falcoConf *service.FalcoServiceConfig) bool {
+	return falcoConf == nil ||
+		(falcoConf.FalcoVersion == nil && falcoConf.AutoUpdate == nil && falcoConf.Output == nil &&
+			falcoConf.Resources == nil && falcoConf.Gardener == nil && falcoConf.StandardRules == nil &&
+			falcoConf.CustomRules == nil && falcoConf.Events == nil)
+}
+
+func setEvents(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Events == nil {
+		events := service.Events{
+			Destinations: []string{"logging"},
+		}
+		falcoConf.Events = &events
+	}
 }
 
 // isDisabled returns true if extension is explicitly disabled.

@@ -43,6 +43,22 @@ type FalcoServiceConfig struct {
 	// Configuration for custom webhook
 	// +optional
 	CustomWebhook *Webhook `json:"webhook,omitempty"`
+
+	// -------------------------------------------------------------------
+	// added due to issue #215
+
+	// array of standard rules
+	StandardRules *[]string `json:"standardRules,omitempty"`
+
+	// array of custom rules
+	CustomRules *[]string `json:"customRules,omitempty"`
+
+	Events *Events `json:"events,omitempty"`
+}
+
+type Events struct {
+	Destinations []string `json:"destinations,omitempty"`
+	CustomConfig *string  `json:"customConfig,omitempty"`
 }
 
 type FalcoCtl struct {

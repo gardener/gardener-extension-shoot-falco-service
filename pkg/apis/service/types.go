@@ -41,6 +41,22 @@ type FalcoServiceConfig struct {
 	// Configuration for custom webhook
 	// +optional
 	CustomWebhook *Webhook
+
+	// -------------------------------------------------------------------
+	// added due to issue #215
+
+	// array of standard rules
+	StandardRules *[]string
+
+	// array of custom rules
+	CustomRules *[]string
+
+	Events *Events
+}
+
+type Events struct {
+	Destinations []string
+	CustomConfig *string
 }
 
 type FalcoCtl struct {

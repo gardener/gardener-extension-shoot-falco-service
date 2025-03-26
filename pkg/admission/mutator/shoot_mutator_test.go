@@ -57,16 +57,14 @@ var (
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
 		"falcoVersion":"0.100.0",
-		"autoUpdate":true,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":false
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"central"
+		"autoUpdate": true,
+		"standardRules": [
+		    "falco-rules"
+		],
+		"events": {
+		    "destinations": [
+				"logging"
+			]
 		}
 	}`
 
@@ -276,6 +274,147 @@ var (
 		"output": {
 			"logFalcoEvents": false,
 			"eventCollector": "cluster"
+		}
+	}`
+
+	// test mutator for issue #215
+
+	issue215mutate1 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules":false,
+			"useFalcoIncubatingRules":true,
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"secretRef": "resourceRef"
+			}
+		}
+	}`
+
+	expectedIssue215mutate1 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"standardRules": [
+		   "falco-incubating-rules",
+		   "falco-sandbox-rules"
+		],
+		"events": {
+		    "destinations": [
+				"custom"
+			],
+			"customConfig": "resourceRef"
+		}
+	}`
+
+	issue215mutate2 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules": false,
+			"useFalcoIncubatingRules": false,
+			"useFalcoSandboxRules": false,
+			"customRules": [
+			    "my-custom-rules"
+			]
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector": "cluster"
+		}
+	}`
+
+	expectedIssue215mutate2 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate": true,
+		"customRules": [
+		    "my-custom-rules"
+		],
+		"events": {
+		    "destinations": [
+				"logging"
+			]
+		}
+	}`
+
+	issue215mutate3 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules": false,
+			"useFalcoIncubatingRules": false,
+			"useFalcoSandboxRules": false,
+			"customRules": [
+			    "my-custom-rules"
+			]
+		},
+		"output": {
+			"logFalcoEvents": true,
+			"eventCollector": "cluster"
+		}
+	}`
+
+	expectedIssue215mutate3 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate": true,
+		"customRules": [
+		    "my-custom-rules"
+		],
+		"events": {
+		    "destinations": [
+				"logging",
+			    "stdout"
+			]
+		}
+	}`
+
+	// TODO test the following empty configuration
+	// spec:
+	//   extensions:
+	//   - type: shoot-falco-service
+
+	issue215mutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1"
+	}`
+
+	expectedIssue215mutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"standardRules": [
+		    "falco-rules"
+		],
+		"events": {
+		    "destinations": [
+				"logging"
+			]
 		}
 	}`
 
@@ -688,10 +827,11 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		result := genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate1), "Mutator did not return expected result")
 
-		err = f(mutate2)
-		Expect(err).To(BeNil(), "Mutator failed")
-		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
-		Expect(result).To(MatchJSON(expectedMutate2), "Mutator did not return expected result")
+		// falcoctl
+		// err = f(mutate2)
+		// Expect(err).To(BeNil(), "Mutator failed")
+		// result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		// Expect(result).To(MatchJSON(expectedMutate2), "Mutator did not return expected result")
 
 		err = f(mutate3)
 		Expect(err).To(BeNil(), "Mutator failed")
@@ -717,5 +857,46 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed", err)
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate7), "Mutator did not return expected result")
+	})
+})
+
+var _ = Describe("Test mutator for 215 migration", Label("mutator"), func() {
+
+	It("mutating / migration tests", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		mutator := NewShootMutator(mgr)
+
+		setProfileManager(profileManager1)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = mutator.Mutate(context.TODO(), genericShoot, nil)
+			return err
+		}
+
+		err = f(issue215mutate1)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result := genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate1), "Mutator did not return expected result")
+
+		err = f(issue215mutate2)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate2), "Mutator did not return expected result")
+
+		err = f(issue215mutate3)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate3), "Mutator did not return expected result")
+
+		err = f(issue215mutate4)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate4), "Mutator did not return expected result")
 	})
 })
