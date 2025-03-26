@@ -51,7 +51,8 @@ To verify functionality, generate sample events by running the following command
 within the shoot cluster:
 
 ``` bash
-$ kubectl run sample-events -it --rm  --image falcosecurity/event-generator -- run syscall --all
+$ kubectl run sample-events -it --rm --image falcosecurity/event-generator -- run syscall --all
+
 If you don't see a command prompt, try pressing enter.
 INFO action executed                               action=syscall.KubernetesClientToolLaunchedInContainer
 INFO sleep for 100ms                               action=syscall.ReadSshInformation

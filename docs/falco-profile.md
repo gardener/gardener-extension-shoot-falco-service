@@ -14,23 +14,23 @@ metadata:
 spec:
   images:
     falco:
-    - repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco-distroless
-      tag: sha256:10b156b272cd2334a808dd58e266db8b70a495df5316ab491369130c3bdaf011
+    - repository: falcosecurity/falco-distroless
+      tag: 0.39.1
       version: 0.39.1
-    - repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco-distroless
-      tag: sha256:4bf7144f69292997368ac9077fb509513d1946aa252854430c0c87299ed4f04e
+    - repository: falcosecurity/falco-distroless
+      tag: 0.39.2
       version: 0.39.2
-    - repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
-      tag: sha256:2bf64100eafe0795860a7765e848627834cb2c185c0b736442f797f5381df698
+    - repository: falcosecurity/falco
+      tag: 0.40.0
       version: 0.40.0
     falcoctl:
-    - repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcoctl
-      tag: sha256:c10998f438f1dcf4a6fb1b3f58aeadf90f05949c3018b1b1caf464d72e13e52d
+    - repository: falcosecurity/falcoctl
+      tag: 0.11.0
       version: 0.11.0
     [...]
     falcosidekick:
-    - repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcosidekick
-      tag: sha256:8d3d4658761bb80d1657f421274fcf3306038f380aef8ce730d2e115408f7876
+    - repository: falcosecurity/falcosidekick
+      tag: 2.31.1
       version: 2.31.1
     [...]
   versions:
