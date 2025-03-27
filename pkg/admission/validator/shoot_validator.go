@@ -136,18 +136,88 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyResources(falcoConf); err != nil {
+	if err := verifyRules(falcoConf, shoot); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyOutput(falcoConf); err != nil {
+	if err := verifyEvents(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
 	}
+
+	// if err := verifyResources(falcoConf); err != nil {
+	// 	allErrs = append(allErrs, err)
+	// }
+
+	// if err := verifyOutput(falcoConf); err != nil {
+	// 	allErrs = append(allErrs, err)
+	// }
 
 	if len(allErrs) > 0 {
 		return errors.Join(allErrs...)
 	}
 
+	return nil
+}
+
+func unique(slice []string) bool {
+	unique := make(map[string]bool, len(slice))
+	for _, elem := range slice {
+		if _, ok := unique[elem]; ok {
+			return false
+		} else {
+			unique[elem] = true
+		}
+	}
+	return true
+}
+
+func verifyRules(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
+
+	// a deployment wihtout any rules is not allowed
+	if (falcoConf.StandardRules == nil || len(*falcoConf.StandardRules) == 0) &&
+		(falcoConf.CustomRules == nil || len(*falcoConf.CustomRules) == 0) {
+		return fmt.Errorf("A Falco deployment wihtout any rules is not allowed")
+	}
+
+	// check for allowed standard rules
+	if falcoConf.StandardRules != nil {
+		for _, rule := range *falcoConf.StandardRules {
+			if !slices.Contains(constants.AllowedStandardRules, rule) {
+				return fmt.Errorf("unknwon standard rule %s ", rule)
+			}
+		}
+	}
+
+	// check for double entries in standard rules
+	if falcoConf.StandardRules != nil && len(*falcoConf.StandardRules) > 0 {
+		if !unique(*falcoConf.StandardRules) {
+			return fmt.Errorf("double entry in standard rules")
+		}
+	}
+
+	// check for double entries in custom rules
+	if falcoConf.CustomRules != nil && len(*falcoConf.CustomRules) > 0 {
+		if !unique(*falcoConf.CustomRules) {
+			return fmt.Errorf("double entry in custom rules")
+		}
+	}
+
+	// check that resource references to custon rule configmaps are valid
+	if falcoConf.CustomRules != nil && len(*falcoConf.CustomRules) > 0 {
+		allConfigMaps := make(map[string]string)
+		for _, r := range shoot.Spec.Resources {
+			if r.ResourceRef.Kind == "ConfigMap" && r.ResourceRef.APIVersion == "v1" {
+				allConfigMaps[r.Name] = r.ResourceRef.Name
+			}
+		}
+		for _, rule := range *falcoConf.CustomRules {
+			if _, ok := allConfigMaps[rule]; !ok {
+				return fmt.Errorf("custom rule %s not found in resources", rule)
+			}
+		}
+	}
+
+	// TODO: validate that custom rules are valid
 	return nil
 }
 
@@ -189,6 +259,26 @@ func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
 	if *output.EventCollector == "none" && !*output.LogFalcoEvents {
 		return fmt.Errorf("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated")
 	}
+	return nil
+}
+
+func verifyEvents(falcoConf *service.FalcoServiceConfig) error {
+	events := falcoConf.Events
+	if events == nil {
+		return fmt.Errorf("events property is not defined")
+	}
+	if len(events.Destinations) == 0 {
+		return fmt.Errorf("No event destination are set")
+	}
+	for _, dest := range events.Destinations {
+		if !slices.Contains(constants.AllowedDestinations, dest) {
+			return fmt.Errorf("unknown event destination %s", dest)
+		}
+	}
+	if !unique(events.Destinations) {
+		return fmt.Errorf("double entry in event destinations")
+	}
+
 	return nil
 }
 
