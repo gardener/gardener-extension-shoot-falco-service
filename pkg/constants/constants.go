@@ -42,6 +42,11 @@ const (
 	FalcoClientKey  = "client.key"
 	FalcoClientCert = "client.crt"
 
+	FalcoEventDestinationStdout = "stdout"
+	FalcoEventDestinationLogging = "logging"
+	FalcoEventDestinationCentral = "central"
+	FalcoEventDestinationCustom  = "custom"
+
 	DefaultCALifetime   = time.Hour * 24 * 365 * 2
 	DefaultCARenewAfter = DefaultCALifetime - 60
 
@@ -67,7 +72,7 @@ var (
 	AlwaysEnabledProjects         = []string{"garden"}
 	CentralLoggingAllowedProjects = []string{"garden"}
 	AllowedOutputs                = []string{"none", "cluster", "central", "custom"}
-	AllowedDestinations           = []string{"stdout", "logging", "central", "custom"}
+	AllowedDestinations           = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventLogger)
