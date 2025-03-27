@@ -13,6 +13,7 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/logger"
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,22 +22,22 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-type Projects struct {
+type Namespaces struct {
 	logger   logr.Logger
 	client   *dynamic.DynamicClient
-	projects map[string]*v1beta1.Project
+	projects map[string]*v1.Namespace
 	mutex    *sync.Mutex
 }
 
-var ProjectsInstance *Projects
+var NamespacesInstance *Namespaces
 
 func NewProjects(client *dynamic.DynamicClient) {
 	lg, _ := logger.NewZapLogger(logger.InfoLevel, logger.FormatJSON)
-	ProjectsInstance = &Projects{
-		logger:   lg,
-		client:   client,
-		mutex:    &sync.Mutex{},
-		projects: make(map[string]*v1beta1.Project),
+	NamespacesInstance = &Namespaces{
+		logger:     lg,
+		client:     client,
+		mutex:      &sync.Mutex{},
+		namespaces: make(map[string]*v1.Namespace),
 	}
 }
 

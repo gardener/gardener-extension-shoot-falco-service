@@ -29,11 +29,11 @@ import (
 
 // extra Falco options
 type FalcoWebhookOptions struct {
-	// if set to true, projects must be annotated with falco.gardener.cloud/enabled=true to
+	// if set to true, project namespace must be annotated with falco.gardener.cloud/enabled=true to
 	// deploy Falco in their shoot clusters
 	RestrictedUsage bool
 
-	// if set to true, project must be annotated with falco.gardener.cloud/centralized-logging=true
+	// if set to true, project namespace must be annotated with falco.gardener.cloud/centralized-logging=true
 	// to use the Gardener manged centralized logging solution
 	RestrictedCentralizedLogging bool
 }
@@ -52,8 +52,8 @@ func (c *FalcoWebhookOptions) Completed() *FalcoWebhookOptions {
 
 // AddFlags implements Flagger.AddFlags.
 func (c *FalcoWebhookOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.BoolVar(&c.RestrictedUsage, "restricted-usage", false, "if set to true, projects must be annotated with falco.gardener.cloud/enabled=true to deploy Falco in their shoot clusters")
-	fs.BoolVar(&c.RestrictedCentralizedLogging, "restricted-centralized-logging", false, "if set to true, project must be annotated with falco.gardener.cloud/centralized-logging=true to use the Gardener manged centralized logging solution")
+	fs.BoolVar(&c.RestrictedUsage, "restricted-usage", false, "if set to true, project namespaces must be annotated with falco.gardener.cloud/enabled=true to deploy Falco in their shoot clusters")
+	fs.BoolVar(&c.RestrictedCentralizedLogging, "restricted-centralized-logging", false, "if set to true, project namespaces must be annotated with falco.gardener.cloud/centralized-logging=true to use the Gardener manged centralized logging solution")
 }
 
 // Apply sets the values of this Config in the given config.ControllerConfiguration.
@@ -119,14 +119,14 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 
 	if s.restrictedUsage {
 		if oldFalcoConfErr != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
-			if ok := verifyProjectEligibility(shoot.Namespace); !ok {
-				return fmt.Errorf("project is not eligible for Falco extension")
+			if ok := verifyNamespaceEligibility(shoot.Namespace); !ok {
+				return fmt.Errorf("namespace is not eligible for Falco extension")
 			}
 		}
 	}
 	if s.restrictedCentralLogging && centralLoggingNewlyEnabled(falcoConf, oldFalcoConf) {
-		if ok := verifyProjectEligibilityForCentralLogging(shoot.Namespace); !ok {
-			return fmt.Errorf("project is not eligible for centralized logging")
+		if ok := verifyNamespaceEligibilityForCentralLogging(shoot.Namespace); !ok {
+			return fmt.Errorf("namespace is not eligible for centralized logging")
 		}
 	}
 
@@ -292,8 +292,8 @@ func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConf
 	return nil, fmt.Errorf("no FalcoConfig found in extensions")
 }
 
-func verifyProjectEligibility(namespace string) bool {
-	project, ok := ProjectsInstance.projects[namespace]
+func verifyNamespaceEligibility(namespace string) bool {
+	project, ok := NamespacesInstance.namespaces[namespace]
 	if !ok {
 		return false
 	}
@@ -315,18 +315,18 @@ func verifyProjectEligibility(namespace string) bool {
 	return enabled
 }
 
-func verifyProjectEligibilityForCentralLogging(namespace string) bool {
+func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
 	project, ok := ProjectsInstance.projects[namespace]
 	if !ok {
 		return false
 	}
 
-	always := slices.Contains(constants.CentralLoggingAllowedProjects[:], project.Name)
+	always := slices.Contains(constants.CentralLoggingAllowedProjects[:], comparable(namespace).Name)
 	if always {
 		return true
 	}
 
-	val, ok := project.Annotations[constants.ProjectCentralLoggingAnnotation]
+	val, ok := namespace.Annotations[constants.ProjectCentralLoggingAnnotation]
 	if !ok {
 		return false
 	}
