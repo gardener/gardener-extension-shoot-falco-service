@@ -297,10 +297,13 @@ func isEmptyFalcoConf(falcoConf *service.FalcoServiceConfig) bool {
 
 func setEvents(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Events == nil {
-		events := service.Events{
-			Destinations: []string{"logging"},
+		falcoConf.Events = &service.Events{
+			Destinations: []string{constants.FalcoEventDestinationLogging},
 		}
-		falcoConf.Events = &events
+	}
+
+	if len(falcoConf.Events.Destinations) == 0 {
+		falcoConf.Events.Destinations = []string{constants.FalcoEventDestinationLogging}
 	}
 }
 
