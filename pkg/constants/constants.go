@@ -66,6 +66,10 @@ const (
 
 	// limit the number of rule files with custom rules per config map
 	MaxCustomRulesFilesPerConfigMap = 10
+
+	ConfigFalcoRules           = "falco-rules"
+	ConfigFalcoIncubatingRules = "falco-incubating-rules"
+	ConfigFalcoSandboxRules    = "falco-sandbox-rules"
 )
 
 var (
@@ -79,8 +83,8 @@ var (
 	DefaultEventLogger string = "cluster"
 
 	AllowedStandardRules = []string{
-		"falco-rules",
-		"falco-incubating-rules",
-		"falco-sandbox-rules",
+		ConfigFalcoRules,
+		ConfigFalcoIncubatingRules,
+		ConfigFalcoSandboxRules,
 	}
 )

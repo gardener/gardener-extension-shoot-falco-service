@@ -52,59 +52,83 @@ var (
 	shootExtension = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
-		Gardener: &service.Gardener{
-			CustomRules:   []string{"rules1"},
-			UseFalcoRules: boolValue(true),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceRef: "rules1",
+				},
+			},
 		},
-		Output: &service.Output{
-			EventCollector: stringValue("central"),
+		Destinations: &[]service.Destination{
+			{
+				Name: "central",
+			},
 		},
 	}
 	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
-		Gardener: &service.Gardener{
-			UseFalcoRules: boolValue(true),
-			CustomRules:   []string{"rulesm2", "rulesm3", "rulesm1"},
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceRef: "rulesm2",
+				},
+				{
+					ResourceRef: "rulesm3",
+				},
+				{
+					ResourceRef: "rulesm1",
+				},
+			},
 		},
-		Output: &service.Output{
-			EventCollector: stringValue("central"),
+		Destinations: &[]service.Destination{
+			{
+				Name: "central",
+			},
 		},
 	}
 	shootExtensionTooManyCustomRuleFiles = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
-		Gardener: &service.Gardener{
-			UseFalcoRules: boolValue(true),
-			CustomRules:   []string{"too-many-rule-files"},
-		},
-		Output: &service.Output{
-			EventCollector: stringValue("cluster"),
-		},
-	}
-	shootExtensionFalcoctl = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Resources:    stringValue("falcoctl"),
-		FalcoCtl: &service.FalcoCtl{
-			Indexes: []service.FalcoCtlIndex{
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+			CustomRules: &[]service.CustomRule{
 				{
-					Name: stringValue("falcosecurity"),
-					Url:  stringValue("https://falcosecurity.github.io/falcoctl/index.yaml"),
+					ResourceRef: "too-many-rule-files",
 				},
-			},
-			AllowedTypes: []string{"rulesfile"},
-			Install: &service.Install{
-				Refs: []string{
-					"falco-rules3.1",
-					"flaco-incubating-rules:4",
-				},
-				ResolveDeps: boolValue(true),
 			},
 		},
-		Output: &service.Output{
-			EventCollector: stringValue("central"),
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
+			},
 		},
 	}
+	// shootExtensionFalcoctl = &service.FalcoServiceConfig{
+	// 	FalcoVersion: stringValue("0.38.0"),
+	// 	Resources:    stringValue("falcoctl"),
+	// 	FalcoCtl: &service.FalcoCtl{
+	// 		Indexes: []service.FalcoCtlIndex{
+	// 			{
+	// 				Name: stringValue("falcosecurity"),
+	// 				Url:  stringValue("https://falcosecurity.github.io/falcoctl/index.yaml"),
+	// 			},
+	// 		},
+	// 		AllowedTypes: []string{"rulesfile"},
+	// 		Install: &service.Install{
+	// 			Refs: []string{
+	// 				"falco-rules3.1",
+	// 				"flaco-incubating-rules:4",
+	// 			},
+	// 			ResolveDeps: boolValue(true),
+	// 		},
+	// 	},
+	// 	Output: &service.Output{
+	// 		EventCollector: stringValue("central"),
+	// 	},
+	// }
 
 	falcoProfileManager = profile.GetDummyFalcoProfileManager(
 		&map[string]profile.FalcoVersion{
@@ -223,65 +247,78 @@ var (
 			},
 		},
 	}
-	resources          = "gardener"
 	falcoServiceConfig = &apisservice.FalcoServiceConfig{
-		Resources: &resources,
-		Gardener: &apisservice.Gardener{
-			CustomRules: []string{"rules1", "rules3"},
+		Rules: &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceRef: "rules1",
+				},
+				{
+					ResourceRef: "rules3",
+				},
+			},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
+			},
 		},
 	}
 	falcoServiceConfigBad = &apisservice.FalcoServiceConfig{
-		Resources: &resources,
-		Gardener: &apisservice.Gardener{
-			CustomRules: []string{"rules1", "rules2"},
+		Rules: &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceRef: "rules1",
+				},
+				{
+					ResourceRef: "rules2",
+				},
+			},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
+			},
 		},
 	}
 	falcoServiceConfigWrongCustomRules = &apisservice.FalcoServiceConfig{
-		Resources: &resources,
-		Gardener: &apisservice.Gardener{
-			CustomRules: []string{"rules1", "rules_wrong"},
-		},
-	}
-	falcoServiceConfigCustomWebhook = &apisservice.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Resources:    &resources,
-		Gardener: &apisservice.Gardener{
-			UseFalcoRules: boolValue(true),
-		},
-		Output: &apisservice.Output{
-			EventCollector: stringValue("custom"),
-			CustomWebhook: &apisservice.Webhook{
-				Enabled: boolValue(true),
-				Address: stringValue("https://webhook.example.com"),
-				CustomHeaders: &map[string]string{
-					"Authorization": "Bearer my-token",
+		Rules: &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceRef: "rules1",
 				},
-				Checkcerts: boolValue(true),
+				{
+					ResourceRef: "rules_wrong",
+				},
+			},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
 			},
 		},
 	}
 	falcoServiceConfigCustomWebhookWithSecret = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
-		Resources:    &resources,
-		Gardener: &apisservice.Gardener{
-			UseFalcoRules: boolValue(true),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
 		},
-		Output: &apisservice.Output{
-			EventCollector: stringValue("custom"),
-			CustomWebhook: &apisservice.Webhook{
-				SecretRef: stringValue("custom-webhook-secret"),
+		Destinations: &[]service.Destination{
+			{
+				Name:              "custom",
+				ResourceSecretRef: stringValue("custom-webhook-secret"),
 			},
 		},
 	}
-
 	falcoServiceConfigCluster = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
-		Resources:    &resources,
-		Gardener: &apisservice.Gardener{
-			UseFalcoRules: boolValue(true),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
 		},
-		Output: &apisservice.Output{
-			EventCollector: stringValue("cluster"),
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
+			},
 		},
 	}
 	webhookSecrets = &corev1.SecretList{
@@ -566,25 +603,25 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(err.Error()).To(Equal("too many custom rule files in configmap \"ref-too-many-rule-files\""))
 	})
 
-	It("Test custom webhook functionality", func(ctx SpecContext) {
+	// It("Test custom webhook functionality", func(ctx SpecContext) {
 
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhook)
-		Expect(err).To(BeNil())
-		js, err := json.MarshalIndent((values), "", "    ")
-		Expect(err).To(BeNil())
-		Expect(len(js)).To(BeNumerically(">", 100))
-		// fmt.Println(string(js))
-		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+	// 	values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhook)
+	// 	Expect(err).To(BeNil())
+	// 	js, err := json.MarshalIndent((values), "", "    ")
+	// 	Expect(err).To(BeNil())
+	// 	Expect(len(js)).To(BeNumerically(">", 100))
+	// 	// fmt.Println(string(js))
+	// 	config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 
-		Expect(config).To(HaveKey("webhook"))
-		webhook := config["webhook"].(map[string]interface{})
-		Expect(webhook).To(HaveKey("address"))
-		Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
-		Expect(webhook).To(HaveKey("checkcert"))
-		Expect(webhook["checkcert"].(bool)).To(BeTrue())
-		Expect(webhook).To(HaveKey("customheaders"))
-		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
-	})
+	// 	Expect(config).To(HaveKey("webhook"))
+	// 	webhook := config["webhook"].(map[string]interface{})
+	// 	Expect(webhook).To(HaveKey("address"))
+	// 	Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
+	// 	Expect(webhook).To(HaveKey("checkcert"))
+	// 	Expect(webhook["checkcert"].(bool)).To(BeTrue())
+	// 	Expect(webhook).To(HaveKey("customheaders"))
+	// 	Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
+	// })
 
 	It("Test custom webhook functionality with secret", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)
@@ -633,7 +670,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(loggingConf["endpoint"].(string)).To(Equal("/vali/api/v1/push"))
 	})
 
-	It("Test values generation gardener", func(ctx SpecContext) {
+	It("Test simple values generation", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtension)
 		Expect(err).To(BeNil())
 		js, err := json.MarshalIndent((values), "", "    ")
@@ -713,83 +750,83 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
 	})
 
-	It("Test values generation falcoctl", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionFalcoctl)
-		Expect(err).To(BeNil())
-		js, err := json.MarshalIndent((values), "", "    ")
-		Expect(err).To(BeNil())
-		//fmt.Println(string(js))
-		Expect(len(js)).To(BeNumerically(">", 100))
-		Expect(values).NotTo(HaveKey("customRules"))
-		Expect(values).NotTo(HaveKey("falcoRules"))
-		Expect(values).NotTo(HaveKey("falcoIncubatingRules"))
-		Expect(values).NotTo(HaveKey("falcoSandboxRules"))
-		prioriyClass := values["priorityClassName"].(string)
-		Expect(prioriyClass).To(Equal("falco-test-priority-dummy-classname"))
+	// 	It("Test values generation falcoctl", func(ctx SpecContext) {
+	// 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionFalcoctl)
+	// 		Expect(err).To(BeNil())
+	// 		js, err := json.MarshalIndent((values), "", "    ")
+	// 		Expect(err).To(BeNil())
+	// 		//fmt.Println(string(js))
+	// 		Expect(len(js)).To(BeNumerically(">", 100))
+	// 		Expect(values).NotTo(HaveKey("customRules"))
+	// 		Expect(values).NotTo(HaveKey("falcoRules"))
+	// 		Expect(values).NotTo(HaveKey("falcoIncubatingRules"))
+	// 		Expect(values).NotTo(HaveKey("falcoSandboxRules"))
+	// 		prioriyClass := values["priorityClassName"].(string)
+	// 		Expect(prioriyClass).To(Equal("falco-test-priority-dummy-classname"))
 
-		// render chart and check if the values are set correctly
-		//
-		renderer, err := util.NewChartRendererForShoot("1.30.2")
-		Expect(err).To(BeNil())
-		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
-		Expect(err).To(BeNil())
+	// 		// render chart and check if the values are set correctly
+	// 		//
+	// 		renderer, err := util.NewChartRendererForShoot("1.30.2")
+	// 		Expect(err).To(BeNil())
+	// 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
+	// 		Expect(err).To(BeNil())
 
-		// check custom rules
-		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
-		Expect(customRules).To(BeNil())
-		falcoConfigmap := getManifest((release), "falco/templates/falco-configmap.yaml")
-		fc := corev1.ConfigMap{}
-		err = yaml.Unmarshal([]byte(falcoConfigmap.Content), &fc)
-		Expect(err).To(BeNil())
-		falcoYaml := make(map[string]interface{})
-		err = yaml.Unmarshal([]byte(fc.Data["falco.yaml"]), &falcoYaml)
-		Expect(err).To(BeNil())
-		rules := falcoYaml["rules_files"].([]interface{})
-		Expect(len(rules)).To(Equal(3))
-		Expect(rules[0]).To(Equal("/etc/falco/falco_rules.yaml"))
-		Expect(rules[1]).To(Equal("/etc/falco/falco_rules.local.yaml"))
-		Expect(rules[2]).To(Equal("/etc/falco/rules.d"))
+	// 		// check custom rules
+	// 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
+	// 		Expect(customRules).To(BeNil())
+	// 		falcoConfigmap := getManifest((release), "falco/templates/falco-configmap.yaml")
+	// 		fc := corev1.ConfigMap{}
+	// 		err = yaml.Unmarshal([]byte(falcoConfigmap.Content), &fc)
+	// 		Expect(err).To(BeNil())
+	// 		falcoYaml := make(map[string]interface{})
+	// 		err = yaml.Unmarshal([]byte(fc.Data["falco.yaml"]), &falcoYaml)
+	// 		Expect(err).To(BeNil())
+	// 		rules := falcoYaml["rules_files"].([]interface{})
+	// 		Expect(len(rules)).To(Equal(3))
+	// 		Expect(rules[0]).To(Equal("/etc/falco/falco_rules.yaml"))
+	// 		Expect(rules[1]).To(Equal("/etc/falco/falco_rules.local.yaml"))
+	// 		Expect(rules[2]).To(Equal("/etc/falco/rules.d"))
 
-		// check priority class in falco deamonset
-		falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
-		Expect(falcoDaemonset).NotTo(BeNil())
-		ds := appsv1.DaemonSet{}
-		fmt.Println(falcoDaemonset.Content)
-		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
-		Expect(err).To(BeNil())
-		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("falcosecurity/falco:0.38.0"))
-		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
+	// 		// check priority class in falco deamonset
+	// 		falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
+	// 		Expect(falcoDaemonset).NotTo(BeNil())
+	// 		ds := appsv1.DaemonSet{}
+	// 		fmt.Println(falcoDaemonset.Content)
+	// 		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
+	// 		Expect(err).To(BeNil())
+	// 		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("falcosecurity/falco:0.38.0"))
+	// 		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+	// 		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
 
-		// default gardener webhook
-		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
-		Expect(config).To(HaveKey("webhook"))
-		webhook := config["webhook"].(map[string]interface{})
-		Expect(webhook).To(HaveKey("address"))
-		Expect(webhook["address"].(string)).To(Equal("https://ingestor.example.com"))
-		Expect(webhook).To(HaveKey("checkcert"))
-		Expect(webhook["checkcert"].(bool)).To(BeTrue())
-		Expect(webhook).To(HaveKey("customheaders"))
-		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
+	// 		// default gardener webhook
+	// 		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+	// 		Expect(config).To(HaveKey("webhook"))
+	// 		webhook := config["webhook"].(map[string]interface{})
+	// 		Expect(webhook).To(HaveKey("address"))
+	// 		Expect(webhook["address"].(string)).To(Equal("https://ingestor.example.com"))
+	// 		Expect(webhook).To(HaveKey("checkcert"))
+	// 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
+	// 		Expect(webhook).To(HaveKey("customheaders"))
+	// 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
 
-		// check falcoctl configuration
-		falcoCtlConfigmap := getManifest(release, "falco/templates/falcoctl-configmap.yaml")
-		Expect(falcoCtlConfigmap).NotTo(BeNil())
-		fctlcfg := corev1.ConfigMap{}
-		err = yaml.Unmarshal([]byte(falcoCtlConfigmap.Content), &fctlcfg)
-		Expect(err).To(BeNil())
-		fctl, ok := fctlcfg.Data["falcoctl.yaml"]
-		Expect(ok).To(BeTrue())
-		fmt.Println("This is the configmap")
-		fmt.Println(fctl)
-		Expect(fctl).NotTo(BeNil())
-		falcoCtlYaml := make(map[string]interface{})
-		err = yaml.Unmarshal([]byte(fctl), &falcoCtlYaml)
-		Expect(err).To(BeNil())
-		install := falcoCtlYaml["install"].(map[string]interface{})
-		resolveDeps := install["resolveDeps"].(bool)
-		Expect(resolveDeps).To(BeTrue())
-	})
+	// 		// check falcoctl configuration
+	// 		falcoCtlConfigmap := getManifest(release, "falco/templates/falcoctl-configmap.yaml")
+	// 		Expect(falcoCtlConfigmap).NotTo(BeNil())
+	// 		fctlcfg := corev1.ConfigMap{}
+	// 		err = yaml.Unmarshal([]byte(falcoCtlConfigmap.Content), &fctlcfg)
+	// 		Expect(err).To(BeNil())
+	// 		fctl, ok := fctlcfg.Data["falcoctl.yaml"]
+	// 		Expect(ok).To(BeTrue())
+	// 		fmt.Println("This is the configmap")
+	// 		fmt.Println(fctl)
+	// 		Expect(fctl).NotTo(BeNil())
+	// 		falcoCtlYaml := make(map[string]interface{})
+	// 		err = yaml.Unmarshal([]byte(fctl), &falcoCtlYaml)
+	// 		Expect(err).To(BeNil())
+	// 		install := falcoCtlYaml["install"].(map[string]interface{})
+	// 		resolveDeps := install["resolveDeps"].(bool)
+	// 		Expect(resolveDeps).To(BeTrue())
+	// 	})
 
 })
 
