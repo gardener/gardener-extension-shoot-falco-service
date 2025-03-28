@@ -56,8 +56,8 @@ type FalcoServiceConfig struct {
 }
 
 type Destination struct {
-	Name      string `json:"name,omitempty"`
-	SecretRef string `json:"secretRef,omitempty"`
+	Name              string `json:"name,omitempty"`
+	ResourceSecretRef string `json:"resourceSecretRef,omitempty"`
 }
 
 type Rules struct {
@@ -66,7 +66,7 @@ type Rules struct {
 }
 
 type CustomRule struct {
-	ResourceSecretRef string `json:"resourceSecretRef,omitempty"`
+	ResourceRef string `json:"resourceRef,omitempty"`
 }
 
 type FalcoCtl struct {
