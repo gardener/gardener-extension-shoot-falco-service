@@ -55,7 +55,7 @@ type FalcoServiceConfig struct {
 
 type Destination struct {
 	Name              string
-	ResourceSecretRef string
+	ResourceSecretRef *string
 }
 
 type Rules struct {
