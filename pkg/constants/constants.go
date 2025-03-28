@@ -42,7 +42,7 @@ const (
 	FalcoClientKey  = "client.key"
 	FalcoClientCert = "client.crt"
 
-	FalcoEventDestinationStdout = "stdout"
+	FalcoEventDestinationStdout  = "stdout"
 	FalcoEventDestinationLogging = "logging"
 	FalcoEventDestinationCentral = "central"
 	FalcoEventDestinationCustom  = "custom"

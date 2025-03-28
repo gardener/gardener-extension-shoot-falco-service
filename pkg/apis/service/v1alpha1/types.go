@@ -52,25 +52,21 @@ type FalcoServiceConfig struct {
 
 	Rules *Rules `json:"rules,omitempty"`
 
-	Destinations *Destinations `json:"destinations,omitempty"`
-}
-
-type Destinations struct {
-	Destination *[]Destination `json:"destination,omitempty"`
+	Destinations *[]Destination `json:"destinations,omitempty"`
 }
 
 type Destination struct {
-	Name        *string `json:"name,omitempty"`
-	ResourceRef *string `json:"resourceRef,omitempty"`
+	Name        string `json:"name,omitempty"`
+	ResourceRef string `json:"resourceRef,omitempty"`
 }
 
 type Rules struct {
-	StandardRules *[]string `json:"standardRules,omitempty"`
-	CustomRules   *[]string `json:"customRules,omitempty"`
+	StandardRules *[]string     `json:"standardRules,omitempty"`
+	CustomRules   *[]CustomRule `json:"customRules,omitempty"`
 }
 
 type CustomRule struct {
-	ResourceRef *string `json:"resourceRef,omitempty"`
+	ResourceRef string `json:"resourceRef,omitempty"`
 }
 
 type FalcoCtl struct {

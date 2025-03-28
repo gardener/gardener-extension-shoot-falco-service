@@ -50,26 +50,21 @@ type FalcoServiceConfig struct {
 
 	Rules *Rules
 
-	Destinations *Destinations
-}
-
-type Destinations struct {
-	Destination *[]Destination
+	Destinations *[]Destination
 }
 
 type Destination struct {
-	Name        *string
-	ResourceRef *string
+	Name        string
+	ResourceRef string
 }
 
 type Rules struct {
 	StandardRules *[]string
-
-	CustomRules *[]CustomRule
+	CustomRules   *[]CustomRule
 }
 
 type CustomRule struct {
-	ResourceRef *string
+	ResourceRef string
 }
 
 type FalcoCtl struct {
