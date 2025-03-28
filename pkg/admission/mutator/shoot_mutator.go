@@ -262,8 +262,11 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	}
 
 	if isEmptyFalcoConf(falcoConf) {
+		standardRules := []string{"falco-rules"}
 		falcoConf = &service.FalcoServiceConfig{
-			StandardRules: &[]string{"falco-rules"},
+			Rules: &service.Rules{
+				StandardRules: &standardRules,
+			},
 		}
 	}
 
@@ -283,27 +286,28 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 		setOutput(falcoConf)
 		migration.MigrateIssue215(log, falcoConf)
 	} else {
-		setEvents(falcoConf)
+		setDestinations(falcoConf)
 	}
 	return s.UpdateFalcoConfig(new, falcoConf)
 }
 
 func isEmptyFalcoConf(falcoConf *service.FalcoServiceConfig) bool {
 	return falcoConf == nil ||
-		(falcoConf.FalcoVersion == nil && falcoConf.AutoUpdate == nil && falcoConf.Output == nil &&
-			falcoConf.Resources == nil && falcoConf.Gardener == nil && falcoConf.StandardRules == nil &&
-			falcoConf.CustomRules == nil && falcoConf.Events == nil)
+		(falcoConf.FalcoVersion == nil && falcoConf.AutoUpdate == nil &&
+			falcoConf.Output == nil && falcoConf.Resources == nil && falcoConf.Gardener == nil &&
+			falcoConf.FalcoCtl == nil &&
+			falcoConf.Rules == nil &&
+			falcoConf.Destinations == nil)
 }
 
-func setEvents(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.Events == nil {
-		falcoConf.Events = &service.Events{
-			Destinations: []string{constants.FalcoEventDestinationLogging},
-		}
+func setDestinations(falcoConf *service.FalcoServiceConfig) {
+	defaultDestination := []service.Destination{
+		{
+			Name: constants.FalcoEventDestinationLogging,
+		},
 	}
-
-	if len(falcoConf.Events.Destinations) == 0 {
-		falcoConf.Events.Destinations = []string{constants.FalcoEventDestinationLogging}
+	if falcoConf.Destinations == nil || len(*falcoConf.Destinations) == 0 {
+		falcoConf.Destinations = &defaultDestination
 	}
 }
 
