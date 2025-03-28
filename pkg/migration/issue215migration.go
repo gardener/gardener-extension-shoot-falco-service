@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/go-logr/logr"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 )
 
 func IsIssue215Migrated(config *service.FalcoServiceConfig) bool {

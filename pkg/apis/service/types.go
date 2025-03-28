@@ -21,6 +21,9 @@ type FalcoServiceConfig struct {
 	// +optional
 	AutoUpdate *bool
 
+	// -------------------------------------------------------------------
+	// remove by 2025-05-01
+
 	// use "gardener" or "falcoctl", defaults to "gardener"
 	// +optional
 	Resources *string
@@ -45,18 +48,28 @@ type FalcoServiceConfig struct {
 	// -------------------------------------------------------------------
 	// added due to issue #215
 
-	// array of standard rules
-	StandardRules *[]string
+	Rules *Rules
 
-	// array of custom rules
-	CustomRules *[]string
-
-	Events *Events
+	Destinations *Destinations
 }
 
-type Events struct {
-	Destinations []string
-	CustomConfig *string
+type Destinations struct {
+	Destination *[]Destination
+}
+
+type Destination struct {
+	Name        *string
+	ResourceRef *string
+}
+
+type Rules struct {
+	StandardRules *[]string
+
+	CustomRules *[]CustomRule
+}
+
+type CustomRule struct {
+	ResourceRef *string
 }
 
 type FalcoCtl struct {

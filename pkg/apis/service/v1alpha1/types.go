@@ -23,6 +23,9 @@ type FalcoServiceConfig struct {
 	// +optional
 	AutoUpdate *bool `json:"autoUpdate,omitempty"`
 
+	// -------------------------------------------------------------------
+	// remove by 2025-05-01
+
 	// use "gardener" or "falcoctl", defaults to "gardener"
 	// +optional
 	Resources *string `json:"resources,omitempty"`
@@ -47,18 +50,27 @@ type FalcoServiceConfig struct {
 	// -------------------------------------------------------------------
 	// added due to issue #215
 
-	// array of standard rules
-	StandardRules *[]string `json:"standardRules,omitempty"`
+	Rules *Rules `json:"rules,omitempty"`
 
-	// array of custom rules
-	CustomRules *[]string `json:"customRules,omitempty"`
-
-	Events *Events `json:"events,omitempty"`
+	Destinations *Destinations `json:"destinations,omitempty"`
 }
 
-type Events struct {
-	Destinations []string `json:"destinations,omitempty"`
-	CustomConfig *string  `json:"customConfig,omitempty"`
+type Destinations struct {
+	Destination *[]Destination `json:"destination,omitempty"`
+}
+
+type Destination struct {
+	Name        *string `json:"name,omitempty"`
+	ResourceRef *string `json:"resourceRef,omitempty"`
+}
+
+type Rules struct {
+	StandardRules *[]string `json:"standardRules,omitempty"`
+	CustomRules   *[]string `json:"customRules,omitempty"`
+}
+
+type CustomRule struct {
+	ResourceRef *string `json:"resourceRef,omitempty"`
 }
 
 type FalcoCtl struct {
