@@ -48,8 +48,8 @@ var (
 	// minimal
 	mutate1 = `
 	{
-		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
-		"kind": "FalcoServiceConfig"
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1"
 	}`
 
 	expectedMutate1 = `
@@ -60,116 +60,59 @@ var (
 		"autoUpdate": true,
 		"rules": {
 			"standard": [
-				"falco-rules"
-			],
-		}
+		    	"falco-rules"
+			]
+		},
 		"destinations": [
 			{
-				"name": "logging",
-			}	
+				"name": "logging"
+			}
 		]
 	}`
 
-	// falcoctl
-	mutate2 = `
-	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"resources": "falcoctl",
-		"falcoCtl": {
-			"indexes": [
-				{
-					"name": "myrepo",
-					"url": "https://myrepo.com"
-				}
-			]
-		},
-		"kind":"FalcoServiceConfig"
-	}`
+	// just empty
+	mutate2 = ""
 
-	expectedMutate2 = `
-	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"0.100.0",
-		"resources": "falcoctl",
-		"falcoCtl": {
-			"indexes": [
-				{
-					"name": "myrepo",
-					"url": "https://myrepo.com"
-				}
-			]
-		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"central",
-			"logFalcoEvents":false
-		}
-	}`
+	expectedMutate2 = expectedMutate1
 
-	// non-default gardener config
+	// broken, validator must catch this, no rules
 	mutate3 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":false,
-			"useFalcoIncubatingRules":true,
-			"useFalcoSandboxRules":true
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://gardener.cloud"
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"destinations": [
+			{
+				"name": "logging"
 			}
-		},
-		"webhook": {
-			"enabled": false
-		}
+		]
 	}`
 
 	expectedMutate3 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":false,
-			"useFalcoIncubatingRules":true,
-			"useFalcoSandboxRules":true
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://gardener.cloud"
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"destinations": [
+			{
+				"name": "logging"
 			}
-		}
+		]
 	}`
 
-	// gardener config incomplete
+	// no destination, discuss
 	mutate4 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoSandboxRules":true
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://gardener.cloud"
-			}
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+		    	"falco-rules"
+			]
 		}
 	}`
 
@@ -177,21 +120,18 @@ var (
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":true
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+		    	"falco-rules"
+			]
 		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://gardener.cloud"
+		"destinations": [
+			{
+				"name": "logging"
 			}
-		}
+		]
 	}`
 
 	// broken
@@ -202,81 +142,119 @@ var (
 		"aufoUpdate": true
 	}`
 
-	// make sure existing configs are correctly mutated
+	// no version and not auto update
 	mutate6 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":true
+		"rules": {
+			"standard": [
+		    	"falco-rules"
+			]
 		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"central"
-		},
-		"falcoCtl": {
-			"allowedTypes": null,
-			"indexes": null
-		},
-		"webhook": {
-			"enabled": false
-		}
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
 	}`
 
 	expectedMutate6 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":true
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+		    	"falco-rules"
+			]
 		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"central"
-		}
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
 	}`
 
+	// all rules
 	mutate7 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoSandboxRules":true
+		"rules": {
+			"standard": [
+		    	"falco-rules",
+				"falco-incubating-rules",
+				"falco-sandbox-rules"
+			]
 		},
-		"output": {
-			"eventCollector":"cluster"
-		}
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
 	}`
 
 	expectedMutate7 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"0.101.0",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":true
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+		    	"falco-rules",
+				"falco-incubating-rules",
+				"falco-sandbox-rules"
+			]
 		},
-		"output": {
-			"logFalcoEvents": false,
-			"eventCollector": "cluster"
-		}
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
+	// illegal rule name (validator must catch this)
+	mutate8 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"rules": {
+			"standard": [
+		    	"falco-rules",
+				"falco-incubating-rules",
+				"falco-sandbox-rules-broken",
+				"additional-broken-rule"
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
+	expectedMutate8 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+		    	"falco-rules",
+				"falco-incubating-rules",
+				"falco-sandbox-rules-broken",
+				"additional-broken-rule"
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
 	}`
 
 	// test mutator for issue #215
@@ -310,7 +288,7 @@ var (
 		"autoUpdate":false,
 		"rules": {
 			"standard": [
-		    	"falco-incubating-rules",
+				"falco-incubating-rules",
 				"falco-sandbox-rules"
 			]
 		},
@@ -318,7 +296,7 @@ var (
 			{
 				"name": "custom",
 				"resourceSecretRef": "resourceRef"
-			}	
+			}
 		]
 	}`
 
@@ -405,18 +383,47 @@ var (
 		]
 	}`
 
-	// TODO test the following empty configuration
-	// spec:
-	//   extensions:
-	//   - type: shoot-falco-service
-
+	// the mutation is illegal, validator must catch this
+	// address does not exist anymore and is ignored
 	issue215mutate4 = `
 	{
 		"kind":"FalcoServiceConfig",
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1"
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"logFalcoEvents":false,
+			"eventCollector":"custom",
+			"customWebhook": {
+				"address": "https://gardener.cloud"
+			}
+		}
 	}`
 
 	expectedIssue215mutate4 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"rules": {
+			"standard": [
+				"falco-sandbox-rules"
+			]
+		},
+		"destinations": [
+			{
+				"name": "custom"
+			}
+		]
+	}`
+
+	// don't mutate
+	issue215mutate5 = `
 	{
 		"kind":"FalcoServiceConfig",
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
@@ -433,9 +440,9 @@ var (
 			}
 		]
 	}`
+	expectedIssue215mutate5 = issue215mutate5
 
-	// don't mutate
-	issue215mutate5 = `
+	issue215mutate6 = `
 	{
 		"kind": "FalcoServiceConfig",
 		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
@@ -450,7 +457,7 @@ var (
 		},
 		"destinations": [
 			{
-				"name": "logging",
+				"name": "logging"
 			},
 			{
 				"name": "stdout"
@@ -458,7 +465,206 @@ var (
 		]
 	}`
 
-	expectedIssue215mutate5 = issue215mutate5
+	expectedIssue215mutate6 = issue215mutate6
+
+	issue215mutate7 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoSandboxRules":true
+		},
+		"output": {
+			"eventCollector":"cluster"
+		}
+	}`
+
+	expectedIssue215mutate7 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate":false,
+		"rules": {
+			"standard": [
+		    	"falco-sandbox-rules"
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
+	// mo standard rules
+	issue215mutate8 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"resources":"gardener",
+		"gardener": {
+			"customRules": [
+			    "my-custom-rules"
+			]
+		},
+		"output": {
+			"logFalcoEvents": true,
+			"eventCollector": "cluster"
+		}
+	}`
+
+	expectedIssue215mutate8 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate": true,
+		"rules": {
+			"custom": [
+				{
+					"resourceRef": "my-custom-rules"
+				}
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			},
+			{
+				"name": "stdout"
+			}
+		]
+	}`
+
+	// no standard rules, no auto update or falco version
+	issue215mutate9 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"resources":"gardener",
+		"gardener": {
+			"customRules": [
+			    "my-custom-rules"
+			]
+		},
+		"output": {
+			"logFalcoEvents": true,
+			"eventCollector": "cluster"
+		}
+	}`
+
+	expectedIssue215mutate9 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"custom": [
+				{
+					"resourceRef": "my-custom-rules"
+				}
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			},
+			{
+				"name": "stdout"
+			}
+		]
+	}`
+
+	// no output before migration
+	issue215mutate10 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"resources":"gardener",
+		"gardener": {
+			"customRules": [
+			    "my-custom-rules"
+			]
+		}
+	}`
+
+	expectedIssue215mutate10 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"custom": [
+				{
+					"resourceRef": "my-custom-rules"
+				}
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
+	issue215mutate11 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"resources":"gardener",
+		"gardener": {
+			"useFalcoRules": true,
+			"useFalcoIncubatingRules": true,
+			"useFalcoSandboxRules": true,
+			"customRules": [
+			    "my-custom-rules",
+				"more-custom-rules"
+			]
+		},
+		"output": {
+			"logFalcoEvents": true,
+			"eventCollector": "cluster"
+		}
+	}`
+
+	expectedIssue215mutate11 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.101.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+				"falco-rules",
+				"falco-incubating-rules",
+				"falco-sandbox-rules"
+			],
+			"custom": [
+				{
+					"resourceRef": "my-custom-rules"
+				},
+				{
+					"resourceRef": "more-custom-rules"
+				}
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			},
+			{
+				"name": "stdout"
+			}
+		]
+	}`
 
 	genericShoot = &gardencorev1beta1.Shoot{
 		Spec: gardencorev1beta1.ShootSpec{
@@ -868,11 +1074,10 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed")
 		result := genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 
-		// falcoctl
-		// err = f(mutate2)
-		// Expect(err).To(BeNil(), "Mutator failed")
-		// result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
-		// Expect(result).To(MatchJSON(expectedMutate2), "Mutator did not return expected result")
+		err = f(mutate2)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate2), "Mutator did not return expected result")
 
 		err = f(mutate3)
 		Expect(err).To(BeNil(), "Mutator failed")
@@ -898,6 +1103,11 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed", err)
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate7), "Mutator did not return expected result")
+
+		err = f(mutate8)
+		Expect(err).To(BeNil(), "Mutator failed", err)
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate8), "Mutator did not return expected result")
 	})
 })
 
@@ -944,5 +1154,35 @@ var _ = Describe("Test mutator for 215 migration", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed")
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedIssue215mutate5), "Mutator did not return expected result")
+
+		err = f(issue215mutate6)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate6), "Mutator did not return expected result")
+
+		err = f(issue215mutate7)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate7), "Mutator did not return expected result")
+
+		err = f(issue215mutate8)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate8), "Mutator did not return expected result")
+
+		err = f(issue215mutate9)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate9), "Mutator did not return expected result")
+
+		err = f(issue215mutate10)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate10), "Mutator did not return expected result")
+
+		err = f(issue215mutate11)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate11), "Mutator did not return expected result")
 	})
 })

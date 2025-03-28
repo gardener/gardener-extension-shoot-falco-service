@@ -5,7 +5,6 @@
 package migration
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/go-logr/logr"
@@ -25,13 +24,13 @@ func IsIssue215Migrated(config *service.FalcoServiceConfig) bool {
 func migrateRules(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Gardener != nil {
 		tmpArray := make([]string, 0)
-		if *falcoConf.Gardener.UseFalcoRules {
+		if falcoConf.Gardener.UseFalcoRules != nil && *falcoConf.Gardener.UseFalcoRules {
 			tmpArray = append(tmpArray, "falco-rules")
 		}
-		if *falcoConf.Gardener.UseFalcoIncubatingRules {
+		if falcoConf.Gardener.UseFalcoIncubatingRules != nil && *falcoConf.Gardener.UseFalcoIncubatingRules {
 			tmpArray = append(tmpArray, "falco-incubating-rules")
 		}
-		if *falcoConf.Gardener.UseFalcoSandboxRules {
+		if falcoConf.Gardener.UseFalcoSandboxRules != nil && *falcoConf.Gardener.UseFalcoSandboxRules {
 			tmpArray = append(tmpArray, "falco-sandbox-rules")
 		}
 		if len(tmpArray) > 0 {
@@ -58,42 +57,48 @@ func migrateRules(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 
 func migrateOutput(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 	destinations := make([]service.Destination, 0)
-	if falcoConf.Output.LogFalcoEvents != nil && *falcoConf.Output.LogFalcoEvents {
-		destinations = append(destinations, service.Destination{
-			Name: constants.FalcoEventDestinationStdout,
-		})
-	}
-	switch *falcoConf.Output.EventCollector {
-	case "cluster":
+	if falcoConf.Output == nil {
+		// no output set, use default
 		destinations = append(destinations, service.Destination{
 			Name: constants.FalcoEventDestinationLogging,
 		})
-	case "central":
-		destinations = append(destinations, service.Destination{
-			Name: constants.FalcoEventDestinationCentral,
+	} else {
+		if falcoConf.Output.LogFalcoEvents != nil && *falcoConf.Output.LogFalcoEvents {
+			destinations = append(destinations, service.Destination{
+				Name: constants.FalcoEventDestinationStdout,
+			})
+		}
+		switch *falcoConf.Output.EventCollector {
+		case "cluster":
+			destinations = append(destinations, service.Destination{
+				Name: constants.FalcoEventDestinationLogging,
+			})
+		case "central":
+			destinations = append(destinations, service.Destination{
+				Name: constants.FalcoEventDestinationCentral,
+			})
+		case "custom":
+			destination := service.Destination{
+				Name: constants.FalcoEventDestinationCustom,
+			}
+			if falcoConf.Output.CustomWebhook != nil && falcoConf.Output.CustomWebhook.SecretRef != nil {
+				destination.ResourceSecretRef = falcoConf.Output.CustomWebhook.SecretRef
+			}
+			destinations = append(destinations, destination)
+		}
+		// sort elements of falcoConf.Events.Destinations
+		sort.Slice(destinations, func(i, j int) bool {
+			return destinations[i].Name < destinations[j].Name
 		})
-	case "custom":
-		destination := service.Destination{
-			Name: constants.FalcoEventDestinationCustom,
-		}
-		if falcoConf.Output.CustomWebhook != nil && falcoConf.Output.CustomWebhook.SecretRef != nil {
-			destination.ResourceSecretRef = *falcoConf.Output.CustomWebhook.SecretRef
-		}
-		destinations = append(destinations, destination)
 	}
-	// sort elements of falcoConf.Events.Destinations
-	sort.Slice(destinations, func(i, j int) bool {
-		return destinations[i].Name < destinations[j].Name
-	})
 	falcoConf.Destinations = &destinations
 	falcoConf.Output = nil
 }
 
 func MigrateIssue215(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 	falcoConf.Resources = nil
+	falcoConf.FalcoCtl = nil
 
 	migrateRules(log, falcoConf)
 	migrateOutput(log, falcoConf)
-	falcoConf.FalcoCtl = nil
-	fmt.Println("Migrated", falcoConf)
 }
