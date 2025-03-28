@@ -175,7 +175,7 @@ Rules
 <tbody>
 <tr>
 <td>
-<code>resourceRef</code></br>
+<code>resourceSecretRef</code></br>
 <em>
 string
 </em>
@@ -209,7 +209,7 @@ string
 </tr>
 <tr>
 <td>
-<code>resourceRef</code></br>
+<code>secretRef</code></br>
 <em>
 string
 </em>
@@ -531,7 +531,7 @@ Webhook
 <tbody>
 <tr>
 <td>
-<code>standardRules</code></br>
+<code>standard</code></br>
 <em>
 []string
 </em>
@@ -541,7 +541,7 @@ Webhook
 </tr>
 <tr>
 <td>
-<code>customRules</code></br>
+<code>custom</code></br>
 <em>
 <a href="#falco.extensions.gardener.cloud/v1alpha1.[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.CustomRule">
 []github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.CustomRule

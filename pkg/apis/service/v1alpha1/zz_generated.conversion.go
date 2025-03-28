@@ -137,7 +137,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *service.CustomRule, s conversion.Scope) error {
-	out.ResourceRef = in.ResourceRef
+	out.ResourceSecretRef = in.ResourceSecretRef
 	return nil
 }
 
@@ -147,7 +147,7 @@ func Convert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *serv
 }
 
 func autoConvert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, out *CustomRule, s conversion.Scope) error {
-	out.ResourceRef = in.ResourceRef
+	out.ResourceSecretRef = in.ResourceSecretRef
 	return nil
 }
 
@@ -158,7 +158,7 @@ func Convert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, o
 
 func autoConvert_v1alpha1_Destination_To_service_Destination(in *Destination, out *service.Destination, s conversion.Scope) error {
 	out.Name = in.Name
-	out.ResourceRef = in.ResourceRef
+	out.SecretRef = in.SecretRef
 	return nil
 }
 
@@ -169,7 +169,7 @@ func Convert_v1alpha1_Destination_To_service_Destination(in *Destination, out *s
 
 func autoConvert_service_Destination_To_v1alpha1_Destination(in *service.Destination, out *Destination, s conversion.Scope) error {
 	out.Name = in.Name
-	out.ResourceRef = in.ResourceRef
+	out.SecretRef = in.SecretRef
 	return nil
 }
 
