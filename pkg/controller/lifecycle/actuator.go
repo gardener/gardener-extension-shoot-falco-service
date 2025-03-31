@@ -31,7 +31,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -235,9 +234,6 @@ func (a *actuator) extractFalcoServiceConfig(log logr.Logger, ex *extensionsv1al
 		log.Info("Extracting Falco service config", "providerConfig", string(ex.Spec.ProviderConfig.Raw[:]))
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
 			return nil, fmt.Errorf("could not decode Falco service config: %w", err)
-		}
-		if errs := validation.ValidateFalcoServiceConfig(falcoServiceConfig); len(errs) > 0 {
-			return nil, errs.ToAggregate()
 		}
 	}
 	return falcoServiceConfig, nil
