@@ -12,15 +12,13 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
-	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
-
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	service "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
