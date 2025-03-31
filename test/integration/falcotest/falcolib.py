@@ -141,7 +141,7 @@ def _falco_extension_deployed(shoot_spec):
 def ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace: str, shoot_name: str):
     extension = get_falco_extension(garden_api_client, project_namespace, shoot_name)
     if extension is not None:
-        has_custom_rules = "customRules" in extension["providerConfig"]["gardener"]
+        has_custom_rules = "custom" in extension["providerConfig"]["rules"]
         logger.info("Falco extension is deployed, undeploying")
         remove_falco_from_shoot(garden_api_client, project_namespace, shoot_name, has_custom_rules)
         wait_for_extension_undeployed(shoot_api_client)
@@ -267,18 +267,20 @@ def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: st
                   "name": "custom-rules-configmap"
               }
         }
+    pretty_config = json.dumps(extension_config, indent=4)
+    logger.info(f"Adding falco extension to shoot:\n{pretty_config}")
     patch = {
         "spec": {
-            "extensions": [ extension_config ]
+            "extensions": [extension_config]
         }
     }
     if custom_rules is not None:
-        patch["spec"]["resources"] = [ custom_rule_resource ]
+        patch["spec"]["resources"] = [custom_rule_resource]
         custom_rule_configmap = {
-            "myrules": custom_rules
+            "myrules.yaml": custom_rules
         }
         try:
-          create_configmap(garden_api_client, project_namespace, "custom-rules-configmap", custom_rule_configmap)
+            create_configmap(garden_api_client, project_namespace, "custom-rules-configmap", custom_rule_configmap)
         except client.exceptions.ApiException as e:
             return e
 
@@ -291,7 +293,7 @@ def add_falco_to_shoot(garden_api_client, project_namespace: str, shoot_name: st
             method="PATCH",
             header_params=header_params,
             auth_settings=auth_settings,
-            query_params = query_params,
+            query_params=query_params,
             body=patch,
             response_type=object)
         

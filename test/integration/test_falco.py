@@ -53,15 +53,14 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
     
     logger.info("Reading logs from falco pods")
     logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-    for k,v in logs.items():
+    for k, v in logs.items():
         logger.info(f"Logs from {k}\n{v}")
         assert "/etc/falco/rules.d/myrules" in v
-
     logger.info("checking access token")
-    secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
-    headers64 = secret.data["WEBHOOK_CUSTOMHEADERS"]
-    headers = str(base64.b64decode(headers64), "utf-8")
-    encoded_token = headers.split(":")[1].split(" ")[1].strip()
+    secret = get_secret(shoot_api_client, "kube-system", "gardener-falcosidekick")
+    token = secret.data["token"]
+    token_decoded = str(base64.b64decode(token), "utf-8")
+    assert token_decoded.count(".") == 2
 
     # This does not work with current test restrictions - no access 
     # to controller deployments
@@ -151,12 +150,12 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
         
         logger.info("Reading and checking logs from falco/falcosidekick pods")
         logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-        for k,v in logs.items():
+        for k, v in logs.items():
             logger.info(f"Logs from {k}: {v}")
             assert f"Falco version: {fv}" in v
             assert "Opening 'syscall' source with modern BPF probe" in v
         logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falcosidekick_pod_label_selector)
-        for k,v in logs.items():
+        for k, v in logs.items():
             logger.info(f"Logs from {k}: {v}")
             assert "running HTTP server for endpoints defined in tlsserver.notlspaths"
 
@@ -301,5 +300,5 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
     allLogs = ""
     for k, l in logs.items():
         allLogs += l
-    print (allLogs)
+    print(allLogs)
     assert "Warning Detected ptrace" in allLogs

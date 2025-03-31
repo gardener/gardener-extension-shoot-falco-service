@@ -13,9 +13,9 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
-func IsIssue215Migrated(config *service.FalcoServiceConfig) bool {
+func isIssue215Migrated(config *service.FalcoServiceConfig) bool {
 
-	if config.Resources != nil || config.Output != nil {
+	if config.Resources != nil || config.Output != nil || config.Gardener != nil {
 		return false
 	}
 	return true
@@ -96,6 +96,10 @@ func migrateOutput(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 }
 
 func MigrateIssue215(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
+	if isIssue215Migrated(falcoConf) {
+		log.Info("FalcoServiceConfig migrated, skipping")
+		return
+	}
 	falcoConf.Resources = nil
 	falcoConf.FalcoCtl = nil
 

@@ -249,12 +249,10 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	log := logr.New(nil)
 
-	if !migration.IsIssue215Migrated(falcoConf) {
-		log.Info("Migrating for issue 215")
-		migration.MigrateIssue215(log, falcoConf)
-	} else {
-		setDestinations(falcoConf)
-	}
+	migration.MigrateIssue215(log, falcoConf)
+
+	setDestinations(falcoConf)
+
 	return s.UpdateFalcoConfig(new, falcoConf)
 }
 
@@ -268,12 +266,12 @@ func isEmptyFalcoConf(falcoConf *service.FalcoServiceConfig) bool {
 }
 
 func setDestinations(falcoConf *service.FalcoServiceConfig) {
-	defaultDestination := []service.Destination{
-		{
-			Name: constants.FalcoEventDestinationLogging,
-		},
-	}
 	if falcoConf.Destinations == nil || len(*falcoConf.Destinations) == 0 {
+		defaultDestination := []service.Destination{
+			{
+				Name: constants.FalcoEventDestinationLogging,
+			},
+		}
 		falcoConf.Destinations = &defaultDestination
 	}
 }

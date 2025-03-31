@@ -666,6 +666,69 @@ var (
 		]
 	}`
 
+	issue215mutate12 = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"resources": "gardener",
+		"gardener": {
+			"customRules": [
+				"custom-rules-int"
+			]
+		}
+	}`
+
+	expectedIssue215mutate12 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"custom": [
+				{
+					"resourceRef": "custom-rules-int"
+				}
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
+	issue215mutate13 = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"gardener": {
+			"customRules": [
+				"custom-rules-int"
+			]
+		}
+	}`
+
+	expectedIssue215mutate13 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"custom": [
+				{
+					"resourceRef": "custom-rules-int"
+				}
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
 	genericShoot = &gardencorev1beta1.Shoot{
 		Spec: gardencorev1beta1.ShootSpec{
 			Extensions: []gardencorev1beta1.Extension{
@@ -1184,5 +1247,15 @@ var _ = Describe("Test mutator for 215 migration", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed")
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedIssue215mutate11), "Mutator did not return expected result")
+
+		err = f(issue215mutate12)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate12), "Mutator did not return expected result")
+
+		err = f(issue215mutate13)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedIssue215mutate13), "Mutator did not return expected result")
 	})
 })
