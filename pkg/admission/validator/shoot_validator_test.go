@@ -307,6 +307,29 @@ var (
 		]
 	}`
 
+	falcoExtensionIllegalCustomRuleWithoutRef = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			],
+			"custom": [
+			{
+				"resourceRef": ""
+			}
+			]
+		},
+		"destinations": [
+		 {
+		 	"name": "stdout"
+		 }
+		]
+	}`
+
 	// wrong object type
 	falcoExtensionIllegal7 = `
 	{
@@ -782,6 +805,10 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = f(falcoExtensionIllegalCustomDestWithoutRef)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("custom event destination is set but no custom config is defined"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegalCustomRuleWithoutRef)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("found custom rule with empty resource referece"), "Illegal extension is not detected as such ")
 
 		err = f(falcoExtensionIllegal7)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
