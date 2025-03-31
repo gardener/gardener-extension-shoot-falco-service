@@ -1,0 +1,6 @@
+pytest==7.4.4
+pyyaml
+kubernetes
+semver
+pyjwt
+cryptography
