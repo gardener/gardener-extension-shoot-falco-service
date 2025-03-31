@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/gardener/gardener v1.114.1
+	github.com/gardener/gardener v1.115.1
 	github.com/go-logr/logr v1.4.2
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/hashicorp/go-version v1.7.0
@@ -41,12 +41,12 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/fluent/fluent-operator/v2 v2.9.0 // indirect
+	github.com/fluent/fluent-operator/v3 v3.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gardener/cert-management v0.17.5 // indirect
 	github.com/gardener/etcd-druid v0.27.0 // indirect
-	github.com/gardener/machine-controller-manager v0.56.1 // indirect
+	github.com/gardener/machine-controller-manager v0.57.1 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/errors v0.22.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -85,14 +85,14 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.81.0 // indirect
 	github.com/prometheus/client_golang v1.21.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.62.0 // indirect
+	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/spf13/afero v1.12.0 // indirect
+	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
@@ -102,15 +102,15 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7 // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/time v0.10.0 // indirect
-	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
+	golang.org/x/time v0.11.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250204164813-702378808489 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -118,16 +118,16 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	istio.io/api v1.24.3 // indirect
 	istio.io/client-go v1.24.2 // indirect
-	k8s.io/apiextensions-apiserver v0.32.2 // indirect
+	k8s.io/apiextensions-apiserver v0.32.3 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.3.0 // indirect
 	k8s.io/gengo v0.0.0-20250130153323-76c5745d3511 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250130153323-76c5745d3511 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-aggregator v0.32.2 // indirect
+	k8s.io/kube-aggregator v0.32.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
-	k8s.io/kubelet v0.32.2 // indirect
-	k8s.io/metrics v0.32.2 // indirect
+	k8s.io/kubelet v0.32.3 // indirect
+	k8s.io/metrics v0.32.3 // indirect
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250203100659-bbc9711d9b2d // indirect
 	sigs.k8s.io/controller-tools v0.17.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
