@@ -95,6 +95,9 @@ var (
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
 		"falcoVersion":"0.100.0",
 		"autoUpdate": true,
+		"rules": {
+			"standard": ["falco-rules"]
+		},
 		"destinations": [
 			{
 				"name": "logging"
@@ -1136,6 +1139,7 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		err = f(mutate1)
 		Expect(err).To(BeNil(), "Mutator failed")
 		result := genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate1), "Mutator did not return expected result")
 
 		err = f(mutate2)
 		Expect(err).To(BeNil(), "Mutator failed")

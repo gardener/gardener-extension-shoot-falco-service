@@ -25,13 +25,13 @@ func migrateRules(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Gardener != nil {
 		tmpArray := make([]string, 0)
 		if falcoConf.Gardener.UseFalcoRules != nil && *falcoConf.Gardener.UseFalcoRules {
-			tmpArray = append(tmpArray, "falco-rules")
+			tmpArray = append(tmpArray, constants.ConfigFalcoRules)
 		}
 		if falcoConf.Gardener.UseFalcoIncubatingRules != nil && *falcoConf.Gardener.UseFalcoIncubatingRules {
-			tmpArray = append(tmpArray, "falco-incubating-rules")
+			tmpArray = append(tmpArray, constants.ConfigFalcoIncubatingRules)
 		}
 		if falcoConf.Gardener.UseFalcoSandboxRules != nil && *falcoConf.Gardener.UseFalcoSandboxRules {
-			tmpArray = append(tmpArray, "falco-sandbox-rules")
+			tmpArray = append(tmpArray, constants.ConfigFalcoSandboxRules)
 		}
 		if len(tmpArray) > 0 {
 			if falcoConf.Rules == nil {

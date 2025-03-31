@@ -233,36 +233,30 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 		return err
 	}
 
-	if isEmptyFalcoConf(falcoConf) {
-		standardRules := []string{"falco-rules"}
-		falcoConf = &service.FalcoServiceConfig{
-			Rules: &service.Rules{
-				StandardRules: &standardRules,
-			},
-		}
-	}
-
 	if err = setFalcoVersion(falcoConf); err != nil {
 		return err
 	}
+
 	setAutoUpdate(falcoConf)
 
 	log := logr.New(nil)
 
 	migration.MigrateIssue215(log, falcoConf)
 
+	setRules(falcoConf)
+
 	setDestinations(falcoConf)
 
 	return s.UpdateFalcoConfig(new, falcoConf)
 }
 
-func isEmptyFalcoConf(falcoConf *service.FalcoServiceConfig) bool {
-	return falcoConf == nil ||
-		(falcoConf.FalcoVersion == nil && falcoConf.AutoUpdate == nil &&
-			falcoConf.Output == nil && falcoConf.Resources == nil && falcoConf.Gardener == nil &&
-			falcoConf.FalcoCtl == nil &&
-			falcoConf.Rules == nil &&
-			falcoConf.Destinations == nil)
+func setRules(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Rules == nil {
+		standardRules := []string{constants.ConfigFalcoRules}
+		falcoConf.Rules = &service.Rules{
+			StandardRules: &standardRules,
+		}
+	}
 }
 
 func setDestinations(falcoConf *service.FalcoServiceConfig) {
