@@ -179,7 +179,14 @@ func verifyRules(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error
 		}
 	}
 
-	if falcoConf.Rules.StandardRules == nil && falcoConf.Rules.CustomRules == nil {
+	numRules := 0
+	if falcoConf.Rules.StandardRules != nil {
+		numRules += len(*falcoConf.Rules.StandardRules)
+	}
+	if falcoConf.Rules.CustomRules != nil {
+		numRules += len(*falcoConf.Rules.CustomRules)
+	}
+	if numRules == 0 {
 		return fmt.Errorf("falco deployment without any rules is not allowed")
 	}
 
@@ -187,10 +194,6 @@ func verifyRules(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error
 }
 
 func verifyStandardRules(standardRules []string) error {
-	if len(standardRules) == 0 {
-		return fmt.Errorf("standard rules are empty")
-	}
-
 	for _, rule := range standardRules {
 		if !slices.Contains(constants.AllowedStandardRules, rule) {
 			return fmt.Errorf("unknown standard rule %s", rule)
@@ -198,16 +201,12 @@ func verifyStandardRules(standardRules []string) error {
 	}
 
 	if !unique(standardRules) {
-		return fmt.Errorf("double entry in standard rules")
+		return fmt.Errorf("duplicate entry in standard rules")
 	}
 	return nil
 }
 
 func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) error {
-	if len(customRules) == 0 {
-		return fmt.Errorf("custom rules are empty")
-	}
-
 	customRulesNames := make([]string, 0)
 	for _, rule := range customRules {
 		if rule.ResourceRef == "" {
@@ -217,7 +216,7 @@ func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) erro
 	}
 
 	if !unique(customRulesNames) {
-		return fmt.Errorf("double entry in custom rules")
+		return fmt.Errorf("duplicate entry in custom rules")
 	}
 
 	for _, ruleName := range customRulesNames {
@@ -257,7 +256,7 @@ func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.
 	}
 
 	if !unique(eventDestinationNames) {
-		return fmt.Errorf("double entry in event destinations")
+		return fmt.Errorf("duplicate entry in event destinations")
 	}
 
 	if len(eventDestinationNames) > 1 {

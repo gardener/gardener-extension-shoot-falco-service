@@ -791,7 +791,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtensionIllegalNoRules)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("standard rules are empty"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("falco deployment without any rules is not allowed"), "Illegal extension is not detected as such ")
 
 		err = f(falcoExtensionIllegalAdditionalUnknownField)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
