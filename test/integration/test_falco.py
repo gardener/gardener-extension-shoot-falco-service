@@ -160,7 +160,11 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
             assert "running HTTP server for endpoints defined in tlsserver.notlspaths"
 
 
-def test_event_generator(garden_api_client, shoot_api_client, project_namespace, shoot_name):
+def test_event_generator(
+            garden_api_client,
+            shoot_api_client,
+            project_namespace,
+            shoot_name):
     logger.info("Deploying Falco extension")
     extension_config = { 
         "type": "shoot-falco-service",
@@ -177,15 +181,19 @@ def test_event_generator(garden_api_client, shoot_api_client, project_namespace,
     }
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
     assert error is None
+    wait_for_extension_deployed(shoot_api_client)
 
     logs = run_falco_event_generator(shoot_api_client)
     # something that appears at the start
     assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
 
     # make sure it is correctly persisted
-    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falcosidekick_pod_label_selector)
+    logs = pod_logs_from_label_selector(
+        shoot_api_client,
+        "kube-system", 
+        falcosidekick_pod_label_selector)
     postedOK = False
-    for k,v in logs.items():
+    for k, v in logs.items():
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
 

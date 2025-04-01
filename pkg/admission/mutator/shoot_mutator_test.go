@@ -260,6 +260,31 @@ var (
 		]
 	}`
 
+	mutate9 = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "0.100.0"
+	}`
+
+	expectedMutate9 = `
+	{
+		"kind":"FalcoServiceConfig",
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+		"falcoVersion":"0.100.0",
+		"autoUpdate": true,
+		"rules": {
+			"standard": [
+		    	"falco-rules"
+			]
+		},
+		"destinations": [
+			{
+				"name": "logging"
+			}
+		]
+	}`
+
 	// test mutator for issue #215
 
 	issue215mutate1 = `
@@ -1175,6 +1200,12 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed", err)
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate8), "Mutator did not return expected result")
+
+		err = f(mutate9)
+		Expect(err).To(BeNil(), "Mutator failed", err)
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate9), "Mutator did not return expected result")
+
 	})
 })
 
