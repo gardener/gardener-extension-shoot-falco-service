@@ -226,6 +226,7 @@ def test_event_generator_to_loki(
         extension_config=extension_config,
     )
     assert error is None
+    wait_for_extension_deployed(shoot_api_client)
 
     logs = run_falco_event_generator(shoot_api_client)
     # something that appears at the start
@@ -243,7 +244,6 @@ def test_event_generator_to_loki(
     assert postedOK
 
 
-@pytest.mark.skip(reason="This test is currently flaky - need more investigation")
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
     logger.info("Deploying Falco extension")
     fw = get_deprecated_falco_version(falco_profile)
@@ -262,15 +262,43 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
             "kind": "FalcoServiceConfig",
             "falcoVersion": fw,
             "autoUpdate": True,
-        }
+        },
     }
-    err = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
+    err = add_falco_to_shoot(
+        garden_api_client,
+        project_namespace,
+        shoot_name,
+        extension_config=extension_config,
+    )
     assert err is None
     wait_for_extension_deployed(shoot_api_client)
-    annotate_shoot(garden_api_client, project_namespace, shoot_name, "gardener.cloud/operation=maintain")
-    time.sleep(10)
+    annotate_shoot(
+        garden_api_client,
+        project_namespace,
+        shoot_name,
+        "gardener.cloud/operation=maintain",
+    )
+
+    max_tries = 10
+    wait_seconds = 10
+    for i in range(max_tries):
+        ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
+        if ext["providerConfig"]["falcoVersion"] != update_candiate:
+            logger.info(
+                f"Falco version is {ext['providerConfig']['falcoVersion']}, waiting {(max_tries-i-1)*wait_seconds} more seconds"
+            )
+            time.sleep(wait_seconds)
+            annotate_shoot(
+                garden_api_client,
+                project_namespace,
+                shoot_name,
+                "gardener.cloud/operation=maintain",
+            )
+            continue
+        else:
+            break
+
     ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
-    
     assert ext["providerConfig"]["falcoVersion"] == update_candiate
     logger.info(f"Falco version updated as expected from {fw} to {update_candiate}")
 
