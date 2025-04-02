@@ -34,6 +34,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
@@ -269,6 +270,13 @@ var (
 		},
 	}
 
+	falcoServiceConfigOld = &apisservice.FalcoServiceConfig{
+		Resources: stringValue("gardener"),
+		Gardener: &apisservice.Gardener{
+			CustomRules: []string{"rules1", "rules3"},
+		},
+	}
+
 	falcoServiceConfigBad = &apisservice.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
@@ -309,6 +317,14 @@ var (
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
 			StandardRules: &[]string{"falco-rules"},
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceRef: "rules1",
+				},
+				{
+					ResourceRef: "rules3",
+				},
+			},
 		},
 		Destinations: &[]service.Destination{
 			{
@@ -317,6 +333,19 @@ var (
 			{
 				Name: "stdout",
 			},
+		},
+	}
+
+	falcoServiceConfigCentralStdoutOld = &apisservice.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Resources:    stringValue("gardener"),
+		Gardener: &apisservice.Gardener{
+			UseFalcoRules: boolValue(true),
+			CustomRules:   []string{"rules1", "rules3"},
+		},
+		Output: &service.Output{
+			LogFalcoEvents: boolValue(true),
+			EventCollector: stringValue("central"),
 		},
 	}
 
@@ -334,6 +363,18 @@ var (
 	}
 
 	falcoServiceConfigCluster = &apisservice.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
+			},
+		},
+	}
+
+	falcoServiceConfigClusterOld = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
 			StandardRules: &[]string{"falco-rules"},
@@ -539,13 +580,18 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	})
 
 	It("custom rules in shoot spec", func(ctx SpecContext) {
-		res, err := configBuilder.extractCustomRules(shootSpec, falcoServiceConfig)
-		Expect(err).To(BeNil())
-		Expect(len(res)).To(Equal(2))
-		Expect(res[0].RefName).To(Equal("rules1"))
-		Expect(res[1].RefName).To(Equal("rules3"))
+		// TODO remove after migration
+		migration.MigrateIssue215(logger, falcoServiceConfigOld)
 
-		_, err = configBuilder.extractCustomRules(shootSpec, falcoServiceConfigBad)
+		for _, conf := range []*service.FalcoServiceConfig{falcoServiceConfig, falcoServiceConfigOld} {
+			res, err := configBuilder.extractCustomRules(shootSpec, conf)
+			Expect(err).To(BeNil())
+			Expect(len(res)).To(Equal(2))
+			Expect(res[0].RefName).To(Equal("rules1"))
+			Expect(res[1].RefName).To(Equal("rules3"))
+		}
+
+		_, err := configBuilder.extractCustomRules(shootSpec, falcoServiceConfigBad)
 		Expect(err).NotTo(BeNil())
 	})
 
@@ -687,32 +733,43 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	})
 
 	It("Test central and stdout functionality", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
-		Expect(err).To(BeNil())
+		// TODO remove after migration
+		migration.MigrateIssue215(logger, falcoServiceConfigCentralStdoutOld)
 
-		js, err := json.MarshalIndent((values), "", "    ")
-		Expect(err).To(BeNil())
-		Expect(len(js)).To(BeNumerically(">", 100))
+		for _, conf := range []*service.FalcoServiceConfig{falcoServiceConfigCentralStdout, falcoServiceConfigCentralStdoutOld} {
+			values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", conf)
+			Expect(err).To(BeNil())
 
-		configFalco := values["falco"].(map[string]any)
-		Expect(configFalco).To(HaveKey("stdout_output"))
+			js, err := json.MarshalIndent((values), "", "    ")
+			Expect(err).To(BeNil())
+			Expect(len(js)).To(BeNumerically(">", 100))
 
-		stdout := configFalco["stdout_output"].(map[string]bool)
-		Expect(stdout).To(HaveKey("enabled"))
-		Expect(stdout["enabled"]).To(BeTrue())
+			configFalco := values["falco"].(map[string]any)
+			Expect(configFalco).To(HaveKey("stdout_output"))
 
-		configSidekick := values["falcosidekick"].(map[string]any)["config"].(map[string]any)
-		Expect(configSidekick).To(HaveKey("webhook"))
+			stdout := configFalco["stdout_output"].(map[string]bool)
+			Expect(stdout).To(HaveKey("enabled"))
+			Expect(stdout["enabled"]).To(BeTrue())
 
-		webhook := configSidekick["webhook"].(map[string]any)
-		Expect(webhook).To(HaveKey("address"))
-		Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.IngestorURL))
-		Expect(webhook).To(HaveKey("checkcert"))
-		Expect(webhook["checkcert"].(bool)).To(BeTrue())
-		Expect(webhook).To(HaveKey("customheaders"))
+			customRules, err := configBuilder.extractCustomRules(shootSpec, conf)
+			Expect(err).To(BeNil())
+			Expect(len(customRules)).To(Equal(2))
+			Expect(customRules[0].RefName).To(Equal("rules1"))
+			Expect(customRules[1].RefName).To(Equal("rules3"))
 
-		authHeader := webhook["customheaders"].(map[string]string)["Authorization"]
-		Expect(authHeader).To(MatchRegexp(`Bearer\s[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+`))
+			configSidekick := values["falcosidekick"].(map[string]any)["config"].(map[string]any)
+			Expect(configSidekick).To(HaveKey("webhook"))
+
+			webhook := configSidekick["webhook"].(map[string]any)
+			Expect(webhook).To(HaveKey("address"))
+			Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.IngestorURL))
+			Expect(webhook).To(HaveKey("checkcert"))
+			Expect(webhook["checkcert"].(bool)).To(BeTrue())
+			Expect(webhook).To(HaveKey("customheaders"))
+
+			authHeader := webhook["customheaders"].(map[string]string)["Authorization"]
+			Expect(authHeader).To(MatchRegexp(`Bearer\s[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+`))
+		}
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {
