@@ -1,8 +1,11 @@
 import logging
 import json
 import sys
+import os
 import time
 import base64
+import yaml
+import jwt
 from datetime import datetime, timezone
 
 import jwt
@@ -130,25 +133,40 @@ def test_falco_deployment(
         "kube-system",
         falcosidekick_pod_label_selector)
     postedOK = False
-    for k, v in logs.items():
-        logger.debug(v)
-        postedOK = postedOK or "Webhook - POST OK (200)" in v
-    time.sleep(5000)
-    assert postedOK
-    # This does not work with current test restrictions - no access 
-    # to controller deployments
+    assert len(logs) > 0
 
-    # key = get_token_public_key(garden_api_client)
-    # tok = jwt.decode(encoded_token, key=key, verify_signature=True, 
-    #                 algorithms=["RS256"], audience="falco-db")
-    # logger.info("access token is valid")
-    # expiration = int(tok["exp"])
-    # now = int(time.time())
-    # token_lifetime = get_token_lifetime(garden_api_client)  
-    # assert expiration <= token_lifetime + now
-    # logger.info("access token has expected lifetime")
-    # assert expiration >= now + token_lifetime - (30*60)
-    # logger.info("access token has almost full lifetime")
+    dev_env = os.getenv("FALCO_DEV_ENVIRONMENT")
+    if dev_env is not None:
+        # cental logging does not work in dev environment
+        for k, v in logs.items():
+            logger.debug(v)
+            postedOK = postedOK or "Webhook - POST OK (200)" in v
+        time.sleep(5000)
+        assert postedOK
+
+    if dev_env is not None:
+        # this test works only in the dev environment due to lack of 
+        # access in the test environment
+        logger.info("checking access token")
+        secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
+        configyaml = secret.data["config.yaml"]
+        logger.info(f"config.yaml: {configyaml}")
+        falcosidekickcfg = yaml.safe_load(configyaml)
+        headers64 = falcosidekickcfg["webhook"]["customHeaders"]["Authorization"]
+        headers = str(base64.b64decode(headers64), "utf-8")
+        encoded_token = headers.split(":")[1].split(" ")[1].strip()
+
+        key = get_token_public_key(garden_api_client)
+        tok = jwt.decode(encoded_token, key=key, verify_signature=True,
+                         algorithms=["RS256"], audience="falco-db")
+        logger.info("access token is valid")
+        expiration = int(tok["exp"])
+        now = int(time.time())
+        token_lifetime = get_token_lifetime(garden_api_client)  
+        assert expiration <= token_lifetime + now
+        logger.info("access token has expected lifetime")
+        assert expiration >= now + token_lifetime - (30*60)
+        logger.info("access token has almost full lifetime")
 
 
 def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, project_namespace, shoot_name):    

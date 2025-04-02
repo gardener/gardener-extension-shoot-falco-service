@@ -38,8 +38,11 @@ def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
     ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     logs = {}
     for pod in ret.items:
-        #pod_logs(shoot_api_client, namespace, pod.metadata.name)
-        logs[pod.metadata.name] = pod_logs(shoot_api_client, namespace, pod.metadata.name)
+        # pod_logs(shoot_api_client, namespace, pod.metadata.name)
+        logs[pod.metadata.name] = pod_logs(
+                                    shoot_api_client,
+                                    namespace,
+                                    pod.metadata.name)
     return logs
 
 
@@ -429,45 +432,81 @@ def wait_for_extension_undeployed(shoot_api_client):
         for pod in pods.items:
             logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
         time.sleep(10)
-    
+
+
+def get_node_count(shoot_api_client):
+    cv1 = client.CoreV1Api(shoot_api_client)
+    nodes = cv1.list_node()
+    return len(nodes.items)
+
+
+def all_containers_running(shoot_api_client, ls, node_count):
+    logger.info(f"Checking if all pods ({node_count}) and containers are "
+                "running")
+    cv1 = client.CoreV1Api(shoot_api_client)
+    try:
+        pods = cv1.list_namespaced_pod(
+                            namespace="kube-system",
+                            label_selector=ls)
+    except client.exceptions.ApiException:
+        return False
+
+    if len(pods.items) == node_count:
+        for pod in pods.items:
+            logger.info(f"Pod {pod.status}")
+            if pod.status.phase != "Running":
+                logging.info(f"Pod {pod.metadata.name} is not running yet")
+                return False
+    else:
+        # no pods, not acceptable
+        logging.info(f"Only {len(pods.items)} pods found, expected {node_count}")
+        return False
+
+    # check that all containers are running
+    for pod in pods.items:
+        for container in pod.status.container_statuses:
+            if container.state.running is None:
+                logging.info(f"Container {container.name} in pod"
+                             "{pod.metadata.name} is not running yet")
+                return False
+    return True
+
 
 def wait_for_extension_deployed(shoot_api_client):
     logger.info("Waiting for falco extension to be deployed")
+    node_count = get_node_count(shoot_api_client)
     cv1 = client.CoreV1Api(shoot_api_client)
     ls = all_falco_pod_label_selector
     counter = 0
     max_iteratins = 200
+    all_running = False
     while True and counter <= max_iteratins:
-        pods = cv1.list_namespaced_pod(
-                                namespace="kube-system",
-                                label_selector=ls)
-        allRunning = False
-        if len(pods.items) != 0:
-            allRunning = True
-            for pod in pods.items:
-                if pod.status.phase != "Running":
-                    logging.info(f"Pod {pod.metadata.name} is not running yet")
-                    allRunning = False
-                    break                
-        if not allRunning or len(pods.items) == 0:
+        all_running = all_containers_running(
+                            shoot_api_client,
+                            all_falco_pod_label_selector,
+                            node_count + 2)
+        if all_running:
+            break
+        else:
+            counter += 1
             logging.info("Not all expected falco pods are running or deployed")
             time.sleep(5)
-        else:
-            logging.info(
-                        "All falco pods are running, waiting a bit longer "
-                        "to re-check")
-            time.sleep(20)
-            pods = cv1.list_namespaced_pod(
-                                    namespace="kube-system",
-                                    label_selector=ls)
-            if len(pods.items) == 0:
-                raise Exception("Falco pods are not running or deployed")
-            for pod in pods.items:
-                logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
-            return
-    raise Exception(
-            f"Falco pods are not running or deployed after {max_iteratins} "
-            "iterations")
+
+    if not all_running:
+        raise Exception("Not all expected falco pods are running or deployed")
+
+    logging.info(
+                "All falco pods are running, waiting a bit longer "
+                "to re-check")
+    time.sleep(20)
+    pods = cv1.list_namespaced_pod(
+                            namespace="kube-system",
+                            label_selector=ls)
+    if len(pods.items) == 0:
+        raise Exception("Falco pods are not running or deployed")
+    for pod in pods.items:
+        logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
+    return
 
 
 def get_falco_sidekick_pods(shoot_api_client):
