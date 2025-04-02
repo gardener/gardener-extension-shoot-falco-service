@@ -305,6 +305,21 @@ var (
 		},
 	}
 
+	falcoServiceConfigCentralStdout = &apisservice.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "central",
+			},
+			{
+				Name: "stdout",
+			},
+		},
+	}
+
 	falcoServiceConfigCustomWebhookWithSecret = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
@@ -669,6 +684,35 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
+	})
+
+	It("Test central and stdout functionality", func(ctx SpecContext) {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).To(BeNil())
+
+		js, err := json.MarshalIndent((values), "", "    ")
+		Expect(err).To(BeNil())
+		Expect(len(js)).To(BeNumerically(">", 100))
+
+		configFalco := values["falco"].(map[string]any)
+		Expect(configFalco).To(HaveKey("stdout_output"))
+
+		stdout := configFalco["stdout_output"].(map[string]bool)
+		Expect(stdout).To(HaveKey("enabled"))
+		Expect(stdout["enabled"]).To(BeTrue())
+
+		configSidekick := values["falcosidekick"].(map[string]any)["config"].(map[string]any)
+		Expect(configSidekick).To(HaveKey("webhook"))
+
+		webhook := configSidekick["webhook"].(map[string]any)
+		Expect(webhook).To(HaveKey("address"))
+		Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.IngestorURL))
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
+		Expect(webhook).To(HaveKey("customheaders"))
+
+		authHeader := webhook["customheaders"].(map[string]string)["Authorization"]
+		Expect(authHeader).To(MatchRegexp(`Bearer\s[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+`))
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {
