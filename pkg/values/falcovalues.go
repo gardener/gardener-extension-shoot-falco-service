@@ -84,6 +84,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	falcoOutputConfigs := make([]falcoOutputConfig, 0)
 	falcoStdoutLog := false
 
+	if falcoServiceConfig.Destinations == nil || len(*falcoServiceConfig.Destinations) == 0 {
+		return nil, fmt.Errorf("no destinations configured")
+	}
+
 	for _, dest := range *falcoServiceConfig.Destinations {
 		switch dest.Name {
 		case constants.FalcoEventDestinationStdout:
@@ -155,7 +159,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"Authorization": "Bearer " + token,
 			}
 
-			// customHeaders := serializeCustomHeaders(customHeadersMap)
 			webhook := map[string]interface{}{
 				"address":       ingestorAddress,
 				"customheaders": customHeaders,
@@ -286,6 +289,11 @@ func (*ConfigBuilder) getDestination(falcoOutputConfigs []falcoOutputConfig) str
 			return constants.FalcoEventDestinationLogging
 		}
 	}
+
+	if len(falcoOutputConfigs) == 0 {
+		return constants.FalcoEventDestinationStdout
+	}
+
 	return falcoOutputConfigs[0].key
 }
 
@@ -491,9 +499,11 @@ func (c *ConfigBuilder) getImageForVersion(name string, version string) (string,
 	} else {
 		return "", fmt.Errorf("unknown image name %s", name)
 	}
+
 	if image == nil {
 		return "", fmt.Errorf("no image found for %s version %s", name, version)
 	}
+
 	if isDigest(image.Tag) {
 		return image.Repository + "@" + image.Tag, nil
 	} else if image.Tag != "" {
@@ -577,14 +587,6 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 		}
 	}
 	return cas, certs, nil
-}
-
-func serializeCustomHeaders(customHeadersMap map[string]string) string {
-	customHeaders := ""
-	for k, v := range customHeadersMap {
-		customHeaders += k + ":" + v + ","
-	}
-	return customHeaders[:len(customHeaders)-1]
 }
 
 func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRuleRef, error) {

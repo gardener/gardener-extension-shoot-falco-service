@@ -1165,4 +1165,105 @@ key1:
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("data is not in valid yaml format"))
 	})
+
+})
+
+var _ = Describe("BuildFalcoValues", func() {
+	BeforeEach(func() {
+		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+		Expect(err).To(BeNil())
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+	})
+
+	It("should build values successfully for a valid configuration", func() {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtension)
+		Expect(err).To(BeNil())
+		Expect(values).NotTo(BeNil())
+
+		// Validate custom rules
+		customRules := values["customRules"].([]customRulesFile)
+		Expect(len(customRules)).To(Equal(1))
+		Expect(customRules[0].Content).To(Equal("# dummy rules 1"))
+
+		// Validate falco rules
+		falcoRules := values["falcoRules"].(string)
+		Expect(len(falcoRules)).To(BeNumerically(">", 1000))
+
+		// Validate priority class
+		priorityClass := values["priorityClassName"].(string)
+		Expect(priorityClass).To(Equal("falco-test-priority-dummy-classname"))
+	})
+
+	It("should return an error for invalid Falco version", func() {
+		invalidConfig := &service.FalcoServiceConfig{
+			FalcoVersion: stringValue("invalid-version"),
+		}
+
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", invalidConfig)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("no image found for falco version invalid-version"))
+	})
+
+	It("should handle missing destinations gracefully", func() {
+		configWithoutDestinations := &service.FalcoServiceConfig{
+			FalcoVersion: stringValue("0.38.0"),
+			Rules: &service.Rules{
+				StandardRules: &[]string{"falco-rules"},
+			},
+		}
+
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", configWithoutDestinations)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("no destinations configured"))
+	})
+
+	It("should return an error for too many custom rule files", func() {
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionTooManyCustomRuleFiles)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("too many custom rule files in configmap"))
+	})
+
+	It("should build values with custom webhook configuration", func() {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)
+		Expect(err).To(BeNil())
+		Expect(values).NotTo(BeNil())
+
+		// Validate webhook configuration
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		Expect(config).To(HaveKey("webhook"))
+
+		webhook := config["webhook"].(map[string]interface{})
+		Expect(webhook).To(HaveKey("address"))
+		Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
+		Expect(webhook).To(HaveKey("customheaders"))
+		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
+	})
+
+	It("should build values with central and stdout destinations", func() {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).To(BeNil())
+		Expect(values).NotTo(BeNil())
+
+		// Validate central destination
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		Expect(config).To(HaveKey("webhook"))
+
+		webhook := config["webhook"].(map[string]interface{})
+		Expect(webhook).To(HaveKey("address"))
+		Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.IngestorURL))
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
+
+		// Validate stdout destination
+		configFalco := values["falco"].(map[string]interface{})
+		Expect(configFalco).To(HaveKey("stdout_output"))
+
+		stdout := configFalco["stdout_output"].(map[string]bool)
+		Expect(stdout).To(HaveKey("enabled"))
+		Expect(stdout["enabled"]).To(BeTrue())
+	})
 })
