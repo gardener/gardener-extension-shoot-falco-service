@@ -814,7 +814,7 @@ func readGzTrailer(datagz []byte) (uint32, uint32, error) {
 
 // Validates the given data as YAML
 func validateYaml(data string) error {
-	var yamlData interface{}
+	var yamlData any
 	if err := yaml.Unmarshal([]byte(data), &yamlData); err != nil {
 		return fmt.Errorf("data is not in valid yaml format: %v", err)
 	}

@@ -49,6 +49,7 @@ var (
 			IngestorURL:           "https://ingestor.example.com",
 		},
 	}
+
 	shootExtension = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
@@ -66,6 +67,7 @@ var (
 			},
 		},
 	}
+
 	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
@@ -89,6 +91,7 @@ var (
 			},
 		},
 	}
+
 	shootExtensionTooManyCustomRuleFiles = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
@@ -247,6 +250,7 @@ var (
 			},
 		},
 	}
+
 	falcoServiceConfig = &apisservice.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
@@ -264,6 +268,7 @@ var (
 			},
 		},
 	}
+
 	falcoServiceConfigBad = &apisservice.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
@@ -281,6 +286,7 @@ var (
 			},
 		},
 	}
+
 	falcoServiceConfigWrongCustomRules = &apisservice.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
@@ -298,6 +304,7 @@ var (
 			},
 		},
 	}
+
 	falcoServiceConfigCustomWebhookWithSecret = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
@@ -310,6 +317,7 @@ var (
 			},
 		},
 	}
+
 	falcoServiceConfigCluster = &apisservice.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
@@ -321,6 +329,7 @@ var (
 			},
 		},
 	}
+
 	webhookSecrets = &corev1.SecretList{
 		Items: []corev1.Secret{
 			{
@@ -337,6 +346,7 @@ Authorization: Bearer my-token`),
 			},
 		},
 	}
+
 	rulesConfigMap = &corev1.ConfigMapList{
 		Items: []corev1.ConfigMap{
 			{
@@ -469,6 +479,22 @@ key1:
 			},
 		},
 	}
+
+	falcoRuleYaml = `
+- rule: Test rule
+  desc: Test rule description
+  condition: test_condition
+  output: test_output
+  priority: test_priority
+  tags: test_tags
+  examples: test_examples
+
+- macro: test_macro
+  condition: test_condition
+
+- list: shell_binaries
+  items: [ash, bash, csh, ksh, sh, tcsh, zsh, dash]
+`
 )
 
 func decode(encoded string) []byte {
@@ -511,6 +537,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	It("Test loading rules from configmap", func(ctx SpecContext) {
 		err := configBuilder.client.Get(context.TODO(), client.ObjectKey{Namespace: "shoot--test--foo", Name: "ref-rules1"}, &corev1.ConfigMap{})
 		Expect(err).To(BeNil())
+
 		selectedConfigs := []customRuleRef{
 			{
 				RefName:       "rules1",
@@ -539,6 +566,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		res, err = configBuilder.loadRuleConfig(context.TODO(), logger, "shoot--test--foo", selectedConfigs)
 		Expect(err).To(BeNil())
 		Expect(len(res)).To(Equal(2))
+
 		cr1 := customRulesFile{
 			Filename: "dummyrules-other.yaml",
 			Content:  "# dummy rules 3",
@@ -626,13 +654,14 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	It("Test custom webhook functionality with secret", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)
 		Expect(err).To(BeNil())
+
 		js, err := json.MarshalIndent((values), "", "    ")
 		Expect(err).To(BeNil())
 		Expect(len(js)).To(BeNumerically(">", 100))
-		// fmt.Println(string(js))
-		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		Expect(config).To(HaveKey("webhook"))
+
 		webhook := config["webhook"].(map[string]interface{})
 		Expect(webhook).To(HaveKey("address"))
 		Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
@@ -645,11 +674,12 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	It("Test cluster logging functionality", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCluster)
 		Expect(err).To(BeNil())
+
 		js, err := json.MarshalIndent((values), "", "    ")
 		Expect(err).To(BeNil())
 		Expect(len(js)).To(BeNumerically(">", 100))
-		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		Expect(config).To(HaveKey("loki"))
 
 		loggingConf := config["loki"].(map[string]interface{})
@@ -673,18 +703,21 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	It("Test simple values generation", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtension)
 		Expect(err).To(BeNil())
+
 		js, err := json.MarshalIndent((values), "", "    ")
 		Expect(err).To(BeNil())
-		//fmt.Println(string(js))
 		Expect(len(js)).To(BeNumerically(">", 100))
+
 		cr := values["customRules"].([]customRulesFile)
 		Expect(len(cr)).To(Equal(1))
 		Expect(cr[0].Content).To(Equal("# dummy rules 1"))
 
 		frules := values["falcoRules"].(string)
 		Expect(len(frules)).To(BeNumerically(">", 1000))
+
 		_, ok := values["falcoIncubatingRules"]
 		Expect(ok).To(BeFalse())
+
 		_, ok = values["falcoSandboxRules"]
 		Expect(ok).To(BeFalse())
 
@@ -707,21 +740,25 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		// check custom rules
 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
 		Expect(customRules).NotTo(BeNil())
+
 		m := make(map[string]interface{})
 		falcoConfigmap := getManifest((release), "falco/templates/falco-configmap.yaml")
 		fc := corev1.ConfigMap{}
 		err = yaml.Unmarshal([]byte(falcoConfigmap.Content), &fc)
 		Expect(err).To(BeNil())
+
 		falcoYaml := make(map[string]interface{})
 		err = yaml.Unmarshal([]byte(fc.Data["falco.yaml"]), &falcoYaml)
 		Expect(err).To(BeNil())
+
 		rules := falcoYaml["rules_files"].([]interface{})
 		Expect(len(rules)).To(Equal(2))
 		Expect(rules[0]).To(Equal("/etc/falco/rules.d/falco_rules.yaml"))
 		Expect(rules[1]).To(Equal("/etc/falco/rules.d/dummyrules.yaml"))
-		fmt.Println(customRules.Content)
+
 		err = yaml.Unmarshal([]byte(customRules.Content), &m)
 		Expect(err).To(BeNil())
+
 		data := m["data"].(map[string]interface{})
 		rulesFile := data["dummyrules.yaml"].(string)
 		Expect(rulesFile).To(Equal("# dummy rules 1"))
@@ -729,16 +766,14 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		// check priority class in falco deamonset
 		falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
 		Expect(falcoDaemonset).NotTo(BeNil())
+
 		ds := appsv1.DaemonSet{}
-		fmt.Println(falcoDaemonset.Content)
 		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
 		Expect(err).To(BeNil())
 		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("falcosecurity/falco:0.38.0"))
 		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
-		// fmt.Println((customRules.Content))
 
-		// default gardener webhook
 		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		Expect(config).To(HaveKey("webhook"))
 		webhook := config["webhook"].(map[string]interface{})
@@ -866,22 +901,6 @@ var _ = Describe("Getter for Falco rules", Label("falcovalues"), func() {
 		Expect(configBuilder.getFalcoRulesFile("false_rules_file.yaml", "0.38.0")).Error().ToNot(BeNil())
 	})
 })
-
-var falcoRuleYaml = `
-- rule: Test rule
-  desc: Test rule description
-  condition: test_condition
-  output: test_output
-  priority: test_priority
-  tags: test_tags
-  examples: test_examples
-
-- macro: test_macro
-  condition: test_condition
-
-- list: shell_binaries
-  items: [ash, bash, csh, ksh, sh, tcsh, zsh, dash]
-`
 
 var _ = Describe("loadRulesFromRulesFiles", func() {
 
