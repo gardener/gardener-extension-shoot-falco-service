@@ -43,6 +43,7 @@ endif
 # Tools                                 #
 #########################################
 
+TOOLS_DIR := hack/tools
 include $(GARDENER_HACK_DIR)/tools.mk
 
 .PHONY: start
