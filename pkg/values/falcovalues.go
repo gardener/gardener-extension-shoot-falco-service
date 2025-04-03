@@ -112,7 +112,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 		case constants.FalcoEventDestinationCustom:
 			webhook := map[string]interface{}{}
-			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *dest.ResourceSecretRef)
+			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *dest.ResourceSecretName)
 			if err != nil {
 				return nil, err
 			}
@@ -602,9 +602,9 @@ func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoSer
 	}
 	var selectedConfigMaps []customRuleRef
 	for _, customRule := range *falcoServiceConfig.Rules.CustomRules {
-		if configMapName, ok := allConfigMaps[customRule.ResourceRef]; ok {
+		if configMapName, ok := allConfigMaps[customRule.ResourceName]; ok {
 			cr := customRuleRef{
-				RefName:       customRule.ResourceRef,
+				RefName:       customRule.ResourceName,
 				ConfigMapName: configMapName,
 			}
 			selectedConfigMaps = append(selectedConfigMaps, cr)

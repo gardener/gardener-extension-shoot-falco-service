@@ -303,7 +303,7 @@ var (
 			"logFalcoEvents":false,
 			"eventCollector":"custom",
 			"customWebhook": {
-				"secretRef": "resourceRef"
+				"secretRef": "resourceName"
 			}
 		}
 	}`
@@ -323,7 +323,7 @@ var (
 		"destinations": [
 			{
 				"name": "custom",
-				"resourceSecretRef": "resourceRef"
+				"resourceSecretName": "resourceName"
 			}
 		]
 	}`
@@ -357,7 +357,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				}
 			]
 		},
@@ -397,7 +397,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				}
 			]
 		},
@@ -479,7 +479,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				}
 			]
 		},
@@ -555,7 +555,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				}
 			]
 		},
@@ -595,7 +595,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				}
 			]
 		},
@@ -631,7 +631,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				}
 			]
 		},
@@ -677,10 +677,10 @@ var (
 			],
 			"custom": [
 				{
-					"resourceRef": "my-custom-rules"
+					"resourceName": "my-custom-rules"
 				},
 				{
-					"resourceRef": "more-custom-rules"
+					"resourceName": "more-custom-rules"
 				}
 			]
 		},
@@ -715,7 +715,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "custom-rules-int"
+					"resourceName": "custom-rules-int"
 				}
 			]
 		},
@@ -746,7 +746,7 @@ var (
 		"rules": {
 			"custom": [
 				{
-					"resourceRef": "custom-rules-int"
+					"resourceName": "custom-rules-int"
 				}
 			]
 		},

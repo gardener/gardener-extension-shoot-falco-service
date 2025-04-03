@@ -143,7 +143,7 @@ def get_falco_extension(garden_api_client, project_namespace: str, shoot_name: s
             "custom" in extension_spec["providerConfig"]["rules"]:
         cr = []
         for r in extension_spec["providerConfig"]["rules"]["custom"]:
-            cr.append(r["resourceRef"])
+            cr.append(r["resourceName"])
         custom_rule_resources = set(cr)
 
     if custom_rule_resources is not None and "resources" in data["spec"]:

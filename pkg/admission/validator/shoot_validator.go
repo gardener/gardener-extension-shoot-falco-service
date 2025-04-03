@@ -209,10 +209,10 @@ func verifyStandardRules(standardRules []string) error {
 func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) error {
 	customRulesNames := make([]string, 0)
 	for _, rule := range customRules {
-		if rule.ResourceRef == "" {
+		if rule.ResourceName == "" {
 			return fmt.Errorf("found custom rule with empty resource referece")
 		}
-		customRulesNames = append(customRulesNames, rule.ResourceRef)
+		customRulesNames = append(customRulesNames, rule.ResourceName)
 	}
 
 	if !unique(customRulesNames) {
@@ -277,20 +277,20 @@ func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.
 }
 
 func verifyCustomDestination(customDest service.Destination, shoot *core.Shoot) error {
-	if customDest.ResourceSecretRef == nil {
+	if customDest.ResourceSecretName == nil {
 		return fmt.Errorf("custom event destination is set but no custom config is defined")
 	}
 
 	found := false
 	for _, s := range shoot.Spec.Resources {
-		if s.ResourceRef.Kind == "Secret" && s.Name == *customDest.ResourceSecretRef {
+		if s.ResourceRef.Kind == "Secret" && s.Name == *customDest.ResourceSecretName {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		return fmt.Errorf("custom event destination config %s not found in resources", *customDest.ResourceSecretRef)
+		return fmt.Errorf("custom event destination config %s not found in resources", *customDest.ResourceSecretName)
 	}
 	return nil
 }

@@ -58,7 +58,7 @@ var (
 			StandardRules: &[]string{"falco-rules"},
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "rules1",
+					ResourceName: "rules1",
 				},
 			},
 		},
@@ -76,13 +76,13 @@ var (
 			StandardRules: &[]string{"falco-rules"},
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "rulesm2",
+					ResourceName: "rulesm2",
 				},
 				{
-					ResourceRef: "rulesm3",
+					ResourceName: "rulesm3",
 				},
 				{
-					ResourceRef: "rulesm1",
+					ResourceName: "rulesm1",
 				},
 			},
 		},
@@ -100,7 +100,7 @@ var (
 			StandardRules: &[]string{"falco-rules"},
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "too-many-rule-files",
+					ResourceName: "too-many-rule-files",
 				},
 			},
 		},
@@ -256,10 +256,10 @@ var (
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "rules1",
+					ResourceName: "rules1",
 				},
 				{
-					ResourceRef: "rules3",
+					ResourceName: "rules3",
 				},
 			},
 		},
@@ -281,10 +281,10 @@ var (
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "rules1",
+					ResourceName: "rules1",
 				},
 				{
-					ResourceRef: "rules2",
+					ResourceName: "rules2",
 				},
 			},
 		},
@@ -299,10 +299,10 @@ var (
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "rules1",
+					ResourceName: "rules1",
 				},
 				{
-					ResourceRef: "rules_wrong",
+					ResourceName: "rules_wrong",
 				},
 			},
 		},
@@ -319,10 +319,10 @@ var (
 			StandardRules: &[]string{"falco-rules"},
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "rules1",
+					ResourceName: "rules1",
 				},
 				{
-					ResourceRef: "rules3",
+					ResourceName: "rules3",
 				},
 			},
 		},
@@ -356,8 +356,8 @@ var (
 		},
 		Destinations: &[]service.Destination{
 			{
-				Name:              "custom",
-				ResourceSecretRef: stringValue("custom-webhook-secret"),
+				Name:               "custom",
+				ResourceSecretName: stringValue("custom-webhook-secret"),
 			},
 		},
 	}

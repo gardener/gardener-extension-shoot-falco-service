@@ -166,7 +166,7 @@ var (
 		 },
 		 {
 		 	"name": "custom",
-			"resourceSecretRef": "my-custom-webhook-ref"
+			"resourceSecretName": "my-custom-webhook-ref"
 		 }
 		]
 	}`
@@ -179,7 +179,7 @@ var (
 		"rules": {
 			"custom": [
 			 {
-				"resourceRef": "dummy-custom-rules-ref"
+				"resourceName": "dummy-custom-rules-ref"
 			 }
 			]
 		},
@@ -189,7 +189,7 @@ var (
 		 },
 		 {
 		 	"name": "custom",
-			"resourceSecretRef": "my-custom-webhook-ref"
+			"resourceSecretName": "my-custom-webhook-ref"
 		 }
 		]
 	}`
@@ -223,7 +223,7 @@ var (
 		 },
 		 {
 		 	"name": "custom",
-			"resourceSecretRef": "my-custom-webhook-ref"
+			"resourceSecretName": "my-custom-webhook-ref"
 		 }
 		]
 	}`
@@ -260,7 +260,7 @@ var (
 		 },
 		 {
 		 	"name": "custom",
-			"resourceSecretRef": "my-custom-webhook-ref"
+			"resourceSecretName": "my-custom-webhook-ref"
 		 }
 		]
 	}`
@@ -282,7 +282,7 @@ var (
 		 },
 		 {
 		 	"name": "custom",
-			"resourceSecretRef": "my-custom-webhook-ref"
+			"resourceSecretName": "my-custom-webhook-ref"
 		 }
 		]
 	}`
@@ -317,7 +317,7 @@ var (
 			],
 			"custom": [
 			{
-				"resourceRef": ""
+				"resourceName": ""
 			}
 			]
 		},
@@ -605,8 +605,8 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		falcoConf.Destinations = &[]service.Destination{
 			{
-				Name:              constants.FalcoEventDestinationCustom,
-				ResourceSecretRef: stringValue("garbage-non-existing-rules-ref"),
+				Name:               constants.FalcoEventDestinationCustom,
+				ResourceSecretName: stringValue("garbage-non-existing-rules-ref"),
 			},
 			{
 				Name: constants.FalcoEventDestinationStdout,
@@ -617,8 +617,8 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		falcoConf.Destinations = &[]service.Destination{
 			{
-				Name:              constants.FalcoEventDestinationCustom,
-				ResourceSecretRef: stringValue("my-custom-webhook-ref"),
+				Name:               constants.FalcoEventDestinationCustom,
+				ResourceSecretName: stringValue("my-custom-webhook-ref"),
 			},
 			{
 				Name: constants.FalcoEventDestinationStdout,
@@ -671,7 +671,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		conf.Rules = &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "",
+					ResourceName: "",
 				},
 			},
 		}
@@ -681,7 +681,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		conf.Rules = &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "non-existing",
+					ResourceName: "non-existing",
 				},
 			},
 		}
@@ -691,7 +691,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		conf.Rules = &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "dummy-custom-rules-ref",
+					ResourceName: "dummy-custom-rules-ref",
 				},
 			},
 		}
@@ -701,10 +701,10 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		conf.Rules = &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
-					ResourceRef: "dummy-custom-rules-ref",
+					ResourceName: "dummy-custom-rules-ref",
 				},
 				{
-					ResourceRef: "dummy-custom-rules-ref",
+					ResourceName: "dummy-custom-rules-ref",
 				},
 			},
 		}

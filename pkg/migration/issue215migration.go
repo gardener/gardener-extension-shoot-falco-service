@@ -43,7 +43,7 @@ func migrateRules(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 			customRules := make([]service.CustomRule, 0)
 			for _, rule := range falcoConf.Gardener.CustomRules {
 				customRules = append(customRules, service.CustomRule{
-					ResourceRef: rule,
+					ResourceName: rule,
 				})
 			}
 			if falcoConf.Rules == nil {
@@ -82,7 +82,7 @@ func migrateOutput(log logr.Logger, falcoConf *service.FalcoServiceConfig) {
 				Name: constants.FalcoEventDestinationCustom,
 			}
 			if falcoConf.Output.CustomWebhook != nil && falcoConf.Output.CustomWebhook.SecretRef != nil {
-				destination.ResourceSecretRef = falcoConf.Output.CustomWebhook.SecretRef
+				destination.ResourceSecretName = falcoConf.Output.CustomWebhook.SecretRef
 			}
 			destinations = append(destinations, destination)
 		}
