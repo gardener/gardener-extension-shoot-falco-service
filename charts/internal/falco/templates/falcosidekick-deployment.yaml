@@ -39,7 +39,7 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "cluster" }}
+      {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
       serviceAccountName: gardener-falcosidekick
       {{- end }}
       {{- if .Values.falcosidekick.priorityClassName }}

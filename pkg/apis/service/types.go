@@ -21,6 +21,9 @@ type FalcoServiceConfig struct {
 	// +optional
 	AutoUpdate *bool
 
+	// -------------------------------------------------------------------
+	// remove by 2025-05-01
+
 	// use "gardener" or "falcoctl", defaults to "gardener"
 	// +optional
 	Resources *string
@@ -41,6 +44,27 @@ type FalcoServiceConfig struct {
 	// Configuration for custom webhook
 	// +optional
 	CustomWebhook *Webhook
+
+	// -------------------------------------------------------------------
+	// added due to issue #215
+
+	Rules *Rules
+
+	Destinations *[]Destination
+}
+
+type Destination struct {
+	Name               string
+	ResourceSecretName *string
+}
+
+type Rules struct {
+	StandardRules *[]string
+	CustomRules   *[]CustomRule
+}
+
+type CustomRule struct {
+	ResourceName string
 }
 
 type FalcoCtl struct {

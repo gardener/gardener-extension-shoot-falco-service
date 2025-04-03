@@ -31,7 +31,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/validation"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -96,8 +95,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
-	// migrate config to new format
-	falcoServiceConfig = migration.MigrateFalcoServiceConfig(log, falcoServiceConfig, a.serviceConfig.Falco.DefaultEventLogger)
+	// migrate config to new format (migration)
+	migration.MigrateIssue215(log, falcoServiceConfig)
 	log.Info("Reconciling Falco resources for shoot " + cluster.Shoot.Name)
 	renderer, err := util.NewChartRendererForShoot(cluster.Shoot.Spec.Kubernetes.Version)
 	if err != nil {
@@ -152,16 +151,16 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 	namespace := ex.GetNamespace()
 	cluster, err := controller.GetCluster(ctx, a.client, namespace)
 	if err != nil {
-		return fmt.Errorf("unable to get cluster for Falco excetion delete operation: %w", err)
+		return fmt.Errorf("Unable to get cluster for Falco exextension delete operation: %w", err)
 	}
 	log.Info("Deleting falco resources for shoot " + cluster.Shoot.Name)
 	err = a.deleteShootResources(ctx, log, namespace)
 	if err != nil {
-		return fmt.Errorf("error deleting Falco from shoot %s: %w", cluster.Shoot.Name, err)
+		return fmt.Errorf("Error deleting Falco from shoot %s: %w", cluster.Shoot.Name, err)
 	}
 	err = a.deleteSeedResources(ctx, log, namespace)
 	if err != nil {
-		return fmt.Errorf("error deleting Falco seed resources for shoot %s: %w", cluster.Shoot.Name, err)
+		return fmt.Errorf("Error deleting Falco seed resources for shoot %s: %w", cluster.Shoot.Name, err)
 	}
 	return nil
 }
@@ -235,9 +234,6 @@ func (a *actuator) extractFalcoServiceConfig(log logr.Logger, ex *extensionsv1al
 		log.Info("Extracting Falco service config", "providerConfig", string(ex.Spec.ProviderConfig.Raw[:]))
 		if _, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, falcoServiceConfig); err != nil {
 			return nil, fmt.Errorf("could not decode Falco service config: %w", err)
-		}
-		if errs := validation.ValidateFalcoServiceConfig(falcoServiceConfig); len(errs) > 0 {
-			return nil, errs.ToAggregate()
 		}
 	}
 	return falcoServiceConfig, nil

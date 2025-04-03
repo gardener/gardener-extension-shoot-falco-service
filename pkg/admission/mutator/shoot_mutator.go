@@ -58,27 +58,6 @@ func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 	return s.mutateShoot(ctx, shoot)
 }
 
-func setOutput(falcoConf *service.FalcoServiceConfig) {
-	trueVal := true
-	falseVal := false
-	if falcoConf.Output == nil {
-		falcoConf.Output = &service.Output{
-			LogFalcoEvents: &trueVal,
-		}
-	}
-	if falcoConf.Output.EventCollector == nil {
-		defaultEventCollector := "central"
-		falcoConf.Output.EventCollector = &defaultEventCollector
-	}
-	if falcoConf.Output.LogFalcoEvents == nil {
-		if *falcoConf.Output.EventCollector != "none" {
-			falcoConf.Output.LogFalcoEvents = &falseVal
-		} else {
-			falcoConf.Output.LogFalcoEvents = &trueVal
-		}
-	}
-}
-
 func setGardenerRules(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Gardener == nil {
 		falcoConf.Gardener = &service.Gardener{}
@@ -245,13 +224,6 @@ func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVers
 	return nil, fmt.Errorf("no version was found to force update expired version %s", version)
 }
 
-// Fix broken empty falcoctl configuration in shoot spec
-func (s *Shoot) mutateFalcoCtl(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.FalcoCtl != nil && falcoConf.FalcoCtl.AllowedTypes == nil && falcoConf.FalcoCtl.Indexes == nil {
-		falcoConf.FalcoCtl = nil
-	}
-}
-
 func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
 	if s.isDisabled(new) {
 		return nil
@@ -260,28 +232,42 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if err != nil {
 		return err
 	}
-	if falcoConf == nil {
-		return nil
-	}
 
 	if err = setFalcoVersion(falcoConf); err != nil {
 		return err
 	}
 
-	log := logr.New(nil)
-
-	c := "central"
-	falcoConf = migration.MigrateFalcoServiceConfig(log, falcoConf, &c)
-
-	s.mutateFalcoCtl(falcoConf)
-
 	setAutoUpdate(falcoConf)
 
-	setResources(falcoConf)
+	log := logr.New(nil)
 
-	setOutput(falcoConf)
+	migration.MigrateIssue215(log, falcoConf)
+
+	setRules(falcoConf)
+
+	setDestinations(falcoConf)
 
 	return s.UpdateFalcoConfig(new, falcoConf)
+}
+
+func setRules(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Rules == nil {
+		standardRules := []string{constants.ConfigFalcoRules}
+		falcoConf.Rules = &service.Rules{
+			StandardRules: &standardRules,
+		}
+	}
+}
+
+func setDestinations(falcoConf *service.FalcoServiceConfig) {
+	if falcoConf.Destinations == nil || len(*falcoConf.Destinations) == 0 {
+		defaultDestination := []service.Destination{
+			{
+				Name: constants.FalcoEventDestinationLogging,
+			},
+		}
+		falcoConf.Destinations = &defaultDestination
+	}
 }
 
 // isDisabled returns true if extension is explicitly disabled.

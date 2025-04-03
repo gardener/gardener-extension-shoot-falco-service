@@ -58,6 +58,11 @@ type customRuleRef struct {
 	ConfigMapName string
 }
 
+type falcoOutputConfig struct {
+	key   string
+	value map[string]interface{}
+}
+
 func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, profile *profile.FalcoProfileManager) *ConfigBuilder {
 	return &ConfigBuilder{
 		client:      client,
@@ -69,11 +74,6 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 
 func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]interface{}, error) {
 
-	cas, certs, err := c.getFalcoCertificates(ctx, log, cluster, namespace)
-	if err != nil {
-		return nil, err
-	}
-
 	// images
 	falcoVersion := falcoServiceConfig.FalcoVersion
 	falcoImage, err := c.getImageForVersion("falco", *falcoVersion)
@@ -81,99 +81,59 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		return nil, err
 	}
 
-	// falco sidekick
-	falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
-	if err != nil {
-		return nil, err
-	}
-	falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
-	if err != nil {
-		return nil, err
+	falcoOutputConfigs := make([]falcoOutputConfig, 0)
+	falcoStdoutLog := false
+
+	if falcoServiceConfig.Destinations == nil || len(*falcoServiceConfig.Destinations) == 0 {
+		return nil, fmt.Errorf("no destinations configured")
 	}
 
-	customFields := map[string]string{
-		"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
-	}
+	for _, dest := range *falcoServiceConfig.Destinations {
+		switch dest.Name {
+		case constants.FalcoEventDestinationStdout:
+			falcoStdoutLog = true
 
-	var falcosidekickConfig map[string]interface{}
-	var enableFalcoHttpOutput bool = true
+		case constants.FalcoEventDestinationLogging:
+			valiHost := utils.ComputeValiHost(*cluster.Shoot, *cluster.Seed)
+			loki := map[string]interface{}{
+				"hostport":  "https://" + valiHost,
+				"endpoint":  "/vali/api/v1/push",
+				"format":    "json",
+				"checkcert": false,
+				"customheaders": map[string]string{
+					"Authorization": "Bearer LOKI_TOKEN",
+				},
+			}
+			outputConfig := falcoOutputConfig{
+				key:   "loki",
+				value: loki,
+			}
+			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
-	switch *falcoServiceConfig.Output.EventCollector {
-	case "none":
-		falcosidekickConfig = map[string]interface{}{
-			"enabled": false,
-		}
-		enableFalcoHttpOutput = false
-	case "cluster":
-		valiHost := utils.ComputeValiHost(*cluster.Shoot, *cluster.Seed)
-		loki := map[string]interface{}{
-			"hostport":  "https://" + valiHost,
-			"endpoint":  "/vali/api/v1/push",
-			"format":    "json",
-			"checkcert": false,
-			"customheaders": map[string]string{
-				"Authorization": "Bearer LOKI_TOKEN",
-			},
-		}
-
-		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
-		falcosidekickConfig["config"].(map[string]interface{})["loki"] = loki
-	case "central":
-		// Gardener managed event store
-		ingestorAddress := c.config.Falco.IngestorURL
-
-		// ok to generate new token on each reconcile
-		token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
-		customHeaders := map[string]string{
-			"Authorization": "Bearer " + token,
-		}
-
-		// customHeaders := serializeCustomHeaders(customHeadersMap)
-		webhook := map[string]interface{}{
-			"address":       ingestorAddress,
-			"customheaders": customHeaders,
-			"checkcert":     true,
-		}
-
-		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
-		falcosidekickConfig["config"].(map[string]interface{})["webhook"] = webhook
-	case "custom":
-		// User has defined a custom endpoint to receive Falco events
-		customWebhook := falcoServiceConfig.Output.CustomWebhook
-
-		if customWebhook == nil {
-			return nil, fmt.Errorf("custom webhook configuration is missing")
-		}
-
-		webhook := map[string]interface{}{}
-
-		if customWebhook.SecretRef != nil {
-
-			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *customWebhook.SecretRef)
-
+		case constants.FalcoEventDestinationCustom:
+			webhook := map[string]interface{}{}
+			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *dest.ResourceSecretName)
 			if err != nil {
 				return nil, err
 			}
-
 			if address, ok := secret.Data["address"]; ok {
 				webhook["address"] = string(address)
+			} else {
+				return nil, fmt.Errorf("custom webhook address is missing")
 			}
-
 			if method, ok := secret.Data["method"]; ok {
 				webhook["method"] = string(method)
+			} else {
+				webhook["method"] = "POST"
 			}
-
 			if customHeaders, ok := secret.Data["customheaders"]; ok {
-
 				customHeadersMap := map[string]string{}
 				if err := yaml.Unmarshal(customHeaders, &customHeadersMap); err != nil {
 					return nil, fmt.Errorf("failed to parse custom headers: %w", err)
 				}
 				webhook["customheaders"] = customHeadersMap
 			}
-
 			if checkcerts, ok := secret.Data["checkcerts"]; ok {
-
 				checkcertsBool, err := strconv.ParseBool(string(checkcerts))
 				if err != nil {
 					return nil, fmt.Errorf("failed to parse checkcerts value: %w", err)
@@ -182,39 +142,74 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			} else {
 				webhook["checkcert"] = true
 			}
-		} else {
+			outputConfig := falcoOutputConfig{
+				key:   "webhook",
+				value: webhook,
+			}
+			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
-			if customWebhook.Address != nil {
-				webhook["address"] = *customWebhook.Address
+		case constants.FalcoEventDestinationCentral:
+
+			// Gardener managed event store
+			ingestorAddress := c.config.Falco.IngestorURL
+
+			// ok to generate new token on each reconcile
+			token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
+			customHeaders := map[string]string{
+				"Authorization": "Bearer " + token,
 			}
 
-			if customWebhook.Method != nil {
-				webhook["method"] = *customWebhook.Method
+			webhook := map[string]interface{}{
+				"address":       ingestorAddress,
+				"customheaders": customHeaders,
+				"checkcert":     true,
 			}
-
-			if customWebhook.CustomHeaders != nil {
-				webhook["customheaders"] = *customWebhook.CustomHeaders
+			outputConfig := falcoOutputConfig{
+				key:   "webhook",
+				value: webhook,
 			}
-
-			if customWebhook.Checkcerts != nil {
-				webhook["checkcert"] = *customWebhook.Checkcerts
-			} else {
-				webhook["checkcert"] = true
-			}
+			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 		}
+	}
 
-		if webhook["address"] == nil {
-			return nil, fmt.Errorf("custom webhook address is missing")
+	var falcosidekickConfig map[string]interface{}
+	var falcosidekickCerts map[string]string
+	falcosidekickEnabled := false
+	if len(falcoOutputConfigs) > 0 {
+		falcosidekickEnabled = true
+		cas, certs, err := c.getFalcoCertificates(ctx, log, cluster, namespace)
+		if err != nil {
+			return nil, err
 		}
-
+		customFields := map[string]string{
+			"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
+		}
+		falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
+		if err != nil {
+			return nil, err
+		}
+		falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
+		if err != nil {
+			return nil, err
+		}
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
-		falcosidekickConfig["config"].(map[string]interface{})["webhook"] = webhook
+		for _, outputConfig := range falcoOutputConfigs {
+			falcosidekickConfig["config"].(map[string]interface{})[outputConfig.key] = outputConfig.value
+		}
+		falcosidekickCerts = map[string]string{
+			"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
+			"client_ca_crt": string(secrets.EncodeCertificate(cas.ClientCaCert)),
+			"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
+			"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
+			"client_crt":    string(secrets.EncodeCertificate(certs.ClientCert)),
+			"client_key":    string(secrets.EncodePrivateKey(certs.ClientKey)),
+		}
+	} else {
+		falcosidekickConfig = make(map[string]interface{})
+		falcosidekickConfig["enabled"] = false
 	}
 
-	var logFalcoEvents bool
-	if falcoServiceConfig.Output.LogFalcoEvents != nil && *falcoServiceConfig.Output.LogFalcoEvents {
-		logFalcoEvents = true
-	}
+	destination := c.getDestination(falcoOutputConfigs)
 	falcoChartValues := map[string]interface{}{
 		"clusterId": *cluster.Shoot.Status.ClusterIdentity,
 		"tolerations": []map[string]string{
@@ -248,17 +243,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				{"name": "SKIP_DRIVER_LOADER", "value": "yes"},
 			},
 		},
-		"falcocerts": map[string]interface{}{
-			"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
-			"client_ca_crt": string(secrets.EncodeCertificate(cas.ClientCaCert)),
-			"server_crt":    string(secrets.EncodeCertificate(certs.ServerCert)),
-			"server_key":    string(secrets.EncodePrivateKey(certs.ServerKey)),
-			"client_crt":    string(secrets.EncodeCertificate(certs.ClientCert)),
-			"client_key":    string(secrets.EncodePrivateKey(certs.ClientKey)),
-		},
 		"falco": map[string]interface{}{
 			"http_output": map[string]interface{}{
-				"enabled":  enableFalcoHttpOutput,
+				"enabled":  falcosidekickEnabled,
 				"insecure": true,
 				"url":      fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", metav1.NamespaceSystem, 2801),
 			},
@@ -266,7 +253,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"json_include_output_property": true,
 			"log_level":                    "debug",
 			"stdout_output": map[string]bool{
-				"enabled": logFalcoEvents,
+				"enabled": falcoStdoutLog,
 			},
 		},
 		"scc": map[string]bool{
@@ -275,27 +262,39 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		"falcosidekick": falcosidekickConfig,
 		"gardenerExtensionShootFalcoService": map[string]interface{}{
 			"output": map[string]string{
-				"eventCollector": *falcoServiceConfig.Output.EventCollector,
+				"eventCollector": destination,
 			},
 		},
 	}
 
-	if *falcoServiceConfig.Resources == "gardener" {
-		if err := c.generateGardenerValues(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
-			return nil, err
-		}
-		customRules, err := c.getCustomRules(ctx, log, cluster, namespace, falcoServiceConfig)
-		if err != nil {
-			return nil, err
-		}
-		falcoChartValues["customRules"] = customRules
+	if falcosidekickEnabled {
+		falcoChartValues["falcocerts"] = falcosidekickCerts
+	}
 
-	} else if *falcoServiceConfig.Resources == "falcoctl" {
-		if err := c.generateFalcoCtlValues(falcoChartValues, falcoServiceConfig); err != nil {
-			return nil, err
-		}
+	if err := c.generatePreamble(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+		return nil, err
+	}
+	if err := c.generateStandardRules(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+		return nil, err
+	}
+	if err := c.generateCustomRules(ctx, log, cluster, namespace, falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+		return nil, err
 	}
 	return falcoChartValues, nil
+}
+
+func (*ConfigBuilder) getDestination(falcoOutputConfigs []falcoOutputConfig) string {
+	for _, outputConfig := range falcoOutputConfigs {
+		if outputConfig.key == constants.FalcoEventDestinationLogging {
+			return constants.FalcoEventDestinationLogging
+		}
+	}
+
+	if len(falcoOutputConfigs) == 0 {
+		return constants.FalcoEventDestinationStdout
+	}
+
+	return falcoOutputConfigs[0].key
 }
 
 func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates, customFields map[string]string) map[string]interface{} {
@@ -324,7 +323,7 @@ func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string,
 	}
 }
 
-func (c *ConfigBuilder) generateGardenerValues(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
 	falcoChartValues["configProvider"] = "gardener"
 	// disable falcoctl
 	falcoctl := map[string]interface{}{
@@ -338,28 +337,44 @@ func (c *ConfigBuilder) generateGardenerValues(falcoChartValues map[string]inter
 		},
 	}
 	falcoChartValues["falcoctl"] = falcoctl
+	return nil
+}
 
-	if falcoServiceConfig.Gardener.UseFalcoRules != nil && *falcoServiceConfig.Gardener.UseFalcoRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
-		if err != nil {
-			return err
+func (c *ConfigBuilder) generateStandardRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+	if falcoServiceConfig.Rules.StandardRules != nil {
+		for _, rule := range *falcoServiceConfig.Rules.StandardRules {
+			switch rule {
+			case constants.ConfigFalcoRules:
+				r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
+				if err != nil {
+					return err
+				}
+				falcoChartValues["falcoRules"] = r
+			case constants.ConfigFalcoIncubatingRules:
+				r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
+				if err != nil {
+					return err
+				}
+				falcoChartValues["falcoIncubatingRules"] = r
+
+			case constants.ConfigFalcoSandboxRules:
+				r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
+				if err != nil {
+					return err
+				}
+				falcoChartValues["falcoSandboxRules"] = r
+			}
 		}
-		falcoChartValues["falcoRules"] = r
 	}
-	if falcoServiceConfig.Gardener.UseFalcoIncubatingRules != nil && *falcoServiceConfig.Gardener.UseFalcoIncubatingRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoIncubatingRules, *falcoVersion)
-		if err != nil {
-			return err
-		}
-		falcoChartValues["falcoIncubatingRules"] = r
+	return nil
+}
+
+func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+	customRules, err := c.getCustomRules(ctx, log, cluster, namespace, falcoServiceConfig)
+	if err != nil {
+		return err
 	}
-	if falcoServiceConfig.Gardener.UseFalcoSandboxRules != nil && *falcoServiceConfig.Gardener.UseFalcoSandboxRules {
-		r, err := c.getFalcoRulesFile(constants.FalcoSandboxRules, *falcoVersion)
-		if err != nil {
-			return err
-		}
-		falcoChartValues["falcoSandboxRules"] = r
-	}
+	falcoChartValues["customRules"] = customRules
 	return nil
 }
 
@@ -484,9 +499,11 @@ func (c *ConfigBuilder) getImageForVersion(name string, version string) (string,
 	} else {
 		return "", fmt.Errorf("unknown image name %s", name)
 	}
+
 	if image == nil {
 		return "", fmt.Errorf("no image found for %s version %s", name, version)
 	}
+
 	if isDigest(image.Tag) {
 		return image.Repository + "@" + image.Tag, nil
 	} else if image.Tag != "" {
@@ -572,16 +589,8 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 	return cas, certs, nil
 }
 
-func serializeCustomHeaders(customHeadersMap map[string]string) string {
-	customHeaders := ""
-	for k, v := range customHeadersMap {
-		customHeaders += k + ":" + v + ","
-	}
-	return customHeaders[:len(customHeaders)-1]
-}
-
 func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRuleRef, error) {
-	if len(falcoServiceConfig.Gardener.CustomRules) == 0 {
+	if falcoServiceConfig.Rules.CustomRules == nil || len(*falcoServiceConfig.Rules.CustomRules) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}
@@ -592,10 +601,10 @@ func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoSer
 		}
 	}
 	var selectedConfigMaps []customRuleRef
-	for _, customRule := range falcoServiceConfig.Gardener.CustomRules {
-		if configMapName, ok := allConfigMaps[customRule]; ok {
+	for _, customRule := range *falcoServiceConfig.Rules.CustomRules {
+		if configMapName, ok := allConfigMaps[customRule.ResourceName]; ok {
 			cr := customRuleRef{
-				RefName:       customRule,
+				RefName:       customRule.ResourceName,
 				ConfigMapName: configMapName,
 			}
 			selectedConfigMaps = append(selectedConfigMaps, cr)
@@ -807,7 +816,7 @@ func readGzTrailer(datagz []byte) (uint32, uint32, error) {
 
 // Validates the given data as YAML
 func validateYaml(data string) error {
-	var yamlData interface{}
+	var yamlData any
 	if err := yaml.Unmarshal([]byte(data), &yamlData); err != nil {
 		return fmt.Errorf("data is not in valid yaml format: %v", err)
 	}

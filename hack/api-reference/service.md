@@ -135,6 +135,88 @@ Webhook
 Configuration for custom webhook</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>rules</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.Rules">
+Rules
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>destinations</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..Destination">
+[]..Destination
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.CustomRule">CustomRule
+</h3>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>resourceName</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.Destination">Destination
+</h3>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resourceSecretName</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl
@@ -423,6 +505,46 @@ string
 <em>
 <a href="#falco.extensions.gardener.cloud/v1alpha1.Webhook">
 Webhook
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.Rules">Rules
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>standard</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>custom</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..CustomRule">
+[]..CustomRule
 </a>
 </em>
 </td>

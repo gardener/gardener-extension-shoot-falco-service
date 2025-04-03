@@ -23,6 +23,9 @@ type FalcoServiceConfig struct {
 	// +optional
 	AutoUpdate *bool `json:"autoUpdate,omitempty"`
 
+	// -------------------------------------------------------------------
+	// remove by 2025-05-01
+
 	// use "gardener" or "falcoctl", defaults to "gardener"
 	// +optional
 	Resources *string `json:"resources,omitempty"`
@@ -43,6 +46,27 @@ type FalcoServiceConfig struct {
 	// Configuration for custom webhook
 	// +optional
 	CustomWebhook *Webhook `json:"webhook,omitempty"`
+
+	// -------------------------------------------------------------------
+	// added due to issue #215
+
+	Rules *Rules `json:"rules,omitempty"`
+
+	Destinations *[]Destination `json:"destinations,omitempty"`
+}
+
+type Destination struct {
+	Name               string  `json:"name,omitempty"`
+	ResourceSecretName *string `json:"resourceSecretName,omitempty"`
+}
+
+type Rules struct {
+	StandardRules *[]string     `json:"standard,omitempty"`
+	CustomRules   *[]CustomRule `json:"custom,omitempty"`
+}
+
+type CustomRule struct {
+	ResourceName string `json:"resourceName,omitempty"`
 }
 
 type FalcoCtl struct {

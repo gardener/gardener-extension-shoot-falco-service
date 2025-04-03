@@ -152,7 +152,7 @@ sast-report: $(GOSEC)
 
 .PHONY: test
 test:
-	@SKIP_FETCH_TOOLS=1 bash $(GARDENER_HACK_DIR)/test.sh ./cmd/... ./pkg/... ./falco/... ./imagevector
+	@SKIP_FETCH_TOOLS=1 bash $(HACK_DIR)/test.sh ./cmd/... ./pkg/... ./falco/... ./imagevector
 
 .PHONY: test-cov
 test-cov:

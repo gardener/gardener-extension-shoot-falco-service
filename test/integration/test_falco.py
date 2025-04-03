@@ -1,8 +1,11 @@
 import logging
 import json
 import sys
+import os
 import time
 import base64
+import yaml
+import jwt
 from datetime import datetime, timezone
 
 import jwt
@@ -16,27 +19,76 @@ from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extensio
             add_falco_to_shoot, remove_falco_from_shoot, wait_for_extension_deployed,\
             wait_for_extension_undeployed, pod_logs_from_label_selector, \
             falco_pod_label_selector, get_falco_sidekick_pods, get_secret,\
-            get_token_lifetime, get_token_public_key, delete_configmap
+            get_token_lifetime, get_token_public_key, delete_configmaps,\
+            delete_event_generator_pod
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
 @pytest.fixture(autouse=True)
 def run_around_tests(garden_api_client, shoot_api_client, project_namespace, shoot_name):
     logger.info(f"Making sure Falco extension is not deployed in shoot {shoot_name}")
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-    delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
+    delete_configmaps(garden_api_client, project_namespace)
+    delete_event_generator_pod(garden_api_client)
     yield
     logger.info("Undepoying falco extension")
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
-    delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
+    delete_configmaps(garden_api_client, project_namespace)
+    delete_event_generator_pod(garden_api_client)
 
 
-def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace, shoot_name):
+def test_falco_deployment(
+                garden_api_client,
+                shoot_api_client,
+                project_namespace,
+                shoot_name):
     logger.info("Deploying Falco extension")
-    custom_rules = "# custom rules go here"
-    error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, custom_rules=custom_rules)
+    custom_rules = {
+        "rules-map-1": {
+            "file1.yaml":
+                """
+                # rules file1.yaml
+                """,
+            "file2.yaml":
+                """
+                # rules file2.yaml
+                """
+        },
+        "rules-map-2": {
+            "file3.yaml":
+                """
+                # rules file3.yaml
+                """,
+            "file4.yaml":
+                """
+                # rules file4.yaml
+                """
+        }
+    }
+    extension_config = {
+        "type": "shoot-falco-service",
+        "providerConfig": {
+            "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+            "kind": "FalcoServiceConfig",
+            "resources": "gardener",
+            "gardener": {
+                "useFalcoRules": True
+            },
+            "output": {
+                "logFalcoEvents": True,
+                "eventCollector": "central"
+            }
+        }
+    }
+    error = add_falco_to_shoot(
+                garden_api_client,
+                project_namespace,
+                shoot_name,
+                custom_rules=custom_rules,
+                extension_config=extension_config)
     assert error is None
     if error is not None:
         body = json.loads(error.body)
@@ -50,33 +102,71 @@ def test_falco_deployment(garden_api_client, shoot_api_client, project_namespace
             sys.exit(1)
 
     wait_for_extension_deployed(shoot_api_client)
-    
     logger.info("Reading logs from falco pods")
-    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-    for k,v in logs.items():
+    logs = pod_logs_from_label_selector(
+                                shoot_api_client,
+                                "kube-system",
+                                falco_pod_label_selector)
+    for k, v in logs.items():
         logger.info(f"Logs from {k}\n{v}")
-        assert "/etc/falco/rules.d/myrules" in v
-
+        assert "/etc/falco/rules.d/file1.yaml" in v
+        assert "/etc/falco/rules.d/file2.yaml" in v
+        assert "/etc/falco/rules.d/file3.yaml" in v
+        assert "/etc/falco/rules.d/file4.yaml" in v
     logger.info("checking access token")
-    secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
-    headers64 = secret.data["WEBHOOK_CUSTOMHEADERS"]
-    headers = str(base64.b64decode(headers64), "utf-8")
-    encoded_token = headers.split(":")[1].split(" ")[1].strip()
+    secret = get_secret(
+                shoot_api_client,
+                "kube-system",
+                "gardener-falcosidekick")
+    token = secret.data["token"]
+    token_decoded = str(base64.b64decode(token), "utf-8")
+    assert token_decoded.count(".") == 2
 
-    # This does not work with current test restrictions - no access 
-    # to controller deployments
+    logger.info("Running event generator")
+    logs = run_falco_event_generator(shoot_api_client)
+    # something that appears at the start
+    assert "action executed" in logs
 
-    # key = get_token_public_key(garden_api_client)
-    # tok = jwt.decode(encoded_token, key=key, verify_signature=True, 
-    #                 algorithms=["RS256"], audience="falco-db")
-    # logger.info("access token is valid")
-    # expiration = int(tok["exp"])
-    # now = int(time.time())
-    # token_lifetime = get_token_lifetime(garden_api_client)  
-    # assert expiration <= token_lifetime + now
-    # logger.info("access token has expected lifetime")
-    # assert expiration >= now + token_lifetime - (30*60)
-    # logger.info("access token has almost full lifetime")
+    # make sure it is correctly persisted
+    logs = pod_logs_from_label_selector(
+        shoot_api_client,
+        "kube-system",
+        falcosidekick_pod_label_selector)
+    postedOK = False
+    assert len(logs) > 0
+
+    dev_env = os.getenv("FALCO_DEV_ENVIRONMENT")
+    if dev_env is not None:
+        # cental logging does not work in dev environment
+        for k, v in logs.items():
+            logger.debug(v)
+            postedOK = postedOK or "Webhook - POST OK (200)" in v
+        time.sleep(5000)
+        assert postedOK
+
+    if dev_env is not None:
+        # this test works only in the dev environment due to lack of 
+        # access in the test environment
+        logger.info("checking access token")
+        secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
+        configyaml = secret.data["config.yaml"]
+        logger.info(f"config.yaml: {configyaml}")
+        falcosidekickcfg = yaml.safe_load(configyaml)
+        headers64 = falcosidekickcfg["webhook"]["customHeaders"]["Authorization"]
+        headers = str(base64.b64decode(headers64), "utf-8")
+        encoded_token = headers.split(":")[1].split(" ")[1].strip()
+
+        key = get_token_public_key(garden_api_client)
+        tok = jwt.decode(encoded_token, key=key, verify_signature=True,
+                         algorithms=["RS256"], audience="falco-db")
+        logger.info("access token is valid")
+        expiration = int(tok["exp"])
+        now = int(time.time())
+        token_lifetime = get_token_lifetime(garden_api_client)  
+        assert expiration <= token_lifetime + now
+        logger.info("access token has expected lifetime")
+        assert expiration >= now + token_lifetime - (30*60)
+        logger.info("access token has almost full lifetime")
 
 
 def test_falco_deployment_with_all_rules(garden_api_client, shoot_api_client, project_namespace, shoot_name):    
@@ -151,17 +241,21 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
         
         logger.info("Reading and checking logs from falco/falcosidekick pods")
         logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
-        for k,v in logs.items():
+        for k, v in logs.items():
             logger.info(f"Logs from {k}: {v}")
             assert f"Falco version: {fv}" in v
             assert "Opening 'syscall' source with modern BPF probe" in v
         logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falcosidekick_pod_label_selector)
-        for k,v in logs.items():
+        for k, v in logs.items():
             logger.info(f"Logs from {k}: {v}")
             assert "running HTTP server for endpoints defined in tlsserver.notlspaths"
 
 
-def test_event_generator(garden_api_client, shoot_api_client, project_namespace, shoot_name):
+def test_event_generator(
+            garden_api_client,
+            shoot_api_client,
+            project_namespace,
+            shoot_name):
     logger.info("Deploying Falco extension")
     extension_config = { 
         "type": "shoot-falco-service",
@@ -173,20 +267,27 @@ def test_event_generator(garden_api_client, shoot_api_client, project_namespace,
                 "useFalcoRules": True,
                 "useFalcoIncubatingRules": True,
                 "useFalcoSandboxRules": True
+            },
+            "output": {
+                "eventCollector": "cluster",
             }
         }
     }
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
     assert error is None
+    wait_for_extension_deployed(shoot_api_client)
 
     logs = run_falco_event_generator(shoot_api_client)
     # something that appears at the start
     assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
 
     # make sure it is correctly persisted
-    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falcosidekick_pod_label_selector)
+    logs = pod_logs_from_label_selector(
+        shoot_api_client,
+        "kube-system", 
+        falcosidekick_pod_label_selector)
     postedOK = False
-    for k,v in logs.items():
+    for k, v in logs.items():
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
 
@@ -219,6 +320,7 @@ def test_event_generator_to_loki(
         extension_config=extension_config,
     )
     assert error is None
+    wait_for_extension_deployed(shoot_api_client)
 
     logs = run_falco_event_generator(shoot_api_client)
     # something that appears at the start
@@ -236,7 +338,6 @@ def test_event_generator_to_loki(
     assert postedOK
 
 
-@pytest.mark.skip(reason="This test is currently flaky - need more investigation")
 def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
     logger.info("Deploying Falco extension")
     fw = get_deprecated_falco_version(falco_profile)
@@ -255,15 +356,43 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
             "kind": "FalcoServiceConfig",
             "falcoVersion": fw,
             "autoUpdate": True,
-        }
+        },
     }
-    err = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
+    err = add_falco_to_shoot(
+        garden_api_client,
+        project_namespace,
+        shoot_name,
+        extension_config=extension_config,
+    )
     assert err is None
     wait_for_extension_deployed(shoot_api_client)
-    annotate_shoot(garden_api_client, project_namespace, shoot_name, "gardener.cloud/operation=maintain")
-    time.sleep(10)
+    annotate_shoot(
+        garden_api_client,
+        project_namespace,
+        shoot_name,
+        "gardener.cloud/operation=maintain",
+    )
+
+    max_tries = 10
+    wait_seconds = 10
+    for i in range(max_tries):
+        ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
+        if ext["providerConfig"]["falcoVersion"] != update_candiate:
+            logger.info(
+                f"Falco version is {ext['providerConfig']['falcoVersion']}, waiting {(max_tries-i-1)*wait_seconds} more seconds"
+            )
+            time.sleep(wait_seconds)
+            annotate_shoot(
+                garden_api_client,
+                project_namespace,
+                shoot_name,
+                "gardener.cloud/operation=maintain",
+            )
+            continue
+        else:
+            break
+
     ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
-    
     assert ext["providerConfig"]["falcoVersion"] == update_candiate
     logger.info(f"Falco version updated as expected from {fw} to {update_candiate}")
 
@@ -301,5 +430,5 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
     allLogs = ""
     for k, l in logs.items():
         allLogs += l
-    print (allLogs)
+    print(allLogs)
     assert "Warning Detected ptrace" in allLogs

@@ -11,7 +11,6 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -136,11 +135,11 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyResources(falcoConf); err != nil {
+	if err := verifyRules(falcoConf, shoot); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyOutput(falcoConf); err != nil {
+	if err := verifyEventDestinations(falcoConf, shoot); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -151,73 +150,147 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	return nil
 }
 
-func verifyFalcoCtl(falcoConf *service.FalcoServiceConfig) error {
+func unique(slice []string) bool {
+	unique := make(map[string]bool, len(slice))
+	for _, elem := range slice {
+		if _, ok := unique[elem]; ok {
+			return false
+		} else {
+			unique[elem] = true
+		}
+	}
+	return true
+}
 
-	ctl := falcoConf.FalcoCtl
-	if len(ctl.Indexes) == 0 {
-		return fmt.Errorf("no falcoctl index are is set")
+func verifyRules(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
+	if falcoConf.Rules == nil {
+		return fmt.Errorf("rules property is not defined")
+	}
+
+	if falcoConf.Rules.StandardRules != nil {
+		if standardRulesErr := verifyStandardRules(*falcoConf.Rules.StandardRules); standardRulesErr != nil {
+			return standardRulesErr
+		}
+	}
+
+	if falcoConf.Rules.CustomRules != nil {
+		if customRulesErr := verifyCustomRules(*falcoConf.Rules.CustomRules, shoot); customRulesErr != nil {
+			return customRulesErr
+		}
+	}
+
+	numRules := 0
+	if falcoConf.Rules.StandardRules != nil {
+		numRules += len(*falcoConf.Rules.StandardRules)
+	}
+	if falcoConf.Rules.CustomRules != nil {
+		numRules += len(*falcoConf.Rules.CustomRules)
+	}
+	if numRules == 0 {
+		return fmt.Errorf("falco deployment without any rules is not allowed")
+	}
+
+	return nil
+}
+
+func verifyStandardRules(standardRules []string) error {
+	for _, rule := range standardRules {
+		if !slices.Contains(constants.AllowedStandardRules, rule) {
+			return fmt.Errorf("unknown standard rule %s", rule)
+		}
+	}
+
+	if !unique(standardRules) {
+		return fmt.Errorf("duplicate entry in standard rules")
 	}
 	return nil
 }
 
-func verifyGardenerSet(falcoConf *service.FalcoServiceConfig) error {
-	gardenerManager := falcoConf.Gardener
-	if gardenerManager == nil {
-		return fmt.Errorf("gardener managing configuration not set")
-	}
-	if gardenerManager.UseFalcoRules == nil || gardenerManager.UseFalcoIncubatingRules == nil || gardenerManager.UseFalcoSandboxRules == nil {
-		return fmt.Errorf("gardener rules not set")
-	}
-	// RulesRef will be set to default val as not a pointer
-	return nil
-}
-
-func verifyOutput(falcoConf *service.FalcoServiceConfig) error {
-	output := falcoConf.Output
-	if output == nil {
-		return fmt.Errorf("event ouptut is not defined")
-	}
-	if output.EventCollector == nil || !slices.Contains(constants.AllowedOutputs, *output.EventCollector) {
-		return fmt.Errorf("output.eventCollector needs to be set to a value in %s", strings.Join(constants.AllowedOutputs, ", "))
-	}
-	if *output.EventCollector == "custom" {
-		if output.CustomWebhook == nil {
-			return fmt.Errorf("output.eventCollector is set to custom but customWebhook is not defined")
+func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) error {
+	customRulesNames := make([]string, 0)
+	for _, rule := range customRules {
+		if rule.ResourceName == "" {
+			return fmt.Errorf("found custom rule with empty resource referece")
 		}
+		customRulesNames = append(customRulesNames, rule.ResourceName)
 	}
 
-	if *output.EventCollector == "none" && !*output.LogFalcoEvents {
-		return fmt.Errorf("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated")
+	if !unique(customRulesNames) {
+		return fmt.Errorf("duplicate entry in custom rules")
+	}
+
+	for _, ruleName := range customRulesNames {
+		found := false
+		for _, r := range shoot.Spec.Resources {
+			if r.ResourceRef.Kind == "ConfigMap" && r.Name == ruleName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("custom rule %s not found in resources", ruleName)
+		}
 	}
 	return nil
 }
 
-func verifyResources(falcoConf *service.FalcoServiceConfig) error {
-	resource := falcoConf.Resources
-	if resource == nil {
-		return fmt.Errorf("resources property is not defined")
-	}
-	if *resource != "gardener" && *resource != "falcoctl" {
-		return fmt.Errorf("resource needs to be either gardener or falcoctl")
+func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
+	if falcoConf.Destinations == nil {
+		return fmt.Errorf("event destination property is not defined")
 	}
 
-	if *resource == "gardener" {
-		if falcoConf.Gardener == nil {
-			return fmt.Errorf("gardener is set as resource but gardener property is not defined")
+	if len(*falcoConf.Destinations) == 0 {
+		return fmt.Errorf("no event destination is set")
+	}
+
+	if len(*falcoConf.Destinations) > 2 {
+		return fmt.Errorf("more than two event destinations are not allowed")
+	}
+
+	eventDestinationNames := make([]string, 0)
+	for _, dest := range *falcoConf.Destinations {
+		if !slices.Contains(constants.AllowedDestinations, dest.Name) {
+			return fmt.Errorf("unknown event destination %s", dest.Name)
 		}
-		err := verifyGardenerSet(falcoConf)
-		if err != nil {
-			return err
+		eventDestinationNames = append(eventDestinationNames, dest.Name)
+	}
+
+	if !unique(eventDestinationNames) {
+		return fmt.Errorf("duplicate entry in event destinations")
+	}
+
+	if len(eventDestinationNames) > 1 {
+		if !slices.Contains(eventDestinationNames, constants.FalcoEventDestinationStdout) {
+			return fmt.Errorf("output destinations can only be paired with stdout")
 		}
 	}
-	if *resource == "falcoctl" {
-		if falcoConf.FalcoCtl == nil {
-			return fmt.Errorf("falcoctl is set as resource but falcoctl property is not defined")
+
+	idxCustom := slices.IndexFunc(*falcoConf.Destinations, func(dest service.Destination) bool {
+		return dest.Name == constants.FalcoEventDestinationCustom
+	})
+
+	if idxCustom != -1 { // custom event destination is set
+		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], shoot)
+	}
+
+	return nil
+}
+
+func verifyCustomDestination(customDest service.Destination, shoot *core.Shoot) error {
+	if customDest.ResourceSecretName == nil {
+		return fmt.Errorf("custom event destination is set but no custom config is defined")
+	}
+
+	found := false
+	for _, s := range shoot.Spec.Resources {
+		if s.ResourceRef.Kind == "Secret" && s.Name == *customDest.ResourceSecretName {
+			found = true
+			break
 		}
-		err := verifyFalcoCtl(falcoConf)
-		if err != nil {
-			return err
-		}
+	}
+
+	if !found {
+		return fmt.Errorf("custom event destination config %s not found in resources", *customDest.ResourceSecretName)
 	}
 	return nil
 }
@@ -348,8 +421,6 @@ func centralLoggingNewlyEnabled(falcoConfigNew, falcoConfigOld *service.FalcoSer
 			return true
 		}
 		if falcoConfigOld.Output != nil && falcoConfigOld.Output.EventCollector != nil && *falcoConfigOld.Output.EventCollector != "central" {
-			// cluster did exist but central logging was not enabled
-			fmt.Println("central logging was not enabled (but it now)")
 			return true
 		}
 	}
