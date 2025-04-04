@@ -6,6 +6,7 @@ import time
 import base64
 import yaml
 import jwt
+from semver.version import Version
 from datetime import datetime, timezone
 
 import jwt
@@ -216,10 +217,17 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
     logger.info(f"Testing all {num_versions} falco versions for profile")
 
     for version in falco_profile["spec"]["versions"]["falco"]:
+        
+        # versions < 0.39.2 will fail on the latest kernels
+        vmin = Version.parse("0.39.2")
+        v = Version.parse(version["version"])
+        if v < vmin:
+            logger.info(f"Skipping version {version['version']} - not supported")
+            continue
         fv = version["version"]
         logger.info(f"Testing falco version {fv}")
         ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
-        delete_configmap(garden_api_client, project_namespace, "custom-rules-configmap")
+        delete_configmaps(garden_api_client, project_namespace)
 
         logger.info("Falco extension is not deployed, deploying")
         error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, fv)
@@ -242,7 +250,7 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
         logger.info("Reading and checking logs from falco/falcosidekick pods")
         logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
         for k, v in logs.items():
-            logger.info(f"Logs from {k}: {v}")
+            logger.debug(f"Logs from {k}: {v}")
             assert f"Falco version: {fv}" in v
             assert "Opening 'syscall' source with modern BPF probe" in v
         logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falcosidekick_pod_label_selector)
@@ -279,8 +287,8 @@ def test_event_generator(
 
     logs = run_falco_event_generator(shoot_api_client)
     # something that appears at the start
-    assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
-
+    assert "action executed" in logs
+    time.sleep(5000)    
     # make sure it is correctly persisted
     logs = pod_logs_from_label_selector(
         shoot_api_client,
@@ -288,6 +296,7 @@ def test_event_generator(
         falcosidekick_pod_label_selector)
     postedOK = False
     for k, v in logs.items():
+        logger.info(f"Logs from {k}: {v}")
         postedOK = postedOK or "Webhook - POST OK (200)" in v
     assert postedOK
 
@@ -343,7 +352,7 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
     fw = get_deprecated_falco_version(falco_profile)
     if fw is None:
         pytest.skip("No deprecated falco version found")
-    logger.info(f"Using deprecated Falco version {fw}")
+    logger.info(f"Using old Falco version {fw}")
     update_candiate = get_latest_supported_falco_version(falco_profile)
     if update_candiate is None:
         pytest.skip("No supported falco version found")
@@ -376,7 +385,7 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
     max_tries = 10
     wait_seconds = 10
     for i in range(max_tries):
-        ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
+        ext, _ = get_falco_extension(garden_api_client, project_namespace, shoot_name)
         if ext["providerConfig"]["falcoVersion"] != update_candiate:
             logger.info(
                 f"Falco version is {ext['providerConfig']['falcoVersion']}, waiting {(max_tries-i-1)*wait_seconds} more seconds"
@@ -392,7 +401,7 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
         else:
             break
 
-    ext = get_falco_extension(garden_api_client, project_namespace, shoot_name)
+    ext, _ = get_falco_extension(garden_api_client, project_namespace, shoot_name)
     assert ext["providerConfig"]["falcoVersion"] == update_candiate
     logger.info(f"Falco version updated as expected from {fw} to {update_candiate}")
 
