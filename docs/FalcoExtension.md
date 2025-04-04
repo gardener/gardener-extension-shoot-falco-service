@@ -207,7 +207,7 @@ resource in the cluster as described in [6]:
 ```
   resources:
   - name: customRules
-    resourceRef:
+    resourceName:
       apiVersion: v1
       kind: ConfigMap
       name: my-custom-rules

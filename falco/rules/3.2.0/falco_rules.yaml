@@ -1235,6 +1235,7 @@
 - macro: known_memfd_execution_processes
   condition: >
     (proc.name in (known_memfd_execution_binaries))
+    or (proc.pname in (known_memfd_execution_binaries))
     or (proc.exepath = "memfd:runc_cloned:/proc/self/exe")
     or (proc.exe = "memfd:runc_cloned:/proc/self/exe")
 

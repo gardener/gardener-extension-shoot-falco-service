@@ -12,6 +12,7 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
@@ -54,6 +55,43 @@ var (
 					ProviderConfig: &runtime.RawExtension{},
 				},
 			},
+			Resources: []core.NamedResourceReference{
+				{
+					Name: "dummy-custom-rules-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+				},
+			},
+		},
+	}
+
+	genericShootWithSecret = &core.Shoot{
+		Spec: core.ShootSpec{
+			Extensions: []core.Extension{
+				{
+					Type:           "shoot-falco-service",
+					Disabled:       boolValue(false),
+					ProviderConfig: &runtime.RawExtension{},
+				},
+			},
+			Resources: []core.NamedResourceReference{
+				{
+					Name: "dummy-custom-rules-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+				},
+				{
+					Name: "my-custom-webhook-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "Secret",
+					},
+				},
+			},
 		},
 	}
 
@@ -62,236 +100,232 @@ var (
 	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
       	"kind": "FalcoServiceConfig",
 		"falcoVersion": "1.2.3",
-		"output": {
-			"eventCollector": "cluster"
+		"rules": {
+			"standard": [
+				"falco-sandbox-rules",
+				"falco-rules"
+			]
 		},
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":true
-		}
+		"destinations": [
+		 {
+			"name": "logging"
+		 }
+		]
 	}`
 
 	falcoExtension2 = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"central",
-			"logFalcoEvents":false
-		}
+		"destinations": [
+		 {
+			"name": "central"
+		 }
+		]
 	}`
 
 	falcoExtension3 = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
-		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":true
-		}
-	}`
-
-	// falcoctl
-	falcoExtension4 = `
-	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "falcoctl",
-		"falcoCtl": {
-			"indexes": [
-				{
-					"name": "myrepo",
-					"url": "https://myrepo.com"
-				}
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
 			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":true
-		}
+		"destinations": [
+		 {
+			"name": "stdout"
+		 },
+		 {
+		 	"name": "logging"
+		 }
+		]
 	}`
 
-	// wenhook
-	falcoExtension5 = `
+	falcoExtensionCustomWebhook = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "falcoctl",
-		"falcoCtl": {
-			"indexes": [
-				{
-					"name": "myrepo",
-					"url": "https://myrepo.com"
-				}
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
 			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://mywebhook.com",
-				"customHeaders": {
-					"a": "b",
-					"c": "d"
-				},
-				"checkcerts": true
-			}
-		}
+		"destinations": [
+		 {
+			"name": "stdout"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
 	}`
 
-	// custom rules
-	falcoExtension6 = `
+	falcoExtensionCustomWebookCustomRules = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false,
-			"customRules": [ "rulecfg1", "rulecfg2" ]
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"custom": [
+			 {
+				"resourceName": "dummy-custom-rules-ref"
+			 }
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":true
-		}
+		"destinations": [
+		 {
+			"name": "stdout"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
 	}`
 
-	falcoExtensionIllegal1 = `
+	falcoExtensionIllegalNoDestination = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"nonsense",
-			"logFalcoEvents":false
-		}
+		"destinations": []
 	}`
 
-	// does not log anything, this does not make sense
-	falcoExtensionIllegal2 = `
+	falcoExtensionIllegalDoubleDestination = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":false
-		}
+		"destinations": [
+		 {
+			"name": "central"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
 	}`
 
-	// add extra fields
-	falcoExtensionIllegal3 = `
+	falcoExtensionIllegalNoRules = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": []
+		},
+		"destinations": [
+		 {
+			"name": "central"
+		 }
+		]
+	}`
+
+	falcoExtensionIllegalAdditionalUnknownField = `
+	{
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
 		},
 		"nonsense" : "nonsense",
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":true
-		}
+		"destinations": [
+		 {
+			"name": "central"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
 	}`
 
-	// falco version does not exist
-	falcoExtensionIllegal4 = `
+	falcoExtensionIllegalVersion = `
 	{
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
 		"autoUpdate":true,
 		"falcoVersion":"7.8.9",
-		"resources": "gardener",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":true
-		}
+		"destinations": [
+		 {
+			"name": "central"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
 	}`
 
-	// specify "falcoctl" as resource but don't specify anything
-	falcoExtensionIllegal5 = `
+	falcoExtensionIllegalCustomDestWithoutRef = `
 	{
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
 		"autoUpdate":true,
 		"falcoVersion":"1.2.3",
-		"resources": "falcoctl",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"none",
-			"logFalcoEvents":true
-		}
+		"destinations": [
+		 {
+		 	"name": "custom"
+		 }
+		]
 	}`
 
-	// specify custom as event collector but don't provide a webhook
-	falcoExtensionIllegal6 = `
+	falcoExtensionIllegalCustomRuleWithoutRef = `
 	{
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
 		"autoUpdate":true,
 		"falcoVersion":"1.2.3",
-		"resources": "falcoctl",
-		"gardener": {
-			"useFalcoIncubatingRules":false,
-			"useFalcoRules":true,
-			"useFalcoSandboxRules":false
+		"rules": {
+			"standard": [
+				"falco-rules"
+			],
+			"custom": [
+			{
+				"resourceName": ""
+			}
+			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"custom",
-			"logFalcoEvents":false
-		}
+		"destinations": [
+		 {
+		 	"name": "stdout"
+		 }
+		]
 	}`
 
 	// wrong object type
@@ -305,100 +339,47 @@ var (
 	// expected outputs from mutator test
 	expectedMutate1 = `
 	{
-		"kind":"FalcoServiceConfig",
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"1.2.3",
-		"autoUpdate":true,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":false
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"resources": null,
+		"rules": {
+			"standard": [
+				"falco-sandbox-rules",
+				"falco-rules"
+			]
 		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"central"
-		}
+		"destinations": [
+		 {
+			"name": "logging"
+		 }
+		],
+		"output": null
 	}`
 
 	expectedMutate2 = `
 	{
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"autoUpdate":true,
-		"falcoVersion":"1.2.3",
-		"resources": "falcoctl",
-		"falcoCtl": {
-			"indexes": [
-				{
-					"name": "myrepo",
-					"url": "https://myrepo.com"
-				}
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"resources": null,
+		"falcoCtl": null,
+		"rules": {
+			"standard": [
+				"falco-sandbox-rules",
+				"falco-rules"
 			]
 		},
-		"kind":"FalcoServiceConfig",
-		"output": {
-			"eventCollector":"central",
-			"logFalcoEvents":false
-		}
-	}`
-
-	expectedMutate3 = `
-	{
-		"kind":"FalcoServiceConfig",
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"1.2.3",
-		"autoUpdate":false,
-		"resources":"gardener",
+		"destinations": [
+		 {
+			"name": "logging"
+		 }
+		],
+		"output": null,
 		"gardener": {
-			"useFalcoRules":false,
-			"useFalcoIncubatingRules":true,
-			"useFalcoSandboxRules":true
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://gardener.cloud"
-			}
-		}
-	}`
-
-	expectedMutate4 = `
-	{
-		"kind":"FalcoServiceConfig",
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"1.2.3",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":true
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"custom",
-			"customWebhook": {
-				"address": "https://gardener.cloud"
-			}
-		}
-	}`
-
-	expectedMutate6 = `
-	{
-		"kind":"FalcoServiceConfig",
-		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
-		"falcoVersion":"1.2.3",
-		"autoUpdate":false,
-		"resources":"gardener",
-		"gardener": {
-			"useFalcoRules":true,
-			"useFalcoIncubatingRules":false,
-			"useFalcoSandboxRules":true
-		},
-		"output": {
-			"logFalcoEvents":false,
-			"eventCollector":"central"
+			"useFalcoRules": null,
+			"useFalcoIncubatingRules": null,
+			"useFalcoSandboxRules": null
 		}
 	}`
 )
@@ -463,29 +444,29 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(disabled).To(BeTrue(), "No extension is present but reported found")
 	})
 
-	It("verfiy resources", func(ctx SpecContext) {
-		conf := &service.FalcoServiceConfig{}
-		err := verifyResources(conf)
-		Expect(err).NotTo(BeNil(), "Ressources is nil but not detected as such")
+	// It("verfiy resources", func(ctx SpecContext) {
+	// 	conf := &service.FalcoServiceConfig{}
+	// 	err := verifyResources(conf)
+	// 	Expect(err).NotTo(BeNil(), "Ressources is nil but not detected as such")
 
-		nonSenseRessource := "gardenerr"
-		conf.Resources = &nonSenseRessource
-		err = verifyResources(conf)
-		Expect(err).NotTo(BeNil(), "Resource is of wrong value %s but not detected as such", nonSenseRessource)
+	// 	nonSenseRessource := "gardenerr"
+	// 	conf.Resources = &nonSenseRessource
+	// 	err = verifyResources(conf)
+	// 	Expect(err).NotTo(BeNil(), "Resource is of wrong value %s but not detected as such", nonSenseRessource)
 
-		goodRessource := "falcoctl"
-		conf.Resources = &goodRessource
-		conf.FalcoCtl = &service.FalcoCtl{
-			Indexes: []service.FalcoCtlIndex{
-				{
-					Name: stringValue("myrepo"),
-					Url:  stringValue("https://myrepo.com"),
-				},
-			},
-		}
-		err = verifyResources(conf)
-		Expect(err).To(BeNil(), "Resource is of correct value %s but is detected as invalid", goodRessource)
-	})
+	// 	goodRessource := "falcoctl"
+	// 	conf.Resources = &goodRessource
+	// 	conf.FalcoCtl = &service.FalcoCtl{
+	// 		Indexes: []service.FalcoCtlIndex{
+	// 			{
+	// 				Name: stringValue("myrepo"),
+	// 				Url:  stringValue("https://myrepo.com"),
+	// 			},
+	// 		},
+	// 	}
+	// 	err = verifyResources(conf)
+	// 	Expect(err).To(BeNil(), "Resource is of correct value %s but is detected as invalid", goodRessource)
+	// })
 
 	It("verify falco version", func(ctx SpecContext) {
 
@@ -543,37 +524,192 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).NotTo(BeNil(), "FalcoVersion was suppored but changed to expired between old and new config")
 	})
 
-	// currently not implemented
-	//
-	/*
-		It("verify falcoctl", func(ctx SpecContext) {
-			var err error
-			conf := &service.FalcoServiceConfig{}
-			err = verifyFalcoCtl(conf)
-			Expect(err).NotTo(BeNil(), "FalcoCtl is nil but not detected as such")
+	It("verify event destinations", func(ctx SpecContext) {
+		falcoConf := &service.FalcoServiceConfig{
+			Destinations: nil,
+		}
+		err := verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Nil destinations not detected")
 
-			falcoCtlVal := service.FalcoCtl{}
-			conf.FalcoCtl = &falcoCtlVal
-			err = verifyFalcoCtl(conf)
-			Expect(err).To(BeNil(), "FalcoCtl is not nil but detected as such")
-		})
-	*/
+		falcoConf.Destinations = &[]service.Destination{}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
-	It("verify gardener set", func(ctx SpecContext) {
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: "abcdgarbage",
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Invalid destination was accepted")
+
+		falcoConf.Destinations = &[]service.Destination{}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).To(BeNil(), "Valid destination was not accepted")
+
+		falcoConf.Destinations = &[]service.Destination{}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Dublicate destination was accepted")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+			{
+				Name: constants.FalcoEventDestinationLogging,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Three destinations were accepted")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+			{
+				Name: constants.FalcoEventDestinationLogging,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Two destinations w/o stdout were accepted")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCustom,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Custom destinations w/o ref was accepted")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name:               constants.FalcoEventDestinationCustom,
+				ResourceSecretName: stringValue("garbage-non-existing-rules-ref"),
+			},
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "False custom destinations was accepted")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name:               constants.FalcoEventDestinationCustom,
+				ResourceSecretName: stringValue("my-custom-webhook-ref"),
+			},
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).To(BeNil(), "Correct custom destinations was not accepted")
+	})
+
+	It("can verify rules", func(ctx SpecContext) {
 		var err error
 		conf := &service.FalcoServiceConfig{}
-		err = verifyGardenerSet(conf)
-		Expect(err).NotTo(BeNil(), "Gardener is nil but not detected as such")
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Standard and custom rules are nil but not detected as such")
 
-		gardenerVal := service.Gardener{}
-		conf.Gardener = &gardenerVal
-		err = verifyGardenerSet(conf)
-		Expect(err).NotTo(BeNil(), "Gardener rules are nil but not detected as such")
+		conf.Rules = &service.Rules{}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Empty rules config is not detected as such")
 
-		commonRulesBool := false
-		gardenerVal.UseFalcoRules, gardenerVal.UseFalcoIncubatingRules, gardenerVal.UseFalcoSandboxRules = &commonRulesBool, &commonRulesBool, &commonRulesBool
-		err = verifyGardenerSet(conf)
-		Expect(err).To(BeNil(), "Gardener rules are not nil but detected as such")
+		conf.Rules = &service.Rules{
+			StandardRules: &[]string{},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Empty standard rules are not detected as such")
+
+		conf.Rules = &service.Rules{
+			CustomRules: &[]service.CustomRule{},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Empty custom rules are not detected as such")
+
+		conf.Rules = &service.Rules{
+			StandardRules: &[]string{"rulecfg1", "rulecfg2"},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Non existing standard rules are not detected as such")
+
+		conf.Rules = &service.Rules{
+			StandardRules: &[]string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[1]},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).To(BeNil(), "Faulty rejected standard rules")
+
+		conf.Rules = &service.Rules{
+			StandardRules: &[]string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[0]},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Accepted standard dublicate rules")
+
+		conf.Rules = &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceName: "",
+				},
+			},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Empty custom rules are not detected as such")
+
+		conf.Rules = &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceName: "non-existing",
+				},
+			},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Non existing custom rules are not detected as such")
+
+		conf.Rules = &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceName: "dummy-custom-rules-ref",
+				},
+			},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).To(BeNil(), "Existing custom rules reference was rejected")
+
+		conf.Rules = &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceName: "dummy-custom-rules-ref",
+				},
+				{
+					ResourceName: "dummy-custom-rules-ref",
+				},
+			},
+		}
+		err = verifyRules(conf, genericShoot)
+		Expect(err).NotTo(BeNil(), "Dublicate custom rules are not detected as such")
 	})
 
 	It("verify project eligibility", func(ctx SpecContext) {
@@ -599,7 +735,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(verifyProjectEligibility(namespace)).To(BeFalse(), "Falsely annotated project is detected elegible")
 	})
 
-	It("verify legal extensions", func(ctx SpecContext) {
+	It("can verify legal extensions", func(ctx SpecContext) {
 		managerOptions := sigsmanager.Options{}
 		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
 		Expect(err).To(BeNil(), "Manager could not be created")
@@ -608,11 +744,12 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		s := NewShootValidator(mgr)
 
 		f := func(extensionSpec string) error {
-			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
+			providerConfig := genericShootWithSecret.Spec.Extensions[0].ProviderConfig
 			providerConfig.Raw = []byte(extensionSpec)
-			err = s.Validate(context.TODO(), genericShoot, nil)
+			err = s.Validate(context.TODO(), genericShootWithSecret, nil)
 			return err
 		}
+
 		err = f(falcoExtension1)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 
@@ -622,13 +759,10 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = f(falcoExtension3)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 
-		err = f(falcoExtension4)
+		err = f(falcoExtensionCustomWebhook)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 
-		err = f(falcoExtension5)
-		Expect(err).To(BeNil(), "Legal extension is not detected as such")
-
-		err = f(falcoExtension6)
+		err = f(falcoExtensionCustomWebookCustomRules)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
 
@@ -646,37 +780,40 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 			err = s.Validate(context.TODO(), genericShoot, nil)
 			return err
 		}
-		err = f(falcoExtensionIllegal1)
-		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("output.eventCollector needs to be set to a value"), "Illegal extension is not detected as such")
 
-		err = f(falcoExtensionIllegal2)
+		err = f(falcoExtensionIllegalNoDestination)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to none and logFalcoEvents is false - no output would be generated"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("no event destination is set"), "Illegal extension is not detected as such ")
 
-		// additional field (or typo)
-		err = f(falcoExtensionIllegal3)
+		err = f(falcoExtensionIllegalDoubleDestination)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider config: strict decoding error: unknown field \"nonsense\""), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("output destinations can only be paired with stdout"), "Illegal extension is not detected as such ")
 
-		err = f(falcoExtensionIllegal4)
+		err = f(falcoExtensionIllegalNoRules)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("falco deployment without any rules is not allowed"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegalAdditionalUnknownField)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+
+		err = f(falcoExtensionIllegalVersion)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("version not found in possible versions"), "Illegal extension is not detected as such ")
 
-		err = f(falcoExtensionIllegal5)
+		err = f(falcoExtensionIllegalCustomDestWithoutRef)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("falcoctl is set as resource but falcoctl property is not defined"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("custom event destination is set but no custom config is defined"), "Illegal extension is not detected as such ")
 
-		err = f(falcoExtensionIllegal6)
+		err = f(falcoExtensionIllegalCustomRuleWithoutRef)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("output.eventCollector is set to custom but customWebhook is not defined"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("found custom rule with empty resource referece"), "Illegal extension is not detected as such ")
 
 		err = f(falcoExtensionIllegal7)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
 	})
 
-	It("make sure outputs from mutator validate", func(ctx SpecContext) {
+	It("can make sure outputs from mutator are validated", func(ctx SpecContext) {
 		managerOptions := sigsmanager.Options{}
 		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
 		Expect(err).To(BeNil(), "Manager could not be created")
@@ -695,15 +832,6 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 
 		err = f(expectedMutate2)
-		Expect(err).To(BeNil(), "Legal extension is not detected as such")
-
-		err = f(expectedMutate3)
-		Expect(err).To(BeNil(), "Legal extension is not detected as such")
-
-		err = f(expectedMutate4)
-		Expect(err).To(BeNil(), "Legal extension is not detected as such")
-
-		err = f(expectedMutate6)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
 })

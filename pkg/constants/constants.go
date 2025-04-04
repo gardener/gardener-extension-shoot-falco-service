@@ -42,6 +42,11 @@ const (
 	FalcoClientKey  = "client.key"
 	FalcoClientCert = "client.crt"
 
+	FalcoEventDestinationStdout  = "stdout"
+	FalcoEventDestinationLogging = "logging"
+	FalcoEventDestinationCentral = "central"
+	FalcoEventDestinationCustom  = "custom"
+
 	DefaultCALifetime   = time.Hour * 24 * 365 * 2
 	DefaultCARenewAfter = DefaultCALifetime - 60
 
@@ -61,14 +66,25 @@ const (
 
 	// limit the number of rule files with custom rules per config map
 	MaxCustomRulesFilesPerConfigMap = 10
+
+	ConfigFalcoRules           = "falco-rules"
+	ConfigFalcoIncubatingRules = "falco-incubating-rules"
+	ConfigFalcoSandboxRules    = "falco-sandbox-rules"
 )
 
 var (
 	AlwaysEnabledProjects         = []string{"garden"}
 	CentralLoggingAllowedProjects = []string{"garden"}
 	AllowedOutputs                = []string{"none", "cluster", "central", "custom"}
+	AllowedDestinations           = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventLogger)
 	DefaultEventLogger string = "cluster"
+
+	AllowedStandardRules = []string{
+		ConfigFalcoRules,
+		ConfigFalcoIncubatingRules,
+		ConfigFalcoSandboxRules,
+	}
 )
