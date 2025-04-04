@@ -73,14 +73,13 @@ const (
 )
 
 var (
-	AlwaysEnabledProjects         = []string{"garden"}
-	CentralLoggingAllowedProjects = []string{"garden"}
-	AllowedOutputs                = []string{"none", "cluster", "central", "custom"}
-	AllowedDestinations           = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
+	AlwaysEnabledNamespaces         = []string{"garden"}
+	CentralLoggingAllowedNamespaces = []string{"garden"}
+	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventLogger)
-	DefaultEventLogger string = "cluster"
+	DefaultEventLogger string = "logging"
 
 	AllowedStandardRules = []string{
 		ConfigFalcoRules,
