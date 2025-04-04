@@ -151,8 +151,8 @@ Rules
 <td>
 <code>destinations</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..Destination">
-[]..Destination
+<a href="#falco.extensions.gardener.cloud/v1alpha1.[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.Destination">
+[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.Destination
 </a>
 </em>
 </td>
@@ -543,8 +543,8 @@ Webhook
 <td>
 <code>custom</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..CustomRule">
-[]..CustomRule
+<a href="#falco.extensions.gardener.cloud/v1alpha1.[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.CustomRule">
+[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.CustomRule
 </a>
 </em>
 </td>
