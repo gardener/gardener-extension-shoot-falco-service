@@ -28,11 +28,11 @@ type Namespaces struct {
     mutex      *sync.Mutex
 }
 
-var NamespaceInstance *Namespaces
+var NamespacesInstance *Namespaces
 
 func NewNamespaces(client *dynamic.DynamicClient) {
     lg, _ := logger.NewZapLogger(logger.InfoLevel, logger.FormatJSON)
-    NamespaceInstance = &Namespaces{
+    NamespacesInstance = &Namespaces{
         logger:     lg,
         client:     client,
         mutex:      &sync.Mutex{},

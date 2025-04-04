@@ -389,17 +389,17 @@ func verifyNamespaceEligibility(namespace string) bool {
 }
 
 func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
-	project, ok := ProjectsInstance.projects[namespace]
-	if !ok {
-		return false
-	}
-
-	always := slices.Contains(constants.CentralLoggingAllowedProjects[:], comparable(namespace).Name)
+	always := slices.Contains(constants.CentralLoggingAllowedNamespaces[:], comparable(namespace))
 	if always {
 		return true
 	}
 
-	val, ok := namespace.Annotations[constants.ProjectCentralLoggingAnnotation]
+	namespaceV1, ok := NamespacesInstance.namespaces[namespace]
+	if !ok {
+		return false
+	}
+
+	val, ok := namespaceV1.Annotations[constants.ProjectCentralLoggingAnnotation]
 	if !ok {
 		return false
 	}
