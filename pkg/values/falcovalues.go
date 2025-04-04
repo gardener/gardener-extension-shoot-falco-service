@@ -285,7 +285,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 func (*ConfigBuilder) getDestination(falcoOutputConfigs []falcoOutputConfig) string {
 	for _, outputConfig := range falcoOutputConfigs {
-		if outputConfig.key == constants.FalcoEventDestinationLogging {
+		if outputConfig.key == "loki" {
 			return constants.FalcoEventDestinationLogging
 		}
 	}
