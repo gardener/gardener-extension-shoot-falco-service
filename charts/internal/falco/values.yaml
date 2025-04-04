@@ -148,6 +148,8 @@ controller:
       # -- Perform rolling updates by default in the DaemonSet agent
       # ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/
       type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 3
   deployment:
     # -- Number of replicas when installing Falco using a deployment. Change it if you really know what you are doing.
     # For more info check the section on Plugins in the README.md file.
