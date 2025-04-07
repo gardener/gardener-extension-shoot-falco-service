@@ -108,12 +108,12 @@ func GenerateFalcoCas(clusterName string, lifetime time.Duration) (*FalcoCas, er
 }
 
 func GeneratePrivateKey() (*rsa.PrivateKey, error) {
-	if KeyBitSize < 4096 { // warn if we are not running in test context
-		if os.Getenv("TESTING") != "true" {
-			return nil, fmt.Errorf("key size must be at least 4096 bits when not running in test mode")
-		}
-	}
-	return rsa.GenerateKey(rand.Reader, KeyBitSize)
+    if KeyBitSize < 4096 {
+        if os.Getenv("TESTING") != "true" { // Set env var TESTING=true when manually testing
+            return nil, fmt.Errorf("key size must be at least 4096 bits when not running in test mode")
+        }
+    }
+    return rsa.GenerateKey(rand.Reader, KeyBitSize)
 }
 
 func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duration) (*FalcoCertificates, error) {
