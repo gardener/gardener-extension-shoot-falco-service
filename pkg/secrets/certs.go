@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -19,12 +20,9 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
-const (
-	keyBitSize = 4096
-)
-
 var (
 	serialNumberLimit = new(big.Int).Lsh(big.NewInt(1), 128)
+	KeyBitSize        = 4096
 )
 
 type FalcoCas struct {
@@ -43,7 +41,7 @@ type FalcoCertificates struct {
 
 func generateCACertificate(commonName string, customLifetime time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 
-	key, err := rsa.GenerateKey(rand.Reader, keyBitSize)
+	key, err := GeneratePrivateKey()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -110,7 +108,12 @@ func GenerateFalcoCas(clusterName string, lifetime time.Duration) (*FalcoCas, er
 }
 
 func GeneratePrivateKey() (*rsa.PrivateKey, error) {
-	return rsa.GenerateKey(rand.Reader, keyBitSize)
+    if KeyBitSize < 4096 { // warn if we are not running in test context
+        if os.Getenv("TESTING") != "true" {
+            return nil, fmt.Errorf("key size must be at least 4096 bits when not running in test mode")
+        }
+    }
+    return rsa.GenerateKey(rand.Reader, KeyBitSize)
 }
 
 func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duration) (*FalcoCertificates, error) {

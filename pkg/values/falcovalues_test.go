@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -577,6 +578,9 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(err).To(BeNil())
 		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+
+		os.Setenv("GODEBUG", "rsa1024min=0") // allow smaller keysize for testing
+		secrets.KeyBitSize = 1024
 	})
 
 	It("custom rules in shoot spec", func(ctx SpecContext) {
