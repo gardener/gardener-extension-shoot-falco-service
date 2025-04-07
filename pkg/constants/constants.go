@@ -61,8 +61,8 @@ const (
 
 	CustomRulesMaxSize = 1048576 // 1 << 20 == 1MiB
 
-	ProjectEnableAnnotation         = "falco.gardener.cloud/enabled"
-	ProjectCentralLoggingAnnotation = "falco.gardener.cloud/central-logging"
+	NamespaceEnableAnnotation         = "falco.gardener.cloud/enabled"
+	NamespaceCentralLoggingAnnotation = "falco.gardener.cloud/central-logging"
 
 	// limit the number of rule files with custom rules per config map
 	MaxCustomRulesFilesPerConfigMap = 10

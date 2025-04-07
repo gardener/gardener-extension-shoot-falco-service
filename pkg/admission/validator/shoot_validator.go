@@ -123,7 +123,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 			}
 		}
 	}
-	if s.restrictedCentralLogging && centralLoggingNewlyEnabled(falcoConf, oldFalcoConf) {
+	if s.restrictedCentralLogging {
 		if ok := verifyNamespaceEligibilityForCentralLogging(shoot.Namespace); !ok {
 			return fmt.Errorf("namespace is not eligible for centralized logging")
 		}
@@ -366,17 +366,17 @@ func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConf
 }
 
 func verifyNamespaceEligibility(namespace string) bool {
-	project, ok := NamespacesInstance.namespaces[namespace]
-	if !ok {
-		return false
-	}
-
-	always := slices.Contains(constants.AlwaysEnabledProjects[:], project.Name)
+	always := slices.Contains(constants.AlwaysEnabledNamespaces[:], namespace)
 	if always {
 		return true
 	}
 
-	val, ok := project.Annotations[constants.ProjectEnableAnnotation]
+	namespaceV1, ok := NamespacesInstance.namespaces[namespace]
+	if !ok {
+		return false
+	}
+
+	val, ok := namespaceV1.Annotations[constants.NamespaceEnableAnnotation]
 	if !ok {
 		return false
 	}
@@ -389,7 +389,7 @@ func verifyNamespaceEligibility(namespace string) bool {
 }
 
 func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
-	always := slices.Contains(constants.CentralLoggingAllowedNamespaces[:], comparable(namespace))
+	always := slices.Contains(constants.CentralLoggingAllowedNamespaces[:], namespace)
 	if always {
 		return true
 	}
@@ -399,7 +399,7 @@ func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
 		return false
 	}
 
-	val, ok := namespaceV1.Annotations[constants.ProjectCentralLoggingAnnotation]
+	val, ok := namespaceV1.Annotations[constants.NamespaceCentralLoggingAnnotation]
 	if !ok {
 		return false
 	}
@@ -409,20 +409,4 @@ func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
 		return false
 	}
 	return enabled
-}
-
-// returns true if central loggging was newly enabled or this is a new cluster
-func centralLoggingNewlyEnabled(falcoConfigNew, falcoConfigOld *service.FalcoServiceConfig) bool {
-
-	if falcoConfigNew.Output != nil && falcoConfigNew.Output.EventCollector != nil && *falcoConfigNew.Output.EventCollector == "central" {
-
-		if falcoConfigOld == nil {
-			// new cluster
-			return true
-		}
-		if falcoConfigOld.Output != nil && falcoConfigOld.Output.EventCollector != nil && *falcoConfigOld.Output.EventCollector != "central" {
-			return true
-		}
-	}
-	return false
 }
