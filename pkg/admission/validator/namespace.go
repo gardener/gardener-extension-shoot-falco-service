@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -94,14 +94,12 @@ func (n *Namespaces) deleteEvent(name string) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	delete(n.namespaces, name)
-	n.logger.Info("namespace deleted", "name", name)
 }
 
 func (n *Namespaces) updateEvent(ns *v1.Namespace) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	n.namespaces[ns.Name] = ns
-	n.logger.Info("namespace updated", "name", ns.Name)
 }
 
 func (n *Namespaces) decodeEvent(obj runtime.Object) (*v1.Namespace, error) {
