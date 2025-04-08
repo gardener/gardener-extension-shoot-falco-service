@@ -7,8 +7,9 @@ way, offering options to persist runtime events for further processing. Users
 may enable it by adding an extension configuration to the shoot manifest.
 
 Falco is a cloud-native runtime security tool for Linux, designed to detect
-and alert on abnormal behavior and potential security threats in real-time [1].
-In the Gardener landscapes, it effectively detects unusual runtime events,
+and alert on abnormal behavior and potential security threats in real-time
+([falco.org](https://falco.org/)).
+In our Gardener landscapes, it effectively detects unusual runtime events,
 such as debugging activities, host configuration changes, or software
 installations in containers. If not detected as part of legitimate debugging
 activity, these events likely indicate malicious behavior.
@@ -28,10 +29,7 @@ to the shoot manifest. It is sufficient to deploy Falco:
 ```yaml
 spec:
   extensions:
-  - providerConfig:
-      apiVersion: falco.extensions.gardener.cloud/v1alpha1
-      kind: FalcoServiceConfig
-    type: shoot-falco-service
+  - type: shoot-falco-service
 ```
 
 Based on this extension configuration the Falco extension will deploy the
@@ -43,7 +41,7 @@ which are designed to offer basic detection capabilities.
 This is a tradeoff between sophisticated detection capabilities and the
 number of false positive events. More rules mean
 better threat detection capabilities but potentially tens of thousands of
-false-positive events. The standard Falco ruleset has been tweaked not to emit
+false-positive events. The standard Falco ruleset has been optimized not to emit
 any false positive events in an empty cluster managed by Gardener. Depending on
 the workload, rule exceptions may need to be defined.
 
@@ -74,7 +72,7 @@ INFO sleep for 100ms                               action=syscall.LaunchIngressR
 [...]
 ```
 
-Once messages appear, let it run for a few seconds, and then kill it with Ctrl+C.
+Once messages appear, let it run for a few seconds, and then end it with Ctrl+C.
 
 By default, events are forwarded to the cluster logging stack and stored in the
 Vali database. Query the database via Plutono using [LogQL queries](https://grafana.com/docs/loki/latest/query/),
@@ -87,14 +85,9 @@ such as:
 ## Further Details
 
 This minimal configuration can be customized further. Users can select specific
-Falco versions, define rule exceptions, add custom rules, and configure various
-targets for events.
+Falco versions, select from 3 rule files provided by the Falco community, add 
+custom rules and specify event destinations. A full description of 
+configuration options is available [here](falco-configuration.md).
 
 [Falco profiles](falco-profile.md) contain information on available Falco 
-versions and their support status. A detailed guide to all configuration options 
-is available [here](falco-configuration.md). [Falcoctl](falcoctl-configuration.md) is a
-community project to configure Falco rules-, and plugins from a central repository.
-
-The Gardener Falco extension is flexible regarding the storage of Falco events.
-The [Falco outputs](falco-outputs.md) document outlines current options and
-default settings.
+versions and their support status.

@@ -7,20 +7,26 @@ is the minimal configuration necessary:
 
 ```yaml
   - type: shoot-falco-service
+```
+
+This is also possible:
+
+```yaml
+  - type: shoot-falco-service
     providerConfig:
       apiVersion: falco.extensions.gardener.cloud/v1alpha1
       kind: FalcoServiceConfig
 ```
 
 This configuration will deploy Falco in a default configuration which is based
-on available Falco versions and platfrom settings. We anticipate that for most
+on available Falco versions and platform settings. We anticipate that for most
 deployemnts the defaults will be
 
 - the latest currently available Falco version
 - the [falco rules](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml)
 ruleset, possible with some extensions to avoid false positive events in an 
 empty cluster
-- the `cluster` storage option
+- the `logging` storage option
 
 This means that the configuration above will be expanded to
 
@@ -29,16 +35,13 @@ This means that the configuration above will be expanded to
       providerConfig:
         kind: FalcoServiceConfig
         apiVersion: falco.extensions.gardener.cloud/v1alpha1
-        falcoVersion: 0.39.2
+        falcoVersion: 0.40.0
         autoUpdate: true
-        resources: gardener
-        gardener:
-          useFalcoRules: true
-          useFalcoIncubatingRules: false
-          useFalcoSandboxRules: false
-        output:
-          logFalcoEvents: false
-          eventCollector: cluster
+        rules:
+          standard:
+          - falco-rules
+        destinations:
+        - name: logging
 ```
 
 ## Configuration details
@@ -55,47 +58,20 @@ These are all configuration options which are exaplained below.
       # optional, will always default to true
       autoUpdate: true|false
       # optional, "gardener" or "falcoctl", will default to "gardener"
-      resources: gardener
-      gardener:
-        # optional, defaults to true
-        useFalcoRules: true
-        # optional, defaults to false
-        useFalcoIncubatingRules: false
-        # optional, defaults to false
-        useFalcoSandboxRules: false
-        # references configmaps in project namespace containing custom rules
-        customRules:
-        - rules1
-      falcoctl:
-        # Falcoctl configuration as defined in 
-        indexes:
-        - name: ...
-          url: ...
-        # allowed values are "plugins" and "rulesfile"
-        allowdTypes:
-        - plugins
-        - rulesfile
-        # optional, install rules and/or plugins during falco pod startup
-        install:
-          resolveDeps: reue|false
-          refs:
-          # list of artifacts to be installed
-          - falco-rules:3
-        follow:
-          # list of artifacts to be updated
-          refs:
-          - falco-rules:3
-          # how often to check for updates
-          every: 6h
-      # Configure where to store events
-      output:
-        # this setting make Falco post evente to standard outut (visible in pod log)
-        logFalcoEvents: true|false
-        # 
-        eventCollector: cluster|central|custom|none
-        # "custom" required webhook configuration
-        customWebhook:
-          secretRef: webhook-secret
+      rules:
+        # standard rules from https://github.com/falcosecurity/rules/tree/main/rules
+        standard:
+        - falco-rules
+        - falco-incubating-rules
+        - falco-sandbox-rules
+        # custom rules
+        custom:
+        - resourceName: rules1
+      destinations:
+        # possible values are: stdout, logging, webhook, central
+        - name: logging
+          # options, may be required to configure destination
+          resourceSecretName: secret
 ```
 
 ## Versions and Update strategy
@@ -114,38 +90,34 @@ is set to false. The only exception to this policy is when the configured Falco
 version has expired (`expirationDate` is in the past). The Falco version will 
 then be updated to the next non-expired version.
 
-## Configuring rules and plugins
+## Configuring rules
 
-The `resources` setting specifies whether Falco rules are managed by Gardener
-(`gardener`) or whether rules are managed by Falcoctl (`falcoctl`). The default
-is `gardener`. The falcoctl configuration is described [here](falcoctl-configuration.md).
-
-If `gardener` is configured the details can be specified in the `gardener`
-section:
+The `rules` section can be used to configure both, standard Falco rules as 
+well as custom rules:
 
 ```yaml
-      gardener:
-        # optional, defaults to true
-        useFalcoRules: true
-        # optional, defaults to false
-        useFalcoIncubatingRules: false
-        # optional, defaults to false
-        useFalcoSandboxRules: false
-        # references configmaps in project namespace containing custom rules
-        customRules:
-        - my-custom-rules
-        - more-curstom-rules
+      rules:
+        standard:
+        - falco-rules
+        - falco-incubating-rules
+        - falco-sandbox-rules
+        # custom rules
+        custom:
+        - resourceName: my-custom-rules
+        - resourceName: more-curstom-rules
         ...
 ```
 
-Falco rules, Falco incubating rules, and Falco sandbox rules are rules developed
-and provided by the [Falco community](https://github.com/falcosecurity/rules).
-The Falco rules have been extended not to emit any false positive events in 
-an empty Kubernetes cluster managed by Gardener. Note, that this extension 
-has not been done for the incubating- and sandbox rules which will likely emit 
-false positive events even in an empty cluster.
+Falco rules (`falco-rules`), Falco incubating rules (`falco-incubating-rules`),
+and Falco sandbox rules (`falco-sandbox-rules`) are provided by the 
+[Falco community](https://github.com/falcosecurity/rules). The Falco rules have
+been extended not to emit any false positive events in an empty Kubernetes
+cluster managed by Gardener. Note, that this extension has not been done for
+incubating- and sandbox rules which will likely emit false positive events even
+in an empty cluster. The extenstion does not except other values than those
+listed above. The rule files do not depend on each other.
 
-These rules can be extended or replaced by using the custom rules section. Custom
+The standard rules can be extended or replaced by custom rules. Custom
 rules in the Gardener setup can be stored in a ConfigMap and applied to the 
 same Gardener project as the cluster shoot manifest. The ConfigMap must be
 configured as a resource in the cluster as described 
@@ -175,7 +147,7 @@ data:
   myrules.yaml: |-
     # custom rules go here
     ...
-  myrules-extended.yaml |-
+  myrules-extended.yaml: |-
     # more custom rules
     ...
 ```
@@ -205,50 +177,47 @@ a limit of 10 rule files per ConfigMap.
 Ordering is important as Falco rules may extend other rules that must be 
 defined before being referenced. The ordering is as follows:
 
-1. Falco rules (if set to true)
-2. Falco incubating rules  (if set to true)
-3. Falco Sandbox rules  (if set to true)
+1. Falco rules (if specified)
+2. Falco incubating rules  (if specified)
+3. Falco Sandbox rules  (if specified)
 4. Files from the first custom rule config map specified in the `customRules` array. 
 The ordering is based lexicographical string comparison of the contained 
 files.
 5. Files from the second custom rule ConfigMap.
 ...
 
-## Configuring outputs
+If the rules is not specified the `falco-rules` standard rules will be set,
+otherwise no defaults will be set.
 
-Note: this section outlines output configurations. More details about their
-implementations can be found in the [Falco outputs](falco-outputs.md) section.
+## Configuring destinations
 
 Falco can be configured to post events to several internal and external 
-storage providers by configuring the `eventCollector`:
+storage providers:
 
-- `none`:  do not post the events anywhere, just write them to the pod log 
-  (`logFalcoEvents` must be set to true)
+- `stdout`:  do not post the events anywhere, just write them to the pod log
 - `central`: post event to a central storage which might be offered by the
 infrastructure  provider
-- `cluster`: post events to the local cluster logging stack
+- `logging`: post events to the local cluster logging stack
 - `custom`: post events to a custom web server.
 
 Out of these configurations `custom` requires additional configuration:
 
 ```yaml
-      output:
-        eventCollector: custom
-        # "custom" requires webhook configuration
-        customWebhook:
-          secretRef: webhook-secret
+      destinations:
+        name: custom
+        resourceSecretName: custom-secret
 ```
 
-The `secretRef` references a secret which must be defined in the resources 
+The `resourceSecretName` references a secret which must be defined in the resources 
 section of the shoot manifest:
 
 ```yaml
   resources:
-  - name: webhook-secret
+  - name: custom-secret
     resourceRef:
       apiVersion: v1
       kind: Secret
-      name: my-webhook-secret-config
+      name: my-custom-secret-config
 ```
 
 The secret contains the following values:
@@ -268,3 +237,49 @@ stringData:
     header1: value1
     ...
 ```
+
+### Destinations
+
+
+
+## Do not forward Falco events (option `stdout`)
+
+Events are logged to Falco pod stdout but not forwarded. Falcosidekick will
+not be deployed if `stdout` is the only event destination. Users can deploy custom tools to scrape pod logs to store events. 
+
+Note: writing logs to stdout will forward events to the cluster vali database,
+however event details may not be stored in an optimal way that allows event 
+analysis. Use the `logging` destination if you plan event analysis.
+
+## Store events in the cluster logging stack (option `logging`)
+
+Falco Events will be forwarded to the cluster vali logging database using the 
+Falcosidekick [Loki output](https://github.com/falcosecurity/falcosidekick/blob/master/docs/outputs/loki.md). 
+
+Events can be queried in the Vali section of the cluster Plutono UI using:
+```
+{rule=~".+", tags=~".+", source=~".+"}
+```
+
+More detailed on possible queries can be found in the 
+[LogQL documentation](https://grafana.com/docs/loki/latest/query/).
+
+## Custom destination (option `custom`)
+
+This option allows forwarding of Falco events to user configurable destinations, 
+for example a SIEM system. This option requries a destination configuration 
+in a secret referenced with `resourceSecretName`. The contents of the secret is 
+used to configure the Falcosidekick 
+[webhook output](https://github.com/falcosecurity/falcosidekick/blob/master/docs/outputs/webhook.md).
+
+## Store events centrally (option `central`)
+
+Note: central storage is optional and may not be provided as part of the Gardener
+landscape installation.
+
+Falco events are forwarded to a central storage via the Falcosidekick 
+[webhook output](https://github.com/falcosecurity/falcosidekick/blob/master/docs/outputs/webhook.md).
+
+The [Falco event ingestor](https://github.com/gardener/falco-event-ingestor) provides a REST API to receive Falco events. It validates event integrity, stores events in an SQL database, and implements configurable rate limiting per cluster to prevent overload.
+
+The [Falco event provider](https://github.com/gardener/falco-event-provider) offers a REST API to access the database. Cluster users must present a valid token (with Viewer access for the Gardener project namespace) to retrieve Falco events for their cluster.
