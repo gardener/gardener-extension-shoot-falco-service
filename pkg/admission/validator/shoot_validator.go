@@ -123,7 +123,8 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 			}
 		}
 	}
-	if s.restrictedCentralLogging {
+
+	if s.restrictedCentralLogging && isCentralLoggingEnabled(falcoConf) {
 		if ok := verifyNamespaceEligibilityForCentralLogging(shoot.Namespace); !ok {
 			return fmt.Errorf("namespace is not eligible for centralized logging")
 		}
@@ -409,4 +410,15 @@ func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
 		return false
 	}
 	return enabled
+}
+
+func isCentralLoggingEnabled(falcoConf *service.FalcoServiceConfig) bool {
+	if falcoConf.Destinations != nil && len(*falcoConf.Destinations) > 0 {
+		for _, dest := range *falcoConf.Destinations {
+			if dest.Name == constants.FalcoEventDestinationCentral {
+				return true
+			}
+		}
+	}
+	return false
 }

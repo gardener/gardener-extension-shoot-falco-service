@@ -837,4 +837,35 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = f(expectedMutate2)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
+
+	It("checks if central logging is enabled", func(ctx SpecContext) {
+		falcoConf := &service.FalcoServiceConfig{}
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+		}
+		enabled := isCentralLoggingEnabled(falcoConf)
+		Expect(enabled).To(BeTrue(), "Central logging should be enabled when the destination is set to central")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+		}
+		enabled = isCentralLoggingEnabled(falcoConf)
+		Expect(enabled).To(BeFalse(), "Central logging should not be enabled when the destination is not central")
+
+		falcoConf.Destinations = &[]service.Destination{
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+		}
+		enabled = isCentralLoggingEnabled(falcoConf)
+		Expect(enabled).To(BeTrue(), "Central logging should be enabled when one of the destinations is central")
+	})
 })
