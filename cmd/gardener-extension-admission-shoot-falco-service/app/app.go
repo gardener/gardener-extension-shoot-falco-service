@@ -162,13 +162,13 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
-			dynamicClientProjects, err := dynamic.NewForConfig(mgr.GetConfig())
+			dynamicClientNamespaces, err := dynamic.NewForConfig(mgr.GetConfig())
 			if err != nil {
 				return err
 			}
 
-			validator.NewProjects(dynamicClientProjects)
-			go validator.ProjectsInstance.StartProjectWatch()
+			validator.NewNamespaces(dynamicClientNamespaces)
+			go validator.NamespacesInstance.StartNamespaceWatch()
 
 			dynamicClient, err := dynamic.NewForConfig(mgr.GetConfig())
 			if err != nil {
