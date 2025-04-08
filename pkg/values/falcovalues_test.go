@@ -580,6 +580,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 
 		os.Setenv("GODEBUG", "rsa1024min=0") // allow smaller keysize for testing
+		os.Setenv("TESTING", "true")
 		secrets.KeyBitSize = 1024
 	})
 
