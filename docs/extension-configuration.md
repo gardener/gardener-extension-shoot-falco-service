@@ -5,7 +5,7 @@ The Gardner Falco extension consists of an extension binary
 (`gardener-extension-admission-shoot-falco-service`) which contains a
 mutating- and validating webhook as well as the maintenacne controller.
 
-## The extension
+## The extension `gardener-extension-shoot-falco-service`
 
 The extension binary uses a non-standard configuration parameter
 `--config-file` whih points to a configuration YAML file as shown below:
@@ -31,18 +31,19 @@ falco:
 * `ingestorURL`: URL of the Falco event ingestor.
 * `tokenIssuerPrivateKey`: Private key used for issuing the JWT token.
 
-## The webhook
+## The webhook `gardener-extension-admission-shoot-falco-service`
 
 The webhook can be configured to enforce usage restrictions:
 
-- The extension may only deploy Falco in gardener projects annotated with
+- The extension may only deploy Falco in clusters where the gardener project 
+namespace is annotated with
 
 ```yaml
 falco.gardener.cloud/enabled=true
 ```
 
 - The "central" storage option may only be configured from shoot clusters if 
-their project is annotated with 
+their project namespace is annotated with 
 
 ```yaml
 falco.gardener.cloud/centralized-logging=true

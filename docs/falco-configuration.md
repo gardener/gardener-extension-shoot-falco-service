@@ -1,9 +1,9 @@
 # Falco configuration
 
-## Introduction
+# Introduction
 
-Falco can be enabled and configured in the extensions sec tion in the shoot manifest. This
-is the minimal configuration necessary:
+Falco can be enabled and configured in the extensions section of the shoot 
+manifest. This is the minimal configuration necessary:
 
 ```yaml
   - type: shoot-falco-service
@@ -18,15 +18,16 @@ This is also possible:
       kind: FalcoServiceConfig
 ```
 
-This configuration will deploy Falco in a default configuration which is based
-on available Falco versions and platform settings. We anticipate that for most
-deployemnts the defaults will be
+This configuration will deploy Falco into the kube-system namesapce of the 
+shoot cluster. Defaults for Falco versions, Falco rules, as well as event 
+storage will be used according to the landscape configuration. We assume 
+that for most deployments the defaults will be
 
 - the latest currently available Falco version
 - the [falco rules](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml)
 ruleset, possible with some extensions to avoid false positive events in an 
 empty cluster
-- the `logging` storage option
+- the `logging` destination
 
 This means that the configuration above will be expanded to
 
@@ -44,9 +45,9 @@ This means that the configuration above will be expanded to
         - name: logging
 ```
 
-## Configuration details
+# Configuration details
 
-These are all configuration options which are exaplained below.
+These are all configuration options which are explained below.
 
 ```yaml
   - type: shoot-falco-service
@@ -57,7 +58,6 @@ These are all configuration options which are exaplained below.
       falcoVersion: 0.40.0
       # optional, will always default to true
       autoUpdate: true|false
-      # optional, "gardener" or "falcoctl", will default to "gardener"
       rules:
         # standard rules from https://github.com/falcosecurity/rules/tree/main/rules
         standard:
@@ -82,7 +82,7 @@ omitted, the latest version tagged as supported will be chosen from the Falco
 profile.
 
 With `autoUpdate` set to `false` users can opt out of automated Falco updates,
-for example if there is a possibility that certain Falco rules are not compatible
+for example, if there is a possibility that certain Falco rules are not compatible
 with a newer Falco version. When `autoUpdate` is set to true the extension will
 always update Falco to the latest Falco version which is tagged as supported
 in the Falco profile. No automated Falco updates will be applied if `autoUpdate`
@@ -114,7 +114,7 @@ and Falco sandbox rules (`falco-sandbox-rules`) are provided by the
 been extended not to emit any false positive events in an empty Kubernetes
 cluster managed by Gardener. Note, that this extension has not been done for
 incubating- and sandbox rules which will likely emit false positive events even
-in an empty cluster. The extenstion does not except other values than those
+in an empty cluster. The extension does not except other values than those
 listed above. The rule files do not depend on each other.
 
 The standard rules can be extended or replaced by custom rules. Custom
@@ -178,15 +178,15 @@ Ordering is important as Falco rules may extend other rules that must be
 defined before being referenced. The ordering is as follows:
 
 1. Falco rules (if specified)
-2. Falco incubating rules  (if specified)
-3. Falco Sandbox rules  (if specified)
+2. Falco incubating rules (if specified)
+3. Falco Sandbox rules (if specified)
 4. Files from the first custom rule config map specified in the `customRules` array. 
 The ordering is based lexicographical string comparison of the contained 
 files.
 5. Files from the second custom rule ConfigMap.
 ...
 
-If the rules is not specified the `falco-rules` standard rules will be set,
+If no rules key is specified the `falco-rules` standard rules will be set,
 otherwise no defaults will be set.
 
 ## Configuring destinations
@@ -196,9 +196,11 @@ storage providers:
 
 - `stdout`:  do not post the events anywhere, just write them to the pod log
 - `central`: post event to a central storage which might be offered by the
-infrastructure  provider
+infrastructure provider
 - `logging`: post events to the local cluster logging stack
 - `custom`: post events to a custom web server.
+
+More details for the destination options are described below.
 
 Out of these configurations `custom` requires additional configuration:
 
@@ -238,18 +240,24 @@ stringData:
     ...
 ```
 
-### Destinations
+# Destinations
 
+This section provides details for the event destinations, describes possible 
+use cases, and outlines their implementations.
 
+It is generally possible to configure two destinations if one of them is 
+`stdout`. 
 
 ## Do not forward Falco events (option `stdout`)
 
 Events are logged to Falco pod stdout but not forwarded. Falcosidekick will
-not be deployed if `stdout` is the only event destination. Users can deploy custom tools to scrape pod logs to store events. 
+not be deployed if `stdout` is the only event destination. Users can deploy 
+custom tools to scrape pod logs to store events. 
 
-Note: writing logs to stdout will forward events to the cluster vali database,
-however event details may not be stored in an optimal way that allows event 
-analysis. Use the `logging` destination if you plan event analysis.
+Note: writing logs to stdout will forward events to the cluster vali database
+as logs from pods in the `kube-system` namespace are generally stored there.
+Event details may not be stored in an optimal way that allows event 
+analysis. Use the `logging` destination if you plan to analyze events.
 
 ## Store events in the cluster logging stack (option `logging`)
 
@@ -263,6 +271,10 @@ Events can be queried in the Vali section of the cluster Plutono UI using:
 
 More detailed on possible queries can be found in the 
 [LogQL documentation](https://grafana.com/docs/loki/latest/query/).
+
+Note that events may be kept for a short period of time only and may be 
+overwritten in case of disk pressure of the vali database. It may be
+necessary to replicate events to another location.
 
 ## Custom destination (option `custom`)
 
