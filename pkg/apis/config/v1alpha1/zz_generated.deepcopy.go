@@ -72,8 +72,8 @@ func (in *Falco) DeepCopyInto(out *Falco) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.DefaultEventLogger != nil {
-		in, out := &in.DefaultEventLogger, &out.DefaultEventLogger
+	if in.DefaultEventDestination != nil {
+		in, out := &in.DefaultEventDestination, &out.DefaultEventDestination
 		*out = new(string)
 		**out = **in
 	}

@@ -45,5 +45,5 @@ type Falco struct {
 
 	// Default event logger
 	// possible values are: "none", "central", "logging", "webhook"
-	DefaultEventLogger *string
+	DefaultEventDestination *string
 }
