@@ -78,8 +78,8 @@ var (
 	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
 
 	// Default Event logger if not specified in controller configuration
-	// (apis.Falco.DefaultEventLogger)
-	DefaultEventLogger string = "logging"
+	// (apis.Falco.DefaultEventDestination)
+	DefaultEventDestination string = "logging"
 
 	AllowedStandardRules = []string{
 		ConfigFalcoRules,

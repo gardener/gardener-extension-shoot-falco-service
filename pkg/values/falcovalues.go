@@ -553,7 +553,7 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 		}
-		certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, constants.DefaultCertificateLifetime)
+		certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, c.config.Falco.CertificateLifetime.Duration)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
 		}
@@ -571,9 +571,9 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 				return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 			}
 		}
-		if renewed || secrets.CertsNeedRenewal(certs, constants.DefaultCertificateRenewAfter) {
+		if renewed || secrets.CertsNeedRenewal(certs, c.config.Falco.CertificateRenewAfter.Duration) {
 			renewed = true
-			certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, constants.DefaultCertificateLifetime)
+			certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, c.config.Falco.CertificateLifetime.Duration)
 			if err != nil {
 				return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
 			}
