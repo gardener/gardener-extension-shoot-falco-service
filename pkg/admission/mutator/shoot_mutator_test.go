@@ -760,8 +760,8 @@ var (
 		Spec: gardencorev1beta1.ShootSpec{
 			Extensions: []gardencorev1beta1.Extension{
 				{
-					Type:           "shoot-falco-service",
-					Disabled:       boolValue(false),
+					Type:     "shoot-falco-service",
+					Disabled: boolValue(false),
 				},
 			},
 		},
