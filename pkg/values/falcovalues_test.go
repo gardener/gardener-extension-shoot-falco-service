@@ -68,6 +68,10 @@ var (
 				Name: "central",
 			},
 		},
+		NodeSelector: &map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
 	}
 
 	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
@@ -334,6 +338,10 @@ var (
 			{
 				Name: "stdout",
 			},
+		},
+		NodeSelector: &map[string]string{
+			"key1": "value1",
+			"key2": "value2",
 		},
 	}
 
@@ -741,7 +749,7 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		// TODO remove after migration
 		migration.MigrateIssue215(logger, falcoServiceConfigCentralStdoutOld)
 
-		for _, conf := range []*service.FalcoServiceConfig{falcoServiceConfigCentralStdout, falcoServiceConfigCentralStdoutOld} {
+		for i, conf := range []*service.FalcoServiceConfig{falcoServiceConfigCentralStdout, falcoServiceConfigCentralStdoutOld} {
 			values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", conf)
 			Expect(err).To(BeNil())
 
@@ -774,6 +782,12 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 
 			authHeader := webhook["customheaders"].(map[string]string)["Authorization"]
 			Expect(authHeader).To(MatchRegexp(`Bearer\s[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+`))
+
+			if i == 0 {
+				nodeSelector := values["nodeSelector"].(map[string]string)
+				Expect(nodeSelector).To(HaveKeyWithValue("key1", "value1"))
+				Expect(nodeSelector).To(HaveKeyWithValue("key2", "value2"))
+			}
 		}
 	})
 
@@ -830,18 +844,16 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		prioriyClass := values["priorityClassName"].(string)
 		Expect(prioriyClass).To(Equal("falco-test-priority-dummy-classname"))
 
+		// Validate nodeSelector
+		nodeSelector := values["nodeSelector"].(map[string]string)
+		Expect(nodeSelector).To(HaveKeyWithValue("key1", "value1"))
+		Expect(nodeSelector).To(HaveKeyWithValue("key2", "value2"))
+
 		// render chart and check if the values are set correctly
-		//
 		renderer, err := util.NewChartRendererForShoot("1.30.2")
 		Expect(err).To(BeNil())
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 		Expect(err).To(BeNil())
-
-		// fmt.Println((release.ChartName))
-		// for _, mf := range release.Manifests {
-		// 	fmt.Println(mf.Name + " " + mf.Head.Kind)
-		// 	fmt.Println(mf.Content)
-		// }
 
 		// check custom rules
 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
@@ -1052,7 +1064,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 
 func getManifest(release *chartrenderer.RenderedChart, name string) *releaseutil.Manifest {
 	for _, mf := range release.Manifests {
-		if mf.Name == name {
+		if (mf.Name == name) {
 			return &mf
 		}
 	}
