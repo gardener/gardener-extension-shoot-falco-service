@@ -45,7 +45,6 @@ var (
 		&map[string]profile.Image{},
 	)
 
-	// minimal
 	mutate1 = `
 	{
 		"kind":"FalcoServiceConfig",
@@ -757,6 +756,17 @@ var (
 		]
 	}`
 
+	genericEmptyConf = &gardencorev1beta1.Shoot{
+		Spec: gardencorev1beta1.ShootSpec{
+			Extensions: []gardencorev1beta1.Extension{
+				{
+					Type:           "shoot-falco-service",
+					Disabled:       boolValue(false),
+				},
+			},
+		},
+	}
+
 	genericShoot = &gardencorev1beta1.Shoot{
 		Spec: gardencorev1beta1.ShootSpec{
 			Extensions: []gardencorev1beta1.Extension{
@@ -1161,9 +1171,14 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 			return err
 		}
 
+		err = mutator.Mutate(context.TODO(), genericEmptyConf, nil)
+		Expect(err).To(BeNil(), "Mutator failed")
+		result := genericEmptyConf.Spec.Extensions[0].ProviderConfig.Raw
+		Expect(result).To(MatchJSON(expectedMutate1), "Mutator did not return expected result")
+
 		err = f(mutate1)
 		Expect(err).To(BeNil(), "Mutator failed")
-		result := genericShoot.Spec.Extensions[0].ProviderConfig.Raw
+		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate1), "Mutator did not return expected result")
 
 		err = f(mutate2)
