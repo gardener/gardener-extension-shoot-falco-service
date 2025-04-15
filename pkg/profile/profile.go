@@ -123,7 +123,7 @@ func (p *FalcoProfileManager) watch() error {
 			if err != nil {
 				p.logger.Error(err, "error decoding FalcoProfile event")
 			} else {
-				p.deleteEvent(fe.ObjectMeta.Name)
+				p.deleteEvent(fe.Name)
 			}
 		}
 	}
@@ -191,7 +191,7 @@ func (p *FalcoProfileManager) rebuild() {
 func (p *FalcoProfileManager) updateEvent(profile *v1alpha1.FalcoProfile) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.falcoProfiles[profile.ObjectMeta.Name] = profile
+	p.falcoProfiles[profile.Name] = profile
 	p.rebuild()
 }
 
