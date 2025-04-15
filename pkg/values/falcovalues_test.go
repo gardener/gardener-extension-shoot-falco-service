@@ -1064,7 +1064,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 
 func getManifest(release *chartrenderer.RenderedChart, name string) *releaseutil.Manifest {
 	for _, mf := range release.Manifests {
-		if (mf.Name == name) {
+		if mf.Name == name {
 			return &mf
 		}
 	}
