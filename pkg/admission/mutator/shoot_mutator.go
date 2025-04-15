@@ -228,9 +228,14 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if s.isDisabled(new) {
 		return nil
 	}
+
 	falcoConf, err := s.ExtractFalcoConfig(new)
 	if err != nil {
 		return err
+	}
+
+	if falcoConf == nil {
+		falcoConf = &service.FalcoServiceConfig{}
 	}
 
 	if err = setFalcoVersion(falcoConf); err != nil {
