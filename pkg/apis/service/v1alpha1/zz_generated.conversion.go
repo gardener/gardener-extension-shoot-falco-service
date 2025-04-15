@@ -234,6 +234,7 @@ func autoConvert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *F
 	out.Gardener = (*service.Gardener)(unsafe.Pointer(in.Gardener))
 	out.Output = (*service.Output)(unsafe.Pointer(in.Output))
 	out.CustomWebhook = (*service.Webhook)(unsafe.Pointer(in.CustomWebhook))
+	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
 	out.Rules = (*service.Rules)(unsafe.Pointer(in.Rules))
 	out.Destinations = (*[]service.Destination)(unsafe.Pointer(in.Destinations))
 	return nil
@@ -252,6 +253,7 @@ func autoConvert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *s
 	out.Gardener = (*Gardener)(unsafe.Pointer(in.Gardener))
 	out.Output = (*Output)(unsafe.Pointer(in.Output))
 	out.CustomWebhook = (*Webhook)(unsafe.Pointer(in.CustomWebhook))
+	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
 	out.Rules = (*Rules)(unsafe.Pointer(in.Rules))
 	out.Destinations = (*[]Destination)(unsafe.Pointer(in.Destinations))
 	return nil
