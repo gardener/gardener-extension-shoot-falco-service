@@ -1,10 +1,17 @@
+version: "2"
 run:
   concurrency: 4
-  deadline: 10m
-
-skip-files:
-  - "zz_generated\\..*\\.go$"
-
 linters:
-  disable:
-  - unused
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+    paths:
+      - "zz_generated\\..*\\.go$"
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - "zz_generated\\..*\\.go$"
