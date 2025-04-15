@@ -111,7 +111,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
 		case constants.FalcoEventDestinationCustom:
-			webhook := map[string]interface{}{}
+			webhook := map[string]any{}
 			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *dest.ResourceSecretName)
 			if err != nil {
 				return nil, err
@@ -265,10 +265,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"eventCollector": destination,
 			},
 		},
-	}
-
-	if falcoServiceConfig.NodeSelector != nil {
-		falcoChartValues["nodeSelector"] = *falcoServiceConfig.NodeSelector
 	}
 
 	if falcosidekickEnabled {
