@@ -8,6 +8,7 @@ linters:
       - comments
       - common-false-positives
       - legacy
+      - std-error-handling
     paths:
       - "zz_generated\\..*\\.go$"
 formatters:
