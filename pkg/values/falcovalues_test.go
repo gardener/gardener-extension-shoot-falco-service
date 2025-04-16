@@ -33,7 +33,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
-	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -257,7 +256,7 @@ var (
 		},
 	}
 
-	falcoServiceConfig = &apisservice.FalcoServiceConfig{
+	falcoServiceConfig = &service.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
@@ -275,14 +274,14 @@ var (
 		},
 	}
 
-	falcoServiceConfigOld = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigOld = &service.FalcoServiceConfig{
 		Resources: stringValue("gardener"),
-		Gardener: &apisservice.Gardener{
+		Gardener: &service.Gardener{
 			CustomRules: []string{"rules1", "rules3"},
 		},
 	}
 
-	falcoServiceConfigBad = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigBad = &service.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
@@ -300,7 +299,7 @@ var (
 		},
 	}
 
-	falcoServiceConfigWrongCustomRules = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigWrongCustomRules = &service.FalcoServiceConfig{
 		Rules: &service.Rules{
 			CustomRules: &[]service.CustomRule{
 				{
@@ -318,7 +317,7 @@ var (
 		},
 	}
 
-	falcoServiceConfigCentralStdout = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigCentralStdout = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
 			StandardRules: &[]string{"falco-rules"},
@@ -345,10 +344,10 @@ var (
 		},
 	}
 
-	falcoServiceConfigCentralStdoutOld = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigCentralStdoutOld = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Resources:    stringValue("gardener"),
-		Gardener: &apisservice.Gardener{
+		Gardener: &service.Gardener{
 			UseFalcoRules: boolValue(true),
 			CustomRules:   []string{"rules1", "rules3"},
 		},
@@ -358,7 +357,7 @@ var (
 		},
 	}
 
-	falcoServiceConfigCustomWebhookWithSecret = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigCustomWebhookWithSecret = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
 			StandardRules: &[]string{"falco-rules"},
@@ -371,19 +370,7 @@ var (
 		},
 	}
 
-	falcoServiceConfigCluster = &apisservice.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
-		},
-		Destinations: &[]service.Destination{
-			{
-				Name: "logging",
-			},
-		},
-	}
-
-	falcoServiceConfigClusterOld = &apisservice.FalcoServiceConfig{
+	falcoServiceConfigCluster = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
 			StandardRules: &[]string{"falco-rules"},

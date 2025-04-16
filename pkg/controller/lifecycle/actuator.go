@@ -151,16 +151,16 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 	namespace := ex.GetNamespace()
 	cluster, err := controller.GetCluster(ctx, a.client, namespace)
 	if err != nil {
-		return fmt.Errorf("Unable to get cluster for Falco exextension delete operation: %w", err)
+		return fmt.Errorf("unable to get cluster for Falco exextension delete operation: %w", err)
 	}
 	log.Info("Deleting falco resources for shoot " + cluster.Shoot.Name)
 	err = a.deleteShootResources(ctx, log, namespace)
 	if err != nil {
-		return fmt.Errorf("Error deleting Falco from shoot %s: %w", cluster.Shoot.Name, err)
+		return fmt.Errorf("error deleting Falco from shoot %s: %w", cluster.Shoot.Name, err)
 	}
 	err = a.deleteSeedResources(ctx, log, namespace)
 	if err != nil {
-		return fmt.Errorf("Error deleting Falco seed resources for shoot %s: %w", cluster.Shoot.Name, err)
+		return fmt.Errorf("error deleting Falco seed resources for shoot %s: %w", cluster.Shoot.Name, err)
 	}
 	return nil
 }

@@ -111,7 +111,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
 		case constants.FalcoEventDestinationCustom:
-			webhook := map[string]interface{}{}
+			webhook := map[string]any{}
 			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *dest.ResourceSecretName)
 			if err != nil {
 				return nil, err
@@ -382,81 +382,9 @@ func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger
 	return nil
 }
 
-func (c *ConfigBuilder) generateFalcoCtlValues(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
-
-	falcoChartValues["configProvider"] = "falcoctl"
-	var installEnabled bool = false
-	var followEnabled bool = false
-
-	fctlConfig := falcoServiceConfig.FalcoCtl
-	falcoCtlVersion, err := c.getDefaultFalcoctlVersion()
-	if err != nil {
-		return err
-	}
-	falcoCtlImage, err := c.getImageForVersion("falcoctl", falcoCtlVersion)
-	if err != nil {
-		return err
-	}
-
-	indexes := make([]map[string]string, len(fctlConfig.Indexes))
-	for i, r := range fctlConfig.Indexes {
-		idx := map[string]string{
-			"name": *r.Name,
-			"url":  *r.Url,
-		}
-		indexes[i] = idx
-	}
-
-	install := map[string]interface{}{}
-	if fctlConfig.Install != nil {
-		installEnabled = true
-		install["resolveDeps"] = *fctlConfig.Install.ResolveDeps
-		install["refs"] = fctlConfig.Install.Refs
-		install["resolveDeps"] = fctlConfig.Install.ResolveDeps
-	}
-	follow := map[string]interface{}{}
-	if fctlConfig.Follow != nil {
-		followEnabled = true
-		follow["refs"] = fctlConfig.Follow.Refs
-		follow["every"] = fctlConfig.Follow.Every
-	}
-	falcoctl := map[string]interface{}{
-		"image": map[string]interface{}{
-			"image": falcoCtlImage,
-		},
-		"config": map[string]interface{}{
-			"indexes": indexes,
-			"artifact": map[string]interface{}{
-				"allowedTypes": fctlConfig.AllowedTypes,
-			},
-			"install": install,
-			"follow":  follow,
-		},
-		"artifact": map[string]interface{}{
-			"install": map[string]interface{}{
-				"enabled": installEnabled,
-			},
-			"follow": map[string]bool{
-				"enabled": followEnabled,
-			},
-		},
-	}
-	falcoChartValues["falcoctl"] = falcoctl
-
-	// Gardener managed rules spedify very fine gained rules,
-	// falcoctl needs the starndard configuration
-	fconfig := falcoChartValues["falco"].(map[string]interface{})
-	fconfig["rules_files"] = []string{
-		"/etc/falco/falco_rules.yaml",
-		"/etc/falco/falco_rules.local.yaml",
-		"/etc/falco/rules.d",
-	}
-	return nil
-}
-
 // get the latest Falcosidekick version tagged as "supported"
 func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
-	var latestVersion string = ""
+	latestVersion := ""
 	for _, version := range *c.profile.GetFalcosidekickVersions() {
 		if version.Classification == "supported" {
 			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
@@ -471,36 +399,21 @@ func (c *ConfigBuilder) getDefaultFalcosidekickVersion() (string, error) {
 	}
 }
 
-// get the latest falcoctl version tagged as "supported"
-func (c *ConfigBuilder) getDefaultFalcoctlVersion() (string, error) {
-	var latestVersion string = ""
-	for _, version := range *c.profile.GetFalcoctlVersions() {
-		if version.Classification == "supported" {
-			if latestVersion == "" || semver.Compare("v"+version.Version, "v"+latestVersion) == 1 {
-				latestVersion = version.Version
-			}
-		}
-	}
-	if latestVersion != "" {
-		return latestVersion, nil
-	} else {
-		return "", fmt.Errorf("no supported Falcoctl version found")
-	}
-}
-
 func (c *ConfigBuilder) getImageForVersion(name string, version string) (string, error) {
-
 	isDigest := func(tag string) bool {
 		return strings.HasPrefix(tag, "sha256:")
 	}
+
 	var image *profile.Image
-	if name == "falco" {
+
+	switch name {
+	case "falco":
 		image = c.profile.GetFalcoImage(version)
-	} else if name == "falcosidekick" {
+	case "falcosidekick":
 		image = c.profile.GetFalcosidekickImage(version)
-	} else if name == "falcoctl" {
+	case "falcoctl":
 		image = c.profile.GetFalcoctlImage(version)
-	} else {
+	default:
 		return "", fmt.Errorf("unknown image name %s", name)
 	}
 

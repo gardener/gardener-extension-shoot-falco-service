@@ -71,7 +71,7 @@ func (r *Reconciler) ShootPredicate() predicate.Predicate {
 				!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
 
 			key := "extensions.extensions.gardener.cloud/shoot-falco-service"
-			val, ok := shoot.ObjectMeta.Labels[key]
+			val, ok := shoot.Labels[key]
 
 			return maintain && ok && val == "true"
 		},
