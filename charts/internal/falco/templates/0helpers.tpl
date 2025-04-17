@@ -111,7 +111,14 @@ Return the proper Falcoctl image name
 {{- end -}}
 
 {{/*
-Extract the unixSocket's directory path
+Return the proper Falcoctl image name
+*/}}
+{{- define "falcoping.image" -}}
+{{ printf "%s/%s:%s" .Values.falcosidekick.image.registry .Values.falcosidekick.image.repository .Values.falcosidekick.image.tag }}
+{{- end -}}
+
+{{/*
+Extract the unixSocket directory path
 */}}
 {{- define "falco.unixSocketDir" -}}
 {{- if and .Values.falco.grpc.enabled .Values.falco.grpc.bind_address (hasPrefix "unix://" .Values.falco.grpc.bind_address) -}}

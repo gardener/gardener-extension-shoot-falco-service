@@ -220,6 +220,20 @@ spec:
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
+    - name: falco-ping
+      image: {{ include "falcoping.image" . }}
+      command: ["sh", "-c"]
+      args: 
+        - |
+          while true; do
+            falco_version=$(wget -qO- http://127.0.0.1:8765/versions | grep -o '"falco_version":"[^"]*"' | sed 's/"falco_version":"//;s/"//')
+            current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            export FALCO_VERSION=$falco_version
+            export PING_TIME=$current_time
+            json_string="{\"ping_time\":\"${current_time}\",\"falco_version\":\"${falco_version}\"}"
+            /bin/echo "Falco ping $json_string"
+            sleep 15
+          done
   {{- if .Values.falcoctl.artifact.follow.enabled }}
     {{- include "falcoctl.sidecar" . | nindent 4 }}
   {{- end }}
