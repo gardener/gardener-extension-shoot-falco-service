@@ -86,6 +86,36 @@ def get_token_public_key(garden_api_client):
     )
     return public_key
 
+def get_nodes(shoot_api_client) -> list:
+    v1 = client.CoreV1Api(shoot_api_client)
+    ret = v1.list_node()
+    nodes = []
+    for node in ret.items:
+        nodes.append(node)
+    return nodes 
+
+def label_node(
+                shoot_api_client,
+                node_name: str,
+                labels: dict|None):
+    v1 = client.CoreV1Api(shoot_api_client)
+
+    if labels is None:
+        body = {}
+    else:
+        body = {
+            "metadata": {
+                "labels": labels
+            }
+        }
+
+    try:
+        v1.patch_node(name=node_name, body=body)
+        logger.info(f"Node {node_name} labeled with {labels}")
+    except client.exceptions.ApiException as e:
+        logger.error(f"Error labeling node {node_name}: {e}")
+        return e
+    return None
 
 def get_configmap(shoot_api_client, namespace, configmap_name):
     v1 = client.CoreV1Api(shoot_api_client)
@@ -615,3 +645,10 @@ def run_falco_event_generator(shoot_api_client):
 
     delete_event_generator_pod(shoot_api_client)
     return logs
+
+def get_falco_pods(shoot_api_client):
+    logger.info("Getting falco pods")
+    cv1 = client.CoreV1Api(shoot_api_client)
+    ls = falco_pod_label_selector
+    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
+    return pods.items
