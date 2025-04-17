@@ -137,6 +137,16 @@ Configuration for custom webhook</p>
 </tr>
 <tr>
 <td>
+<code>nodeSelector</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>rules</code></br>
 <em>
 <a href="#falco.extensions.gardener.cloud/v1alpha1.Rules">

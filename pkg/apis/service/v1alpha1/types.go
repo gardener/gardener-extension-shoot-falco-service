@@ -50,6 +50,8 @@ type FalcoServiceConfig struct {
 	// -------------------------------------------------------------------
 	// added due to issue #215
 
+	NodeSelector *map[string]string `json:"nodeSelector,omitempty"`
+
 	Rules *Rules `json:"rules,omitempty"`
 
 	Destinations *[]Destination `json:"destinations,omitempty"`
