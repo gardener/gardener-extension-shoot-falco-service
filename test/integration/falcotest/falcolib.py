@@ -8,6 +8,7 @@ import subprocess
 from datetime import datetime, timezone
 import logging
 import semver
+from semver.version import Version
 import pprint
 from cryptography.hazmat.primitives.asymmetric import dsa, rsa
 from cryptography.hazmat.primitives import serialization
@@ -20,6 +21,7 @@ logging.basicConfig(level=logging.INFO)
 falco_pod_label_selector = "app.kubernetes.io/name=falco"
 falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
+minimum_usable_falco_version = Version.parse("0.39.2")
 
 
 def pod_logs(shoot_api_client, namespace, pod_name):
@@ -31,6 +33,24 @@ def pod_logs(shoot_api_client, namespace, pod_name):
         since_seconds=10000, 
         _preload_content=True)
     return ret
+
+
+def retry_api_call(func, *args, **kwargs):
+    counter = 0
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except client.exceptions.ApiException as e:
+            if e.status == 503:
+                counter += 1
+                if counter > 10:
+                    # give up
+                    raise e                
+                logger.info("Kubernetes API is not available, retrying...")
+                time.sleep(5)
+                continue
+            else:
+                raise e
 
 
 def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
@@ -233,7 +253,7 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
                 })
             res_patch.reverse()
             patch.extend(res_patch)
-        logger.info(f"Removing falco extension from shoot {shoot_name}, patch {patch}")
+        logger.debug(f"Removing falco extension from shoot {shoot_name}, patch {patch}")
         header_params = {
             "Accept": "application/json, */*",
             "Content-Type": "application/json-patch+json"
@@ -278,8 +298,8 @@ def delete_configmaps(garden_api_client, namespace):
         try:
             v1.delete_namespaced_config_map(namespace=namespace, name=n)
             logger.info(f"ConfigMap {n} deleted")
-        except client.exceptions.ApiException:
-            # ignore
+        except client.exceptions.ApiException as e:
+            logger.debug(f"ConfigMap {n} deletion failed: {e}")
             pass
 
 
@@ -350,7 +370,7 @@ def add_falco_to_shoot(
                     }
                 )
     pretty_config = json.dumps(extension_config, indent=4)
-    logger.info(f"Adding falco extension to shoot:\n{pretty_config}")
+    logger.debug(f"Adding falco extension to shoot:\n{pretty_config}")
     patch = {
         "spec": {
             "extensions": [extension_config]
@@ -389,7 +409,6 @@ def add_falco_to_shoot(
 
 
 def annotate_shoot(garden_api_client, project_namespace: str, shoot_name: str, annotation):
-
     a = annotation.split("=")
     patch = {
                 "metadata":{
@@ -440,8 +459,17 @@ def get_node_count(shoot_api_client):
     return len(nodes.items)
 
 
-def all_containers_running(shoot_api_client, ls, node_count):
-    logger.info(f"Checking if all pods ({node_count}) and containers are "
+def has_excessive_pod_restarts(shoot_api_client, pods):
+    for pod in pods.items:
+        if pod.status.restart_count > 2:
+            logger.info(f"Pod {pod.metadata.name} has excessive restarts: "
+                        f"{pod.status.restart_count}")
+            return True
+    return False
+
+
+def all_containers_running(shoot_api_client, ls, pod_count):
+    logger.info(f"Checking if all pods ({pod_count}) and containers are "
                 "running")
     cv1 = client.CoreV1Api(shoot_api_client)
     try:
@@ -451,15 +479,15 @@ def all_containers_running(shoot_api_client, ls, node_count):
     except client.exceptions.ApiException:
         return False
 
-    if len(pods.items) == node_count:
+    if len(pods.items) == pod_count:
         for pod in pods.items:
-            logger.info(f"Pod {pod.status}")
+            logger.debug(f"Pod {pod.status}")
             if pod.status.phase != "Running":
                 logging.info(f"Pod {pod.metadata.name} is not running yet")
                 return False
     else:
         # no pods, not acceptable
-        logging.info(f"Only {len(pods.items)} pods found, expected {node_count}")
+        logging.info(f"Only {len(pods.items)} pods found, expected {pod_count}")
         return False
 
     # check that all containers are running
@@ -467,24 +495,28 @@ def all_containers_running(shoot_api_client, ls, node_count):
         for container in pod.status.container_statuses:
             if container.state.running is None:
                 logging.info(f"Container {container.name} in pod"
-                             "{pod.metadata.name} is not running yet")
+                             f"{pod.metadata.name} is not running yet")
                 return False
     return True
 
 
-def wait_for_extension_deployed(shoot_api_client):
+def wait_for_extension_deployed(shoot_api_client, falcosidekick=True):
     logger.info("Waiting for falco extension to be deployed")
     node_count = get_node_count(shoot_api_client)
+    if falcosidekick:
+        pod_count = node_count + 2
+    else:
+        pod_count = node_count
     cv1 = client.CoreV1Api(shoot_api_client)
     ls = all_falco_pod_label_selector
     counter = 0
-    max_iteratins = 200
+    max_iteratins = 100
     all_running = False
     while True and counter <= max_iteratins:
         all_running = all_containers_running(
                             shoot_api_client,
                             all_falco_pod_label_selector,
-                            node_count + 2)
+                            pod_count)
         if all_running:
             break
         else:
@@ -533,13 +565,27 @@ def get_falco_profile(garden_api_client, profile_name):
 
 
 def get_deprecated_falco_version(falco_profile):
-    for version in falco_profile["spec"]["versions"]["falco"]:       
-        if "expirationDate" in version and\
-                    version["classification"] == "deprecated":
+    # get falco version that is not the latest supported version
+    for version in falco_profile["spec"]["versions"]["falco"]:
+        logger.info(f"Version: {version['version']}, ")
+        v = Version.parse(version["version"])
+        if v < minimum_usable_falco_version:
+            continue
+        if ("expirationDate" in version and
+                version["classification"] == "deprecated"):
             expiration_date = datetime.fromisoformat(version["expirationDate"])
             if expiration_date > datetime.now(timezone.utc):
                 return version["version"]
         elif version["classification"] == "deprecated":
+            return version["version"]
+    
+    # try to find an older "supported" version
+    latest_supported = Version.parse(get_latest_supported_falco_version(falco_profile))
+    for version in falco_profile["spec"]["versions"]["falco"]:
+        v = Version.parse(version["version"])
+        if v < minimum_usable_falco_version:
+            continue
+        if version["classification"] == "supported" and v < latest_supported:
             return version["version"]
     return None
 
@@ -575,7 +621,7 @@ def delete_event_generator_pod(shoot_api_client):
         cv1.delete_namespaced_pod(namespace="default", name="sample-events")
         logger.info("Pod 'sample-events' deleted")
     except client.exceptions.ApiException as e:
-        logger.info(f"Pod 'sample-events' not found, ignoring: {e}")
+        logger.debug(f"Pod 'sample-events' not found, ignoring: {e}")
         pass
 
 
@@ -608,10 +654,10 @@ def run_falco_event_generator(shoot_api_client):
     logs = ""
     start = datetime.now()
     while logs.count("\n") < 50 and (datetime.now() - start).seconds < 60:
-        logs += pod_logs(shoot_api_client, "default", "sample-events")
+        logs += retry_api_call(pod_logs, shoot_api_client, "default", "sample-events")
         time.sleep(1)
 
-    logger.info(f"Logs: {logs}")
+    logger.debug(f"Logs: {logs}")
 
     delete_event_generator_pod(shoot_api_client)
     return logs
