@@ -426,7 +426,7 @@ def test_no_output(garden_api_client, shoot_api_client, project_namespace: str, 
     time.sleep(10)
 
     logger.info("Making sure expected events are in Falco log")
-    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
+    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector, container_name="falco")
     allLogs = ""
     for _, lines in logs.items():
         allLogs += lines

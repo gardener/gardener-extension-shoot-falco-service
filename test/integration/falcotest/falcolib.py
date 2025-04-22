@@ -17,17 +17,34 @@ falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
 
 
-def pod_logs(shoot_api_client, namespace, pod_name):
-    ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
-        namespace=namespace,
-        name=pod_name,
-        limit_bytes=90000000,
-        since_seconds=10000, 
-        _preload_content=True)
-    return ret
+def pod_logs(shoot_api_client, namespace: str, pod_name: str, container_name: str|None = None):
+    try:
+        if container_name is None:
+            ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
+                namespace=namespace,
+                name=pod_name,
+                limit_bytes=90000000,
+                since_seconds=10000,
+                _preload_content=True,
+            )
+            return ret
+
+        ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
+            namespace=namespace,
+            name=pod_name,
+            limit_bytes=90000000,
+            since_seconds=10000,
+            _preload_content=True,
+            container=container_name,
+        )
+        return ret
+
+    except client.exceptions.ApiException as e:
+        logger.error(f"Could not get pod logs, API call failed: {e}")
+        return None
 
 
-def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
+def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector, container_name=None | str):
     v1 = client.CoreV1Api(shoot_api_client)
     ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     logs = {}
@@ -35,11 +52,16 @@ def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
     for pod in ret.items:
         time.sleep(1)
         logger.info(f"Pod {pod.metadata.name}: {pod.status.phase}")
-        # pod_logs(shoot_api_client, namespace, pod.metadata.name)
-        logs[pod.metadata.name] = pod_logs(
-                                    shoot_api_client,
-                                    namespace,
-                                    pod.metadata.name)
+        if container_name is None:
+            logs[pod.metadata.name] = pod_logs(
+                shoot_api_client,
+                namespace,
+                pod.metadata.name,
+            )
+        else:
+            logs[pod.metadata.name] = pod_logs(
+                shoot_api_client, namespace, pod.metadata.name, container_name=container_name
+            )
     return logs
 
 
