@@ -150,8 +150,12 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 		case constants.FalcoEventDestinationCentral:
 
+			if c.config.Falco.CentralStorage == nil || !c.config.Falco.CentralStorage.Enabled {
+				return nil, fmt.Errorf("central storage is not configured")
+			}
+
 			// Gardener managed event store
-			ingestorAddress := c.config.Falco.IngestorURL
+			ingestorAddress := c.config.Falco.CentralStorage.URL
 
 			// ok to generate new token on each reconcile
 			token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)

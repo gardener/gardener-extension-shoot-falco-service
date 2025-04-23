@@ -40,16 +40,24 @@ import (
 
 // NewActuator returns an actuator responsible for Extension resources.
 func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Actuator, error) {
-	tokenIssuer, err := secrets.NewTokenIssuer(config.Falco.TokenIssuerPrivateKey, config.Falco.TokenLifetime)
-	if err != nil {
-		return nil, err
+	var tokenIssuer *secrets.TokenIssuer = nil
+	if config.Falco.CentralStorage != nil && config.Falco.CentralStorage.Enabled {
+		var err error
+		tokenIssuer, err = secrets.NewTokenIssuer(
+			config.Falco.CentralStorage.TokenIssuerPrivateKey,
+			config.Falco.CentralStorage.TokenLifetime,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
 
-	// set DefaultEventLogger if not set in extension configurtion
+	// set DefaultEventLogger if not set in extension configuration
 	if config.Falco.DefaultEventLogger == nil || *config.Falco.DefaultEventLogger == "" {
 		config.Falco.DefaultEventLogger = &constants.DefaultEventLogger
 	}
+
 	return &actuator{
 		client:             mgr.GetClient(),
 		config:             mgr.GetConfig(),
