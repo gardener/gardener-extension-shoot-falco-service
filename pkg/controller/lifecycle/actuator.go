@@ -68,26 +68,28 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 }
 
 func setConfigDefaults(config config.Configuration) {
-	// Note: there are no default values for the following configuration values
-	// - TokenIssuerPrivateKey
-	// - IngestorUR
-	// - PriorityClassName
 	if config.Falco.DefaultEventDestination == nil || *config.Falco.DefaultEventDestination == "" {
 		config.Falco.DefaultEventDestination = &constants.DefaultEventDestination
 	}
+
 	if config.Falco.CertificateLifetime == nil {
 		config.Falco.CertificateLifetime = &metav1.Duration{
 			Duration: constants.DefaultCertificateLifetime,
 		}
 	}
+
 	if config.Falco.CertificateRenewAfter == nil {
 		config.Falco.CertificateRenewAfter = &metav1.Duration{
 			Duration: constants.DefaultCertificateRenewAfter,
 		}
 	}
-	if config.Falco.TokenLifetime == nil {
-		config.Falco.TokenLifetime = &metav1.Duration{
-			Duration: constants.DefaultTokenLifetime,
+
+	if config.Falco.CentralStorage != nil {
+		if config.Falco.CentralStorage.TokenLifetime == nil {
+			config.Falco.CentralStorage.TokenLifetime =
+				&metav1.Duration{
+					Duration: constants.DefaultTokenLifetime,
+				}
 		}
 	}
 }
