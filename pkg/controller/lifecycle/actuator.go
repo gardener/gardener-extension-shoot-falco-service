@@ -40,6 +40,8 @@ import (
 
 // NewActuator returns an actuator responsible for Extension resources.
 func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Actuator, error) {
+	setConfigDefaults(config)
+
 	var tokenIssuer *secrets.TokenIssuer = nil
 	if config.Falco.CentralStorage != nil && config.Falco.CentralStorage.Enabled {
 		var err error
@@ -51,12 +53,8 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 			return nil, err
 		}
 	}
-	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
 
-	// set DefaultEventLogger if not set in extension configuration
-	if config.Falco.DefaultEventLogger == nil || *config.Falco.DefaultEventLogger == "" {
-		config.Falco.DefaultEventLogger = &constants.DefaultEventLogger
-	}
+	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
 
 	return &actuator{
 		client:             mgr.GetClient(),
@@ -67,6 +65,31 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 		tokenIssuer:        tokenIssuer,
 		falcoProfileManger: profile.FalcoProfileManagerInstance,
 	}, nil
+}
+
+func setConfigDefaults(config config.Configuration) {
+	// Note: there are no default values for the following configuration values
+	// - TokenIssuerPrivateKey
+	// - IngestorUR
+	// - PriorityClassName
+	if config.Falco.DefaultEventDestination == nil || *config.Falco.DefaultEventDestination == "" {
+		config.Falco.DefaultEventDestination = &constants.DefaultEventDestination
+	}
+	if config.Falco.CertificateLifetime == nil {
+		config.Falco.CertificateLifetime = &metav1.Duration{
+			Duration: constants.DefaultCertificateLifetime,
+		}
+	}
+	if config.Falco.CertificateRenewAfter == nil {
+		config.Falco.CertificateRenewAfter = &metav1.Duration{
+			Duration: constants.DefaultCertificateRenewAfter,
+		}
+	}
+	if config.Falco.TokenLifetime == nil {
+		config.Falco.TokenLifetime = &metav1.Duration{
+			Duration: constants.DefaultTokenLifetime,
+		}
+	}
 }
 
 type actuator struct {

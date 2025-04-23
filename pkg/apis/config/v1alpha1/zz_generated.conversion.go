@@ -111,7 +111,7 @@ func autoConvert_v1alpha1_Falco_To_config_Falco(in *Falco, out *config.Falco, s 
 	out.CentralStorage = (*config.CentralStorageConfig)(unsafe.Pointer(in.CentralStorage))
 	out.CertificateLifetime = (*v1.Duration)(unsafe.Pointer(in.CertificateLifetime))
 	out.CertificateRenewAfter = (*v1.Duration)(unsafe.Pointer(in.CertificateRenewAfter))
-	out.DefaultEventLogger = (*string)(unsafe.Pointer(in.DefaultEventLogger))
+	out.DefaultEventDestination = (*string)(unsafe.Pointer(in.DefaultEventDestination))
 	return nil
 }
 
@@ -125,7 +125,7 @@ func autoConvert_config_Falco_To_v1alpha1_Falco(in *config.Falco, out *Falco, s 
 	out.CentralStorage = (*CentralStorageConfig)(unsafe.Pointer(in.CentralStorage))
 	out.CertificateLifetime = (*v1.Duration)(unsafe.Pointer(in.CertificateLifetime))
 	out.CertificateRenewAfter = (*v1.Duration)(unsafe.Pointer(in.CertificateRenewAfter))
-	out.DefaultEventLogger = (*string)(unsafe.Pointer(in.DefaultEventLogger))
+	out.DefaultEventDestination = (*string)(unsafe.Pointer(in.DefaultEventDestination))
 	return nil
 }
 

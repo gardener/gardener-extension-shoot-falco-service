@@ -42,7 +42,7 @@ type Falco struct {
 
 	// Default event logger
 	// possible values are: "none", "central", "cluster", "webhook"
-	DefaultEventLogger *string `json:"defaultEventLogger,omitempty"`
+	DefaultEventDestination *string `json:"defaultEventDestination,omitempty"`
 }
 
 // Central storage configuration
