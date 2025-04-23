@@ -22,10 +22,6 @@ func setProfileManager(profileManager *profile.FalcoProfileManager) {
 	profile.FalcoProfileManagerInstance = profileManager
 }
 
-func stringValue(value string) *string {
-	return &value
-}
-
 func boolValue(value bool) *bool {
 	return &value
 }

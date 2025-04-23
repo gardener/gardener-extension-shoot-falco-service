@@ -25,7 +25,7 @@ func init() {
 
 // Test whether there are images for all Falco versions
 func TestForImageIntegrity(t *testing.T) {
-	var found bool = false
+	found := false
 	js, _ := json.Marshal(iv)
 	t.Log(string(js))
 	for _, fv := range versions.Falco.FalcoVersions {

@@ -7,7 +7,6 @@ package maintenance
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -159,34 +158,6 @@ func mustMaintainNow(shoot *gardencorev1beta1.Shoot, clock clock.Clock) bool {
 func hasMaintainNowAnnotation(shoot *gardencorev1beta1.Shoot) bool {
 	operation, ok := shoot.Annotations[v1beta1constants.GardenerOperation]
 	return ok && operation == v1beta1constants.ShootOperationMaintain
-}
-
-func hasMaintainFalcoAnnotation(shoot *gardencorev1beta1.Shoot) bool {
-	operation, ok := shoot.Annotations[v1beta1constants.GardenerOperation]
-	return ok && operation == v1beta1constants.ShootOperationMaintain
-}
-
-func needsRetry(shoot *gardencorev1beta1.Shoot) bool {
-	needsRetryOperation := false
-
-	if val, ok := shoot.Annotations[v1beta1constants.FailedShootNeedsRetryOperation]; ok {
-		needsRetryOperation, _ = strconv.ParseBool(val)
-	}
-
-	return needsRetryOperation
-}
-
-func getOperation(shoot *gardencorev1beta1.Shoot) string {
-	var (
-		operation            = v1beta1constants.GardenerOperationReconcile
-		maintenanceOperation = shoot.Annotations[v1beta1constants.GardenerMaintenanceOperation]
-	)
-
-	if maintenanceOperation != "" {
-		operation = maintenanceOperation
-	}
-
-	return operation
 }
 
 // ExpirationDateExpired returns if now is equal or after the given expirationDate

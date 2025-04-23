@@ -119,14 +119,14 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	if s.restrictedUsage {
 		if oldFalcoConfErr != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
 			if ok := verifyNamespaceEligibility(shoot.Namespace); !ok {
-				return fmt.Errorf("namespace is not eligible for Falco extension")
+				return fmt.Errorf("namespace %s is not eligible for Falco extension", shoot.Namespace)
 			}
 		}
 	}
 
 	if s.restrictedCentralLogging && isCentralLoggingEnabled(falcoConf) {
 		if ok := verifyNamespaceEligibilityForCentralLogging(shoot.Namespace); !ok {
-			return fmt.Errorf("namespace is not eligible for centralized logging")
+			return fmt.Errorf("namespace %s is not eligible for centralized logging", shoot.Namespace)
 		}
 	}
 
