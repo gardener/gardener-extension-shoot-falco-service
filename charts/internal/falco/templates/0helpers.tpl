@@ -111,9 +111,9 @@ Return the proper Falcoctl image name
 {{- end -}}
 
 {{/*
-Return the proper Falcoctl image name
+Return the proper Falcoheartbeat image name
 */}}
-{{- define "falcoping.image" -}}
+{{- define "falcoheartbeat.image" -}}
 {{ printf "%s/%s:%s" .Values.falcosidekick.image.registry .Values.falcosidekick.image.repository .Values.falcosidekick.image.tag }}
 {{- end -}}
 

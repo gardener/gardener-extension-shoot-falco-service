@@ -220,8 +220,8 @@ spec:
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
-    - name: falco-ping
-      image: {{ include "falcoping.image" . }}
+    - name: falco-heartbeat
+      image: {{ include "falcoheartbeat.image" . }}
       command: ["sh", "-c"]
       args: 
         - |
@@ -231,7 +231,7 @@ spec:
             export FALCO_VERSION=$falco_version
             export PING_TIME=$current_time
             json_string="{\"ping_time\":\"${current_time}\",\"falco_version\":\"${falco_version}\"}"
-            /bin/echo "Falco ping $json_string"
+            /bin/echo "Falco heartbeat $json_string" > /dev/null
             sleep 15
           done
   {{- if .Values.falcoctl.artifact.follow.enabled }}
