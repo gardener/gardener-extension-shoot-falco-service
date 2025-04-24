@@ -1,0 +1,7 @@
+- rule: Detect Falco Heartbeat
+  desc: Detect the specific echo command used by the falco-heartbeat container
+  condition: evt.type = execve and proc.name = "echo" and proc.args contains "Falco heartbeat"
+  output: "Falco heartbeat detected: FALCO_VERSION=%proc.env[FALCO_VERSION] HEARTBEAT_TIME=%proc.env[HEARTBEAT_TIME]"
+  priority: INFO
+  tags: [falco-hearbeat, test]
+
