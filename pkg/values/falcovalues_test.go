@@ -925,18 +925,18 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 	BeforeEach(func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
-		url = "https://ingestor.example.com"
+		Expect(err).To(BeNil())
 
 		lifetime, err := time.ParseDuration("1h")
 		Expect(err).To(BeNil())
 
+		url = "https://ingestor.example.com"
 		extensionConfiguration.Falco.CentralStorage = &config.CentralStorageConfig{
 			TokenLifetime:         &metav1.Duration{Duration: lifetime},
 			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
 			URL:                   url,
 		}
 
-		Expect(err).To(BeNil())
 		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 
