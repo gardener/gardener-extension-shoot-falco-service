@@ -722,7 +722,6 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
 	})
 
-
 	It("Test cluster logging functionality", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCluster)
 		Expect(err).To(BeNil())
@@ -934,7 +933,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		extensionConfiguration.Falco.CentralStorage = &config.CentralStorageConfig{
 			TokenLifetime:         &metav1.Duration{Duration: lifetime},
 			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
-			URL:           url,
+			URL:                   url,
 		}
 
 		Expect(err).To(BeNil())
@@ -945,7 +944,6 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		os.Setenv("TESTING", "true")
 		secrets.KeyBitSize = 1024
 	})
-
 
 	It("Test central and stdout functionality", func(ctx SpecContext) {
 		// TODO remove after migration
@@ -1014,7 +1012,6 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		Expect(stdout["enabled"]).To(BeTrue())
 	})
 })
-
 
 var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
 
