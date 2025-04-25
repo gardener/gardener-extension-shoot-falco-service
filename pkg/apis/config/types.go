@@ -44,8 +44,6 @@ type Falco struct {
 
 // Central storage configuration
 type CentralStorageConfig struct {
-	Enabled bool
-
 	// Token lifetime
 	TokenLifetime *metav1.Duration
 

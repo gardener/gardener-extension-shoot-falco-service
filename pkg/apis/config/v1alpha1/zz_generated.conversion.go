@@ -59,7 +59,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha1_CentralStorageConfig_To_config_CentralStorageConfig(in *CentralStorageConfig, out *config.CentralStorageConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
 	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
 	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
 	out.URL = in.URL
@@ -72,7 +71,6 @@ func Convert_v1alpha1_CentralStorageConfig_To_config_CentralStorageConfig(in *Ce
 }
 
 func autoConvert_config_CentralStorageConfig_To_v1alpha1_CentralStorageConfig(in *config.CentralStorageConfig, out *CentralStorageConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
 	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
 	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
 	out.URL = in.URL
