@@ -43,13 +43,20 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 	setConfigDefaults(config)
 
 	var tokenIssuer *secrets.TokenIssuer = nil
-	if config.Falco.CentralStorage != nil && config.Falco.CentralStorage.Enabled {
+	if config.Falco.CentralStorage != nil {
+		if config.Falco.CentralStorage.TokenIssuerPrivateKey == "" {
+			return nil, fmt.Errorf("token issuer private key is required")
+		}
+
+		if config.Falco.CentralStorage.URL == "" {
+			return nil, fmt.Errorf("central storage URL is required")
+		}
+
 		var err error
-		tokenIssuer, err = secrets.NewTokenIssuer(
+		if tokenIssuer, err = secrets.NewTokenIssuer(
 			config.Falco.CentralStorage.TokenIssuerPrivateKey,
 			config.Falco.CentralStorage.TokenLifetime,
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
 	}
