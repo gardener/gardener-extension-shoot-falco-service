@@ -14,13 +14,6 @@ spec:
     - repository: falcosecurity/falco
       tag: 0.40.0
       version: 0.40.0
-    falcoctl:
-    - repository: falcosecurity/falcoctl
-      tag: 0.10.1
-      version: 0.10.1
-    - repository: falcosecurity/falcoctl
-      tag: '0.11'
-      version: 0.11.0
     falcosidekick:
     - repository: falcosecurity/falcosidekick
       tag: 2.29.0
@@ -43,11 +36,6 @@ spec:
     - classification: supported
       rulesVersion: 3.2.0
       version: 0.40.0
-    falcoctl:
-    - classification: deprecated
-      version: 0.10.1
-    - classification: supported
-      version: 0.11.0
     falcosidekick:
     - classification: deprecated
       version: 2.29.0

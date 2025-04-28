@@ -1,5 +1,0 @@
-  falcoctlVersions:
-  - version: 0.10.1
-    classification: deprecated
-  - version: 0.11.0
-    classification: supported

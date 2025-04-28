@@ -9,9 +9,11 @@ import yaml
 
 # usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> <falcoctl-versions>
 
-if len(sys.argv) != 5:
-    sys.stderr.write("usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> <falcoctl-versions>\n")
+if len(sys.argv) != 5 and len(sys.argv) != 4:
+    sys.stderr.write("usage: generate-falco-profile <imagevector> <falco-versions> <falcosidekick-versions> [falcoctl-versions>]\n")
     sys.exit(1)
+
+has_falcoctl = len(sys.argv) == 5
 
 with open(sys.argv[1]) as f:
     image_vector = yaml.safe_load(f)
@@ -32,8 +34,9 @@ with open(sys.argv[2]) as f:
 with open(sys.argv[3]) as f:
     falcosidekick_versions = yaml.safe_load(f)
 
-with open(sys.argv[4]) as f:
-    falcoctl_versions = yaml.safe_load(f)
+if has_falcoctl:
+    with open(sys.argv[4]) as f:
+        falcoctl_versions = yaml.safe_load(f)
 
 # ---------------------------------------------------------------------------
 # validation
@@ -41,21 +44,22 @@ with open(sys.argv[4]) as f:
 has_error = False
 for fv in falco_versions["falcoVersions"]:
     v = fv["version"]
-    if not v in falco_image_vector_map:
+    if v not in falco_image_vector_map:
         has_error = True
         sys.stderr.write(f"Falco version {v} configured but there is no image for it\n")
 
 for fv in falcosidekick_versions["falcosidekickVersions"]:
     v = fv["version"]
-    if not v in falcosidekick_image_vector_map:
+    if v not in falcosidekick_image_vector_map:
         has_error = True
         sys.stderr.write(f"Falcosidekick version {v} configured but there is no image for it\n")
 
-for fc in falcoctl_versions["falcoctlVersions"]:
-    v = fc["version"]
-    if not v in falcoctl_image_vector_map:
-        has_error = True
-        sys.stderr.write(f"Falcoctl version {v} configured but there is no image for it\n")
+if has_falcoctl:
+    for fc in falcoctl_versions["falcoctlVersions"]:
+        v = fc["version"]
+        if v not in falcoctl_image_vector_map:
+            has_error = True
+            sys.stderr.write(f"Falcoctl version {v} configured but there is no image for it\n")
 
 if has_error:
     sys.exit(1)
@@ -96,13 +100,17 @@ falco_profile = {
         "images": {
             "falco": falco_images,
             "falcosidekick": falcosidekick_images,
-            "falcoctl": falcoctl_images,
         },
         "versions": {
             "falco": falco_versions["falcoVersions"],
             "falcosidekick": falcosidekick_versions["falcosidekickVersions"],
-            "falcoctl": falcoctl_versions["falcoctlVersions"],
         }
     }
 }
-print(yaml.dump(falco_profile))    
+
+if has_falcoctl:
+    falco_profile["spec"]["images"]["falcoctl"] = falcoctl_images
+    falco_profile["spec"]["versions"]["falcoctl"] = falcoctl_versions["falcoctlVersions"]
+
+print(yaml.dump(falco_profile))
+
