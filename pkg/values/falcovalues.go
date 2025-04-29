@@ -282,6 +282,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		falcoChartValues["falcocerts"] = falcosidekickCerts
 	}
 
+	if falcoServiceConfig.NodeSelector != nil {
+		falcoChartValues["nodeSelector"] = *falcoServiceConfig.NodeSelector
+	}
+
 	if err := c.generatePreamble(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}

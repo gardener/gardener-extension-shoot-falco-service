@@ -65,6 +65,10 @@ var (
 				Name: "logging",
 			},
 		},
+		NodeSelector: &map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
 	}
 
 	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
@@ -331,6 +335,10 @@ var (
 			{
 				Name: "stdout",
 			},
+		},
+		NodeSelector: &map[string]string{
+			"key1": "value1",
+			"key2": "value2",
 		},
 	}
 
@@ -775,18 +783,16 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		prioriyClass := values["priorityClassName"].(string)
 		Expect(prioriyClass).To(Equal("falco-test-priority-dummy-classname"))
 
+		// Validate nodeSelector
+		nodeSelector := values["nodeSelector"].(map[string]string)
+		Expect(nodeSelector).To(HaveKeyWithValue("key1", "value1"))
+		Expect(nodeSelector).To(HaveKeyWithValue("key2", "value2"))
+
 		// render chart and check if the values are set correctly
-		//
 		renderer, err := util.NewChartRendererForShoot("1.30.2")
 		Expect(err).To(BeNil())
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 		Expect(err).To(BeNil())
-
-		// fmt.Println((release.ChartName))
-		// for _, mf := range release.Manifests {
-		// 	fmt.Println(mf.Name + " " + mf.Head.Kind)
-		// 	fmt.Println(mf.Content)
-		// }
 
 		// check custom rules
 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
