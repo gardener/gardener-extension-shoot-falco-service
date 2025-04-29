@@ -156,7 +156,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 					return nil, fmt.Errorf("central storage URL is not configured")
 				}
 				if c.config.Falco.CentralStorage.TokenIssuerPrivateKey == "" {
-					fmt.Println("central storage token issuer private key is not configured, using default")
 					return nil, fmt.Errorf("central storage token issuer private key is not configured")
 				}
 			}
