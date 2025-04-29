@@ -48,6 +48,10 @@ type FalcoServiceConfig struct {
 	// -------------------------------------------------------------------
 	// added due to issue #215
 
+	// nodeSelector for Falco pods
+	// +optional
+	NodeSelector *map[string]string
+
 	Rules *Rules
 
 	Destinations *[]Destination

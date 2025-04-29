@@ -1,15 +1,10 @@
-import argparse
 import json
 import base64
-import sys
 import yaml
 import time
-import subprocess
 from datetime import datetime, timezone
 import logging
 import semver
-import pprint
-from cryptography.hazmat.primitives.asymmetric import dsa, rsa
 from cryptography.hazmat.primitives import serialization
 from kubernetes import client, config
 
@@ -22,27 +17,51 @@ falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
 
 
-def pod_logs(shoot_api_client, namespace, pod_name):
-    v1 = client.CoreV1Api(shoot_api_client)
-    ret = v1.read_namespaced_pod_log(
-        namespace=namespace,
-        name=pod_name,
-        limit_bytes=90000000,
-        since_seconds=10000, 
-        _preload_content=True)
-    return ret
+def pod_logs(shoot_api_client, namespace: str, pod_name: str, container_name: str|None = None):
+    try:
+        if container_name is None:
+            ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
+                namespace=namespace,
+                name=pod_name,
+                limit_bytes=90000000,
+                since_seconds=10000,
+                _preload_content=True,
+            )
+            return ret
+
+        ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
+            namespace=namespace,
+            name=pod_name,
+            limit_bytes=90000000,
+            since_seconds=10000,
+            _preload_content=True,
+            container=container_name,
+        )
+        return ret
+
+    except client.exceptions.ApiException as e:
+        logger.error(f"Could not get pod logs, API call failed: {e}")
+        return None
 
 
-def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector):
+def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector, container_name=None | str):
     v1 = client.CoreV1Api(shoot_api_client)
     ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     logs = {}
+
     for pod in ret.items:
-        # pod_logs(shoot_api_client, namespace, pod.metadata.name)
-        logs[pod.metadata.name] = pod_logs(
-                                    shoot_api_client,
-                                    namespace,
-                                    pod.metadata.name)
+        time.sleep(1)
+        logger.info(f"Pod {pod.metadata.name}: {pod.status.phase}")
+        if container_name is None:
+            logs[pod.metadata.name] = pod_logs(
+                shoot_api_client,
+                namespace,
+                pod.metadata.name,
+            )
+        else:
+            logs[pod.metadata.name] = pod_logs(
+                shoot_api_client, namespace, pod.metadata.name, container_name=container_name
+            )
     return logs
 
 
@@ -86,6 +105,36 @@ def get_token_public_key(garden_api_client):
     )
     return public_key
 
+def get_nodes(shoot_api_client) -> list:
+    v1 = client.CoreV1Api(shoot_api_client)
+    ret = v1.list_node()
+    nodes = []
+    for node in ret.items:
+        nodes.append(node)
+    return nodes 
+
+def label_node(
+                shoot_api_client,
+                node_name: str,
+                labels: dict|None):
+    v1 = client.CoreV1Api(shoot_api_client)
+
+    if labels is None:
+        body = {}
+    else:
+        body = {
+            "metadata": {
+                "labels": labels
+            }
+        }
+
+    try:
+        v1.patch_node(name=node_name, body=body)
+        logger.info(f"Node {node_name} labeled with {labels}")
+    except client.exceptions.ApiException as e:
+        logger.error(f"Error labeling node {node_name}: {e}")
+        return e
+    return None
 
 def get_configmap(shoot_api_client, namespace, configmap_name):
     v1 = client.CoreV1Api(shoot_api_client)
@@ -114,7 +163,7 @@ def get_shoot(garden_api_client, project_namespace: str, shoot_name: str):
         response_type=object)
     return data
 
-    
+
 def get_falco_extension(garden_api_client, project_namespace: str, shoot_name: str):
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
     header_params = {
@@ -440,18 +489,23 @@ def get_node_count(shoot_api_client):
     return len(nodes.items)
 
 
-def all_containers_running(shoot_api_client, ls, node_count):
-    logger.info(f"Checking if all pods ({node_count}) and containers are "
-                "running")
+def all_containers_running(shoot_api_client, expect_sidekick: bool, expected_falco_pods: int):
+    min_expected_pods = expected_falco_pods
+
+    if expect_sidekick:
+        falco_component_selector = all_falco_pod_label_selector
+        min_expected_pods += 2 # assume two falcosidekick pods
+    else:
+        falco_component_selector = falco_pod_label_selector
+
+    logger.info("Checking if all pods and containers are running")
     cv1 = client.CoreV1Api(shoot_api_client)
     try:
-        pods = cv1.list_namespaced_pod(
-                            namespace="kube-system",
-                            label_selector=ls)
+        pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=falco_component_selector)
     except client.exceptions.ApiException:
         return False
 
-    if len(pods.items) == node_count:
+    if len(pods.items) >= min_expected_pods:
         for pod in pods.items:
             logger.info(f"Pod {pod.status}")
             if pod.status.phase != "Running":
@@ -459,32 +513,31 @@ def all_containers_running(shoot_api_client, ls, node_count):
                 return False
     else:
         # no pods, not acceptable
-        logging.info(f"Only {len(pods.items)} pods found, expected {node_count}")
+        logging.info(f"Only {len(pods.items)} pods found, expected at least {min_expected_pods}")
         return False
 
     # check that all containers are running
     for pod in pods.items:
         for container in pod.status.container_statuses:
             if container.state.running is None:
-                logging.info(f"Container {container.name} in pod"
-                             "{pod.metadata.name} is not running yet")
+                logging.info(f"Container {container.name} in pod " "{pod.metadata.name} is not running yet")
                 return False
     return True
 
 
-def wait_for_extension_deployed(shoot_api_client):
-    logger.info("Waiting for falco extension to be deployed")
-    node_count = get_node_count(shoot_api_client)
+def wait_for_extension_deployed(shoot_api_client, expect_sidekick:bool=True, number_falco_pods:int=None):
+    if number_falco_pods is None:
+        number_falco_pods = get_node_count(shoot_api_client)
+
+    logger.info(f"Waiting for falco extension to be deployed to {number_falco_pods} nodes")
+
     cv1 = client.CoreV1Api(shoot_api_client)
-    ls = all_falco_pod_label_selector
     counter = 0
     max_iteratins = 200
     all_running = False
+
     while True and counter <= max_iteratins:
-        all_running = all_containers_running(
-                            shoot_api_client,
-                            all_falco_pod_label_selector,
-                            node_count + 2)
+        all_running = all_containers_running(shoot_api_client, expect_sidekick, number_falco_pods)
         if all_running:
             break
         else:
@@ -495,17 +548,20 @@ def wait_for_extension_deployed(shoot_api_client):
     if not all_running:
         raise Exception("Not all expected falco pods are running or deployed")
 
-    logging.info(
-                "All falco pods are running, waiting a bit longer "
-                "to re-check")
+    logging.info("All falco pods are running, waiting a bit longer " "to re-check")
     time.sleep(20)
-    pods = cv1.list_namespaced_pod(
-                            namespace="kube-system",
-                            label_selector=ls)
+
+    if expect_sidekick:
+        pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=all_falco_pod_label_selector)
+    else:
+        pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=falco_pod_label_selector)
+
     if len(pods.items) == 0:
         raise Exception("Falco pods are not running or deployed")
+
     for pod in pods.items:
         logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
+
     return
 
 
@@ -579,7 +635,7 @@ def delete_event_generator_pod(shoot_api_client):
         pass
 
 
-def run_falco_event_generator(shoot_api_client):
+def run_falco_event_generator(shoot_api_client) -> str:
     cv1 = client.CoreV1Api(shoot_api_client)
     pod = {
         "kind": "Pod",
@@ -604,14 +660,21 @@ def run_falco_event_generator(shoot_api_client):
     # Create a pod
     pod = cv1.create_namespaced_pod("default", pod)
     logger.info(f"Pod 'sample-events' created. Pod status: {pod.status.phase}")
-    time.sleep(5)
+    time.sleep(10)
     logs = ""
     start = datetime.now()
     while logs.count("\n") < 50 and (datetime.now() - start).seconds < 60:
         logs += pod_logs(shoot_api_client, "default", "sample-events")
         time.sleep(1)
 
-    logger.info(f"Logs: {logs}")
+    logger.info(f"Logs:\n {logs}")
 
     delete_event_generator_pod(shoot_api_client)
     return logs
+
+def get_falco_pods(shoot_api_client):
+    logger.info("Getting falco pods")
+    cv1 = client.CoreV1Api(shoot_api_client)
+    ls = falco_pod_label_selector
+    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
+    return pods.items
