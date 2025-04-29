@@ -182,11 +182,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 	}
 
-	var falcosidekickConfig map[string]interface{}
+	falcosidekickConfig := make(map[string]interface{})
+	falcosidekickConfig["enabled"] = false
+
 	var falcosidekickCerts map[string]string
-	falcosidekickEnabled := false
 	if len(falcoOutputConfigs) > 0 {
-		falcosidekickEnabled = true
 		cas, certs, err := c.getFalcoCertificates(ctx, log, cluster, namespace)
 		if err != nil {
 			return nil, err
@@ -215,8 +215,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"client_key":    string(secrets.EncodePrivateKey(certs.ClientKey)),
 		}
 	} else {
-		falcosidekickConfig = make(map[string]interface{})
-		falcosidekickConfig["enabled"] = false
 	}
 
 	destination := c.getDestination(falcoOutputConfigs)
@@ -255,7 +253,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		},
 		"falco": map[string]interface{}{
 			"http_output": map[string]interface{}{
-				"enabled":  falcosidekickEnabled,
+				"enabled":  falcosidekickConfig["enabled"],
 				"insecure": true,
 				"url":      fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", metav1.NamespaceSystem, 2801),
 			},
@@ -277,7 +275,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		},
 	}
 
-	if falcosidekickEnabled {
+	if falcosidekickConfig["enabled"] == true {
 		falcoChartValues["falcocerts"] = falcosidekickCerts
 	}
 
