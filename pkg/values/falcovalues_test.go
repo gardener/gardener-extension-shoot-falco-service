@@ -951,6 +951,31 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		secrets.KeyBitSize = 1024
 	})
 
+	It("Can handle missing central storage", func(ctx SpecContext) {
+		configBuilder.config.Falco.CentralStorage = nil
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("central storage is not configured"))
+
+		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: 0},
+			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+			URL:                   "",
+		}
+		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("central storage URL is not configured"))
+
+		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: 0},
+			TokenIssuerPrivateKey: "",
+			URL:                   "abcde",
+		}
+		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("central storage token issuer private key is not configured"))
+	})
+
 	It("Test central and stdout functionality", func(ctx SpecContext) {
 		// TODO remove after migration
 		migration.MigrateIssue215(logger, falcoServiceConfigCentralStdoutOld)
