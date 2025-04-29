@@ -964,7 +964,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		}
 		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("central storage URL is not configured"))
+		Expect(err.Error()).To(ContainSubstring("central storage URL was not provided"))
 
 		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
 			TokenLifetime:         &metav1.Duration{Duration: 0},
@@ -973,7 +973,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		}
 		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("central storage token issuer private key is not configured"))
+		Expect(err.Error()).To(ContainSubstring("central storage token issuer private key was not provided"))
 	})
 
 	It("Test central and stdout functionality", func(ctx SpecContext) {
