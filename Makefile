@@ -164,7 +164,7 @@ test-clean:
 
 .PHONY: generate-profile
 generate-profile:
-	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml falco/falcoctlversions.yaml >falco/falco-profile.yaml
+	@$(HACK_DIR)/generate-falco-profile  imagevector/images.yaml falco/falcoversions.yaml falco/falcosidekickversions.yaml >falco/falco-profile.yaml
 
 .PHON: validate-imagevector
 validate-imagevector:
