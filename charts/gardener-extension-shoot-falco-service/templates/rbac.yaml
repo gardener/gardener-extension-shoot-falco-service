@@ -67,9 +67,9 @@ rules:
   - {{ include "leaderelectionid" . }}
   - gardener-extension-heartbeat
   verbs:
-  - update
   - get
-  - watch
+  - patch
+  - update
 - apiGroups:
   - policy
   resources:
