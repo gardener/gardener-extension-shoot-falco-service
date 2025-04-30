@@ -214,7 +214,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"client_crt":    string(secrets.EncodeCertificate(certs.ClientCert)),
 			"client_key":    string(secrets.EncodePrivateKey(certs.ClientKey)),
 		}
-	} else {
 	}
 
 	destination := c.getDestination(falcoOutputConfigs)
