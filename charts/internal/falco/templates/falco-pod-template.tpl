@@ -30,7 +30,7 @@ metadata:
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  serviceAccountName: {{ include "falco.serviceAccountName" . }}
+  automountServiceAccountToken: false
   {{- with .Values.podSecurityContext }}
   securityContext:
     {{- toYaml . | nindent 4}}

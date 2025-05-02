@@ -8,7 +8,6 @@ import yaml
 import jwt
 from datetime import datetime, timezone
 
-import jwt
 import pytest
 from kubernetes import client, config
 
@@ -20,7 +19,7 @@ from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extensio
             wait_for_extension_undeployed, pod_logs_from_label_selector, \
             falco_pod_label_selector, get_falco_sidekick_pods, get_secret,\
             get_token_lifetime, get_token_public_key, delete_configmaps,\
-            delete_event_generator_pod
+            delete_event_generator_pod, get_nodes, get_falco_pods, label_node
 
 
 logger = logging.getLogger(__name__)
@@ -397,7 +396,7 @@ def test_falco_update_scenario(garden_api_client, falco_profile, shoot_api_clien
     logger.info(f"Falco version updated as expected from {fw} to {update_candiate}")
 
 
-def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_namespace, shoot_name):
+def test_no_output(garden_api_client, shoot_api_client, project_namespace: str, shoot_name: str):
     logger.info("Deploying Falco extension")
     extension_config = {
         "type": "shoot-falco-service",
@@ -405,30 +404,96 @@ def test_no_output(garden_api_client, falco_profile, shoot_api_client, project_n
             "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
             "kind": "FalcoServiceConfig",
             "autoUpdate": True,
-            "output": {
-                "eventCollector": "none",
-                "logFalcoEvents": True
-            }
+            "destinations": [
+                {
+                    "name": "stdout",
+                }
+            ],
         },
     }
     error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
     assert error is None
 
-    wait_for_extension_deployed(shoot_api_client)
+    wait_for_extension_deployed(shoot_api_client, expect_sidekick=False)
     pods = get_falco_sidekick_pods(shoot_api_client)
-    assert len(pods) == 0
-    logger.info("no falcosidekick pods running - good")
-    
+    assert len(pods) == 0, "Falcosidekick pods should not be running if stdout is configured"
+
     logger.info("Running event generator")
     logs = run_falco_event_generator(shoot_api_client)
-    assert "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess" in logs
-    
+    assert "action executed" in logs, "Event generator did not run as expected"
+
     logger.info("Waiting for Falco log to be flushed to log file")
-    time.sleep(20)
+    time.sleep(10)
+
     logger.info("Making sure expected events are in Falco log")
-    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector)
+    logs = pod_logs_from_label_selector(shoot_api_client, "kube-system", falco_pod_label_selector, container_name="falco")
     allLogs = ""
-    for k, l in logs.items():
-        allLogs += l
+    for _, lines in logs.items():
+        allLogs += lines
     print(allLogs)
-    assert "Warning Detected ptrace" in allLogs
+    assert "Warning Detected ptrace" in allLogs, "Falco log does not contain expected event"
+
+
+def test_node_selector(garden_api_client, shoot_api_client, project_namespace:str, shoot_name:str):
+    logger.info("Check at least two nodes are available")
+    nodes = get_nodes(shoot_api_client)
+    assert len(nodes) >= 2, "At least two nodes are required for this test"
+
+    node_to_deploy = nodes[0].metadata.name
+    label_name = "deploy-falco-here"
+    label = {label_name: "true"}
+
+    logger.info(f"Labeling node {node_to_deploy} with {label}")
+    label_node(
+        shoot_api_client,
+        node_to_deploy,
+        label,
+    )
+    logger.info(f"Node {node_to_deploy} labeled with {label}")
+
+    logger.info("Deploying Falco extension")
+    extension_config = {
+        "type": "shoot-falco-service",
+        "providerConfig": {
+            "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+            "kind": "FalcoServiceConfig",
+            "nodeSelector": {
+                label_name: "true",
+            },
+            "destinations": [
+                {
+                    "name": "stdout",
+                }
+            ],
+        },
+    }
+
+    error = add_falco_to_shoot(
+        garden_api_client,
+        project_namespace,
+        shoot_name,
+        extension_config=extension_config,
+    )
+    assert error is None
+
+    wait_for_extension_deployed(shoot_api_client, expect_sidekick=False, number_falco_pods=1)
+
+    pods = get_falco_pods(shoot_api_client)
+    assert len(pods) > 0, "No Falco pods found"
+
+    for pod in pods:
+        if pod.spec.node_name == node_to_deploy:
+            logger.info(f"Found Falco pod {pod.metadata.name} on labeled node {node_to_deploy}")
+        else:
+            logger.info(f"Found Falco pod {pod.metadata.name} on node {pod.spec.node_name}")
+            assert False, f"Falco pod {pod.metadata.name} is fond on unlabeled node {node_to_deploy}"
+
+    logger.info("Removing label from node")
+    label_node(
+        shoot_api_client,
+        node_to_deploy,
+        None,
+    )
+
+    logger.info("Undepoying falco extension")
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
