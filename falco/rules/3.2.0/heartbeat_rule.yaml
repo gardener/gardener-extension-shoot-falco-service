@@ -4,4 +4,3 @@
   output: "Falco heartbeat detected: FALCO_VERSION=%proc.env[FALCO_VERSION] HEARTBEAT_TIME=%proc.env[HEARTBEAT_TIME]"
   priority: INFO
   tags: [falco-hearbeat, test]
-

@@ -344,6 +344,17 @@ func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}
 	return nil
 }
 
+func (c *ConfigBuilder) generateHeartbeatRule(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+	if falcoServiceConfig.HeartbeatEvent != nil && *falcoServiceConfig.HeartbeatEvent {
+		r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
+		if err != nil {
+			return err
+		}
+		falcoChartValues["heartbeatRule"] = r
+	}
+	return nil
+}
+
 func (c *ConfigBuilder) generateStandardRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
 	if falcoServiceConfig.Rules.StandardRules != nil {
 		for _, rule := range *falcoServiceConfig.Rules.StandardRules {
