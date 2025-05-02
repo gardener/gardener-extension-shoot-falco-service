@@ -225,14 +225,18 @@ spec:
       command: ["sh", "-c"]
       args: 
         - |
+          export HEARTBEAT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          /bin/echo "Falco heartbeat" > /dev/null
           while true; do
-            falco_version=$(wget -qO- http://127.0.0.1:8765/versions 2>/dev/null | grep -o '"falco_version":"[^"]*"' | sed 's/"falco_version":"//;s/"//')
-            current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            export FALCO_VERSION=$falco_version
-            export HEARTBEAT_TIME=$current_time
-            json_string="{\"ping_time\":\"${current_time}\",\"falco_version\":\"${falco_version}\"}"
-            /bin/echo "Falco heartbeat $json_string" > /dev/null
-            sleep 15
+            seconds_until_next_hour=$((3600 - $(date +%s) % 3600))
+            sleep $seconds_until_next_hour
+            export FALCO_VERSION=$(
+              wget -qO- http://127.0.0.1:8765/versions 2>/dev/null |
+              grep -o '"falco_version":"[^"]*"' |
+              sed 's/"falco_version":"//;s/"//'
+            )
+            export HEARTBEAT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            /bin/echo "Falco heartbeat" > /dev/null
           done
   {{- if .Values.falcoctl.artifact.follow.enabled }}
     {{- include "falcoctl.sidecar" . | nindent 4 }}
