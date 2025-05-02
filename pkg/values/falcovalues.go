@@ -284,6 +284,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err := c.generateCustomRules(ctx, log, cluster, namespace, falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}
+	if err := c.generateHeartbeatRule(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+		return nil, err
+	}
 	return falcoChartValues, nil
 }
 
