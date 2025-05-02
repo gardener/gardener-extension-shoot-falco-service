@@ -345,6 +345,8 @@ customRules:
   # rules-traefik.yaml: |-
   #   [ rule body ]
 
+heartbeatRule: ""
+
 falcoRules: ""
 
 falcoSandboxRules: ""
