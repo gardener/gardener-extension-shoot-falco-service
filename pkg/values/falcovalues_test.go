@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -45,9 +46,6 @@ var (
 			PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
 			CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
 			CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
-			TokenLifetime:         &metav1.Duration{Duration: constants.DefaultTokenLifetime},
-			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
-			IngestorURL:           "https://ingestor.example.com",
 		},
 	}
 
@@ -64,7 +62,7 @@ var (
 		},
 		Destinations: &[]service.Destination{
 			{
-				Name: "central",
+				Name: "logging",
 			},
 		},
 		NodeSelector: &map[string]string{
@@ -92,7 +90,7 @@ var (
 		},
 		Destinations: &[]service.Destination{
 			{
-				Name: "central",
+				Name: "logging",
 			},
 		},
 	}
@@ -565,7 +563,7 @@ func zip(data string) []byte {
 	return buf.Bytes()
 }
 
-var _ = Describe("Test value generation for helm chart", Label("falcovalues"), func() {
+var _ = Describe("Test value generation for helm chart without central storage", Label("falcovalues"), func() {
 
 	BeforeEach(func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
@@ -732,52 +730,6 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
 	})
 
-	It("Test central and stdout functionality", func(ctx SpecContext) {
-		// TODO remove after migration
-		migration.MigrateIssue215(logger, falcoServiceConfigCentralStdoutOld)
-
-		for i, conf := range []*service.FalcoServiceConfig{falcoServiceConfigCentralStdout, falcoServiceConfigCentralStdoutOld} {
-			values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", conf)
-			Expect(err).To(BeNil())
-
-			js, err := json.MarshalIndent((values), "", "    ")
-			Expect(err).To(BeNil())
-			Expect(len(js)).To(BeNumerically(">", 100))
-
-			configFalco := values["falco"].(map[string]any)
-			Expect(configFalco).To(HaveKey("stdout_output"))
-
-			stdout := configFalco["stdout_output"].(map[string]bool)
-			Expect(stdout).To(HaveKey("enabled"))
-			Expect(stdout["enabled"]).To(BeTrue())
-
-			customRules, err := configBuilder.extractCustomRules(shootSpec, conf)
-			Expect(err).To(BeNil())
-			Expect(len(customRules)).To(Equal(2))
-			Expect(customRules[0].RefName).To(Equal("rules1"))
-			Expect(customRules[1].RefName).To(Equal("rules3"))
-
-			configSidekick := values["falcosidekick"].(map[string]any)["config"].(map[string]any)
-			Expect(configSidekick).To(HaveKey("webhook"))
-
-			webhook := configSidekick["webhook"].(map[string]any)
-			Expect(webhook).To(HaveKey("address"))
-			Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.IngestorURL))
-			Expect(webhook).To(HaveKey("checkcert"))
-			Expect(webhook["checkcert"].(bool)).To(BeTrue())
-			Expect(webhook).To(HaveKey("customheaders"))
-
-			authHeader := webhook["customheaders"].(map[string]string)["Authorization"]
-			Expect(authHeader).To(MatchRegexp(`Bearer\s[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+`))
-
-			if i == 0 {
-				nodeSelector := values["nodeSelector"].(map[string]string)
-				Expect(nodeSelector).To(HaveKeyWithValue("key1", "value1"))
-				Expect(nodeSelector).To(HaveKeyWithValue("key2", "value2"))
-			}
-		}
-	})
-
 	It("Test cluster logging functionality", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCluster)
 		Expect(err).To(BeNil())
@@ -880,14 +832,18 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
 
 		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
-		Expect(config).To(HaveKey("webhook"))
-		webhook := config["webhook"].(map[string]interface{})
-		Expect(webhook).To(HaveKey("address"))
-		Expect(webhook["address"].(string)).To(Equal("https://ingestor.example.com"))
-		Expect(webhook).To(HaveKey("checkcert"))
-		Expect(webhook["checkcert"].(bool)).To(BeTrue())
-		Expect(webhook).To(HaveKey("customheaders"))
-		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
+		Expect(config).To(HaveKey("loki"))
+		loggingConf := config["loki"].(map[string]interface{})
+		Expect(loggingConf).To(HaveKey("hostport"))
+		Expect(loggingConf["hostport"].(string)).To(Equal("https://v-.seed-mock-ingress.com"))
+		Expect(loggingConf).To(HaveKey("endpoint"))
+		Expect(loggingConf["endpoint"].(string)).To(Equal("/vali/api/v1/push"))
+		Expect(loggingConf).To(HaveKey("checkcert"))
+		Expect(loggingConf["checkcert"].(bool)).To(BeFalse())
+		Expect(loggingConf).To(HaveKey("customheaders"))
+		Expect(loggingConf["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
+		Expect(loggingConf).To(HaveKey("format"))
+		Expect(loggingConf["format"].(string)).To(Equal("json"))
 	})
 
 	// 	It("Test values generation falcoctl", func(ctx SpecContext) {
@@ -968,6 +924,124 @@ var _ = Describe("Test value generation for helm chart", Label("falcovalues"), f
 	// 		Expect(resolveDeps).To(BeTrue())
 	// 	})
 
+})
+
+var _ = Describe("It can handle central destination", Label("falcovalues"), func() {
+	var url string
+	BeforeEach(func() {
+		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+		Expect(err).To(BeNil())
+
+		lifetime, err := time.ParseDuration("1h")
+		Expect(err).To(BeNil())
+
+		url = "https://ingestor.example.com"
+		extensionConfiguration.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: lifetime},
+			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+			URL:                   url,
+		}
+
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+
+		os.Setenv("GODEBUG", "rsa1024min=0") // allow smaller keysize for testing
+		os.Setenv("TESTING", "true")
+		secrets.KeyBitSize = 1024
+	})
+
+	It("Can handle missing central storage", func(ctx SpecContext) {
+		configBuilder.config.Falco.CentralStorage = nil
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("central storage is not configured"))
+
+		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: 0},
+			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+			URL:                   "",
+		}
+		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("central storage URL was not provided"))
+
+		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: 0},
+			TokenIssuerPrivateKey: "",
+			URL:                   "abcde",
+		}
+		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("central storage token issuer private key was not provided"))
+	})
+
+	It("Test central and stdout functionality", func(ctx SpecContext) {
+		// TODO remove after migration
+		migration.MigrateIssue215(logger, falcoServiceConfigCentralStdoutOld)
+
+		for _, conf := range []*service.FalcoServiceConfig{falcoServiceConfigCentralStdout, falcoServiceConfigCentralStdoutOld} {
+			values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", conf)
+			Expect(err).To(BeNil())
+
+			js, err := json.MarshalIndent((values), "", "    ")
+			Expect(err).To(BeNil())
+			Expect(len(js)).To(BeNumerically(">", 100))
+
+			configFalco := values["falco"].(map[string]any)
+			Expect(configFalco).To(HaveKey("stdout_output"))
+
+			stdout := configFalco["stdout_output"].(map[string]bool)
+			Expect(stdout).To(HaveKey("enabled"))
+			Expect(stdout["enabled"]).To(BeTrue())
+
+			customRules, err := configBuilder.extractCustomRules(shootSpec, conf)
+			Expect(err).To(BeNil())
+			Expect(len(customRules)).To(Equal(2))
+			Expect(customRules[0].RefName).To(Equal("rules1"))
+			Expect(customRules[1].RefName).To(Equal("rules3"))
+
+			configSidekick := values["falcosidekick"].(map[string]any)["config"].(map[string]any)
+			Expect(configSidekick).To(HaveKey("webhook"))
+
+			webhook := configSidekick["webhook"].(map[string]any)
+			Expect(webhook).To(HaveKey("address"))
+			Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.CentralStorage.URL))
+			Expect(webhook).To(HaveKey("checkcert"))
+			Expect(webhook["checkcert"].(bool)).To(BeTrue())
+			Expect(webhook).To(HaveKey("customheaders"))
+			Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
+			Expect(webhook).To(HaveKey("address"))
+			Expect(webhook["address"].(string)).To(Equal(url))
+
+			authHeader := webhook["customheaders"].(map[string]string)["Authorization"]
+			Expect(authHeader).To(MatchRegexp(`Bearer\s[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+`))
+		}
+	})
+
+	It("should build values with central and stdout destinations", func() {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		Expect(err).To(BeNil())
+		Expect(values).NotTo(BeNil())
+
+		// Validate central destination
+		config := values["falcosidekick"].(map[string]any)["config"].(map[string]any)
+		Expect(config).To(HaveKey("webhook"))
+
+		webhook := config["webhook"].(map[string]any)
+		Expect(webhook).To(HaveKey("address"))
+		Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.CentralStorage.URL))
+		Expect(webhook).To(HaveKey("checkcert"))
+		Expect(webhook["checkcert"].(bool)).To(BeTrue())
+
+		// Validate stdout destination
+		configFalco := values["falco"].(map[string]any)
+		Expect(configFalco).To(HaveKey("stdout_output"))
+
+		stdout := configFalco["stdout_output"].(map[string]bool)
+		Expect(stdout).To(HaveKey("enabled"))
+		Expect(stdout["enabled"]).To(BeTrue())
+	})
 })
 
 var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
@@ -1247,27 +1321,4 @@ var _ = Describe("BuildFalcoValues", func() {
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
 	})
 
-	It("should build values with central and stdout destinations", func() {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
-		Expect(err).To(BeNil())
-		Expect(values).NotTo(BeNil())
-
-		// Validate central destination
-		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
-		Expect(config).To(HaveKey("webhook"))
-
-		webhook := config["webhook"].(map[string]interface{})
-		Expect(webhook).To(HaveKey("address"))
-		Expect(webhook["address"].(string)).To(Equal(configBuilder.config.Falco.IngestorURL))
-		Expect(webhook).To(HaveKey("checkcert"))
-		Expect(webhook["checkcert"].(bool)).To(BeTrue())
-
-		// Validate stdout destination
-		configFalco := values["falco"].(map[string]interface{})
-		Expect(configFalco).To(HaveKey("stdout_output"))
-
-		stdout := configFalco["stdout_output"].(map[string]bool)
-		Expect(stdout).To(HaveKey("enabled"))
-		Expect(stdout["enabled"]).To(BeTrue())
-	})
 })

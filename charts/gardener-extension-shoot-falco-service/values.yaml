@@ -47,16 +47,15 @@ falco:
   # Renew CA certificates after this duration
   certificateRenewAfter: "8000h"
 
-  # Token lifetime
-  tokenLifetime: "168h"
+  centralStorage:
+    # Enable centralized storage
+    enabled: false
 
-  # Private key for token issuer
-  tokenIssuerPrivateKey: ""
+    # Centralized storage URL
+    url: ""
 
-  # Ingestor URL
-  ingestorURL: ""
+    # Token lifetime
+    tokenLifetime: "168h"
 
-
-  falcoImages: []
-
-  falcoVersions: []
+    # Private key for token issuer
+    tokenIssuerPrivateKey: ""

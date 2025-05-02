@@ -126,7 +126,13 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 
 	if s.restrictedCentralLogging && isCentralLoggingEnabled(falcoConf) {
 		if ok := verifyNamespaceEligibilityForCentralLogging(shoot.Namespace); !ok {
-			return fmt.Errorf("namespace %s is not eligible for centralized logging", shoot.Namespace)
+			return fmt.Errorf(
+				"namespace %s is not eligible for centralized logging. Set destination to %s, %s or %s",
+				shoot.Namespace,
+				constants.FalcoEventDestinationStdout,
+				constants.FalcoEventDestinationLogging,
+				constants.FalcoEventDestinationCustom,
+			)
 		}
 	}
 

@@ -29,6 +29,9 @@ type Falco struct {
 	// PriorityClass to use for Falco shoot deployment
 	PriorityClassName *string `json:"priorityClassName,omitempty"`
 
+	// Central storage configuration
+	CentralStorage *CentralStorageConfig `json:"centralStorage,omitempty"`
+
 	// Lifetime of the CA certificates
 	// +optional
 	CertificateLifetime *metav1.Duration `json:"certificateLifetime,omitempty"`
@@ -37,17 +40,22 @@ type Falco struct {
 	// +optional
 	CertificateRenewAfter *metav1.Duration `json:"certificateRenewAfter,omitempty"`
 
+	// Default event logger
+	// possible values are: "none", "central", "cluster", "webhook"
+	DefaultEventDestination *string `json:"defaultEventDestination,omitempty"`
+}
+
+// Central storage configuration
+type CentralStorageConfig struct {
 	// Token lifetime
 	// +optional
 	TokenLifetime *metav1.Duration `json:"tokenLifetime,omitempty"`
 
 	// Private key for token issuer
+	// +optional
 	TokenIssuerPrivateKey string `json:"tokenIssuerPrivateKey,omitempty"`
 
 	// Ingestor URL
-	IngestorURL string `json:"ingestorURL,omitempty"`
-
-	// Default event logger
-	// possible values are: "none", "central", "cluster", "webhook"
-	DefaultEventDestination *string `json:"defaultEventDestination,omitempty"`
+	// +optional
+	URL string `json:"url,omitempty"`
 }

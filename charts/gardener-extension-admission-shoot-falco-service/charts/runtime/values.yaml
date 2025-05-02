@@ -1,7 +1,8 @@
-# flag to restrict Falco usage to allowed projects
+# restrict Falco extension usage to enabled namespaces only
 restrictedUsage: false
 
-# allow project clusters to send events to central logging instance
+# restrict Falco centralized logging to enabled namespaces only
+# enable if NO centralized storage is deployed
 restrictedCentralizedLogging: true
 
 image:
@@ -20,13 +21,7 @@ vpa:
     updateMode: "Auto"
 webhookConfig:
   serverPort: 10250
-# Kubeconfig to the target cluster. In-cluster configuration will be used if not specified.
 kubeconfig: ""
-
-# projectedKubeconfig:
-#   baseMountPath: /var/run/secrets/gardener.cloud
-#   genericKubeconfigSecretName: generic-token-kubeconfig
-#   tokenSecretName: access-dns-admission
 
 service:
   topologyAwareRouting:
@@ -36,7 +31,4 @@ gardener:
   virtualCluster:
     enabled: true
     serviceAccount: {}
-  #     name: gardener-extension-admission-shoot-falco-service
-  #     namespace: kube-system
   runtimeCluster: {}
-#   priorityClassName: gardener-garden-system-400
