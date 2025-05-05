@@ -349,7 +349,7 @@ func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}
 
 func (c *ConfigBuilder) generateHeartbeatRule(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
 	if falcoServiceConfig.HeartbeatEvent != nil && *falcoServiceConfig.HeartbeatEvent {
-		r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
+		r, err := c.getFalcoRulesFile(constants.HeartbeatRule, *falcoVersion)
 		if err != nil {
 			return err
 		}

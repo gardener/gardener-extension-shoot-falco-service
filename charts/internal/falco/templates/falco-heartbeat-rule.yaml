@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: heartbeat-rule
+  name: falco-heartbeat-rule
   namespace: {{ include "falco.namespace" . }}
 data:
   heartbeat_rule.yaml: |-

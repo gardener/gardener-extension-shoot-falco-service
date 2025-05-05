@@ -21,7 +21,7 @@ metadata:
     checksum/falcoIncubatingRules: {{ include (print $.Template.BasePath "/falco-incubating-rules.yaml") . | sha256sum }}
     {{- end }}
     {{- if .Values.heartbeatRule }}
-    checksum/falcoHeartbeatRule: {{ include (print $.Template.BasePath "/heartbeat-rule.yaml") . | sha256sum }}
+    checksum/falcoHeartbeatRule: {{ include (print $.Template.BasePath "/falco-heartbeat-rule.yaml") . | sha256sum }}
     {{- end }}
     {{- if .Values.customRules }}
     checksum/customRules: {{ include (print $.Template.BasePath "/falco-custom-rules.yaml") . | sha256sum }}
@@ -357,7 +357,7 @@ spec:
         {{- end }}
         {{- if .Values.heartbeatRule }}
         - configMap:
-            name: heartbeat-rule
+            name: falco-heartbeat-rule
         {{- end }}
         {{- if .Values.customRules }}
         - configMap:
