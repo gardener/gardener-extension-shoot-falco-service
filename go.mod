@@ -4,7 +4,7 @@ go 1.24.2
 
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/gardener/gardener v1.117.1
+	github.com/gardener/gardener v1.118.0
 	github.com/go-logr/logr v1.4.2
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/hashicorp/go-version v1.7.0
@@ -45,8 +45,8 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/gardener/cert-management v0.17.5 // indirect
-	github.com/gardener/etcd-druid/api v0.29.0 // indirect
-	github.com/gardener/machine-controller-manager v0.57.2 // indirect
+	github.com/gardener/etcd-druid/api v0.29.1 // indirect
+	github.com/gardener/machine-controller-manager v0.58.0 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/errors v0.22.1 // indirect
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect
@@ -116,16 +116,16 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	istio.io/api v1.25.2 // indirect
 	istio.io/client-go v1.25.2 // indirect
-	k8s.io/apiextensions-apiserver v0.32.3 // indirect
-	k8s.io/autoscaler/vertical-pod-autoscaler v1.3.0 // indirect
+	k8s.io/apiextensions-apiserver v0.32.4 // indirect
+	k8s.io/autoscaler/vertical-pod-autoscaler v1.3.1 // indirect
 	k8s.io/gengo v0.0.0-20250130153323-76c5745d3511 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250207200755-1244d31929d7 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-aggregator v0.32.3 // indirect
+	k8s.io/kube-aggregator v0.32.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	k8s.io/kubelet v0.32.3 // indirect
-	k8s.io/metrics v0.32.3 // indirect
+	k8s.io/kubelet v0.32.4 // indirect
+	k8s.io/metrics v0.32.4 // indirect
 	sigs.k8s.io/controller-tools v0.17.3 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
