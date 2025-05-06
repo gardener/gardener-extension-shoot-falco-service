@@ -56,10 +56,13 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			HealthBindAddress:       ":8081",
 			WebhookCertDir:          "/tmp/admission-shoot-falco-service-cert",
 		}
-		// options for the webhook server
+
+		generalOpts = &controllercmd.GeneralOptions{}
+
 		webhookServerOptions = &webhookcmd.ServerOptions{
 			Namespace: os.Getenv("WEBHOOK_CONFIG_NAMESPACE"),
 		}
+
 		webhookSwitches = admissioncmd.GardenWebhookSwitchOptions()
 		webhookOptions  = webhookcmd.NewAddToManagerOptions(
 			AdmissionName,
@@ -68,10 +71,12 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			webhookServerOptions,
 			webhookSwitches,
 		)
+
 		falcoOptions = &validator.FalcoWebhookOptions{}
 		aggOption    = controllercmd.NewOptionAggregator(
 			restOpts,
 			mgrOpts,
+			generalOpts,
 			webhookOptions,
 			falcoOptions,
 		)
@@ -179,7 +184,11 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			go fpm.StartWatch()
 
 			log.Info("Setting up webhook server")
-			if _, err := webhookOptions.Completed().AddToManager(ctx, mgr, sourceCluster); err != nil {
+			if _, err := webhookOptions.Completed().AddToManager(
+				ctx,
+				mgr,
+				sourceCluster,
+				generalOpts.Completed().AutonomousShootCluster); err != nil {
 				return err
 			}
 

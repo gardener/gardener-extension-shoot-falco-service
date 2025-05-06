@@ -39,4 +39,5 @@ gardener:
   #     name: gardener-extension-admission-shoot-falco-service
   #     namespace: kube-system
   runtimeCluster: {}
+  autonomousShootCluster: false
 #   priorityClassName: gardener-garden-system-400
