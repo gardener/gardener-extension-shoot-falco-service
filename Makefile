@@ -66,7 +66,6 @@ start-admission:
 		--metrics-bind-address=:8083 \
 		--restricted-usage \
 		--restricted-centralized-logging \
-		--restricted-centralized-logging \
 		--autonomous-shoot-cluster=false \
         $(WEBHOOK_PARAM)
 
