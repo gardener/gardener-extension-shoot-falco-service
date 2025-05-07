@@ -57,6 +57,9 @@ spec:
         {{- if .Values.projectedKubeconfig }}
         - --kubeconfig={{ required ".Values.projectedKubeconfig.baseMountPath is required" .Values.projectedKubeconfig.baseMountPath }}/kubeconfig
         {{- end }}
+        {{- if .Values.gardener.autonomousShootCluster }}
+        - --autonomous-shoot-cluster={{ .Values.gardener.autonomousShootCluster }}
+        {{- end }}
         - --health-bind-address=:{{ .Values.healthPort }}
         - --leader-election-id={{ include "leaderelectionid" . }}
         {{- if or .Values.gardener.virtualCluster.enabled .Values.restrictedUsage }}
