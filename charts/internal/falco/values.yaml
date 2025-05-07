@@ -831,6 +831,7 @@ falco:
     k8s_healthz_endpoint: /healthz
     ssl_enabled: false
     ssl_certificate: /etc/falco/falco.pem
+    prometheus_metrics_enabled: true
 
   ##############################################################################
   # Falco logging / alerting / metrics related to software functioning (basic) #
