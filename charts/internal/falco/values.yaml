@@ -1133,7 +1133,7 @@ falco:
     # Typically, in production, you only use `output_rule` or `output_file`, but not both. 
     # However, if you have a very unique use case, you can use both together.
     # Set `webserver.prometheus_metrics_enabled` for Prometheus output.
-    output_rule: true
+    output_rule: false
     # output_file: /tmp/falco_stats.jsonl
     rules_counters_enabled: true
     resource_utilization_enabled: true
