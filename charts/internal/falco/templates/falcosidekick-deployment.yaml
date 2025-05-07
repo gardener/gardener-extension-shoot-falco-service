@@ -41,6 +41,8 @@ spec:
       {{- end }}
       {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
       serviceAccountName: gardener-falcosidekick
+      {{ else }}
+      automountServiceAccountToken: false
       {{- end }}
       {{- if .Values.falcosidekick.priorityClassName }}
       priorityClassName: "{{ .Values.falcosidekick.priorityClassName }}"
