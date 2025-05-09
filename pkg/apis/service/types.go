@@ -48,6 +48,10 @@ type FalcoServiceConfig struct {
 	// -------------------------------------------------------------------
 	// added due to issue #215
 
+	// Enable periodic heartbeat events
+	// +optional
+	HeartbeatEvent *bool
+
 	// nodeSelector for Falco pods
 	// +optional
 	NodeSelector *map[string]string

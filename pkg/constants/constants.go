@@ -58,6 +58,7 @@ const (
 	FalcoRules           = "falco_rules.yaml"
 	FalcoIncubatingRules = "falco-incubating_rules.yaml"
 	FalcoSandboxRules    = "falco-sandbox_rules.yaml"
+	HeartbeatRule        = "heartbeat_rule.yaml"
 
 	CustomRulesMaxSize = 1048576 // 1 << 20 == 1MiB
 

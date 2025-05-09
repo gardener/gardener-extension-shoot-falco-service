@@ -111,7 +111,14 @@ Return the proper Falcoctl image name
 {{- end -}}
 
 {{/*
-Extract the unixSocket's directory path
+Return the proper Falcoheartbeat image name
+*/}}
+{{- define "falcoheartbeat.image" -}}
+{{ printf "%s/%s:%s" .Values.falcosidekick.image.registry .Values.falcosidekick.image.repository .Values.falcosidekick.image.tag }}
+{{- end -}}
+
+{{/*
+Extract the unixSocket directory path
 */}}
 {{- define "falco.unixSocketDir" -}}
 {{- if and .Values.falco.grpc.enabled .Values.falco.grpc.bind_address (hasPrefix "unix://" .Values.falco.grpc.bind_address) -}}
@@ -169,6 +176,9 @@ Set appropriate falco rule configuration if rules are managed by the Gardener ex
     {{- end }}
     {{- if .Values.falcoSandboxRules }}
       {{- $rulesFileList = append $rulesFileList "/etc/falco/rules.d/falco-sandbox_rules.yaml" }}
+    {{- end }}
+    {{- if .Values.heartbeatRule }}
+      {{- $rulesFileList = append $rulesFileList "/etc/falco/rules.d/heartbeat_rule.yaml" }}
     {{- end }}
     {{- range $customRule :=  .Values.customRules }}
       {{- $rulesFile := printf "%s%s" "/etc/falco/rules.d/" $customRule.filename }}

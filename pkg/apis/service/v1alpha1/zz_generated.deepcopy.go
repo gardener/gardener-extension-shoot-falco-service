@@ -152,6 +152,11 @@ func (in *FalcoServiceConfig) DeepCopyInto(out *FalcoServiceConfig) {
 		*out = new(Webhook)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.HeartbeatEvent != nil {
+		in, out := &in.HeartbeatEvent, &out.HeartbeatEvent
+		*out = new(bool)
+		**out = **in
+	}
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
 		*out = new(map[string]string)

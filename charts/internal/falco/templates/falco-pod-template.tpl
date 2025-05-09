@@ -20,6 +20,9 @@ metadata:
     {{- if .Values.falcoIncubatingRules }}
     checksum/falcoIncubatingRules: {{ include (print $.Template.BasePath "/falco-incubating-rules.yaml") . | sha256sum }}
     {{- end }}
+    {{- if .Values.heartbeatRule }}
+    checksum/falcoHeartbeatRule: {{ include (print $.Template.BasePath "/falco-heartbeat-rule.yaml") . | sha256sum }}
+    {{- end }}
     {{- if .Values.customRules }}
     checksum/customRules: {{ include (print $.Template.BasePath "/falco-custom-rules.yaml") . | sha256sum }}
     {{- end }}
@@ -220,6 +223,27 @@ spec:
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
+  {{- if .Values.heartbeatRule }}
+    - name: falco-heartbeat
+      image: {{ include "falcoheartbeat.image" . }}
+      command: ["sh", "-c"]
+      args: 
+        - |
+          until wget -qO- http://127.0.0.1:8765/versions 2>/dev/null; do
+            sleep 10
+          done
+          while true; do
+            export FALCO_VERSION=$(
+              wget -qO- http://127.0.0.1:8765/versions 2>/dev/null |
+              grep -o '"falco_version":"[^"]*"' |
+              sed 's/"falco_version":"//;s/"//'
+            )
+            export HEARTBEAT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            /bin/echo "Falco heartbeat" > /dev/null
+            seconds_until_next_hour=$((3600 - $(date +%s) % 3600))
+            sleep $seconds_until_next_hour
+          done
+  {{- end }}
   {{- if .Values.falcoctl.artifact.follow.enabled }}
     {{- include "falcoctl.sidecar" . | nindent 4 }}
   {{- end }}
@@ -333,6 +357,10 @@ spec:
         {{- if .Values.falcoSandboxRules }}
         - configMap:
             name: falco-sandbox-rules
+        {{- end }}
+        {{- if .Values.heartbeatRule }}
+        - configMap:
+            name: falco-heartbeat-rule
         {{- end }}
         {{- if .Values.customRules }}
         - configMap:

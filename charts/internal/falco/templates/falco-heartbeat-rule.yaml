@@ -1,0 +1,10 @@
+{{- if .Values.heartbeatRule }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-heartbeat-rule
+  namespace: {{ include "falco.namespace" . }}
+data:
+  heartbeat_rule.yaml: |-
+{{ .Values.heartbeatRule | indent 4 }}
+{{- end }}

@@ -50,6 +50,8 @@ type FalcoServiceConfig struct {
 	// -------------------------------------------------------------------
 	// added due to issue #215
 
+	HeartbeatEvent *bool `json:"heartbeatEvent,omitempty"`
+
 	NodeSelector *map[string]string `json:"nodeSelector,omitempty"`
 
 	Rules *Rules `json:"rules,omitempty"`
