@@ -25,18 +25,20 @@ fullnameOverride: ""
 # -- Override the deployment namespace
 namespaceOverride: ""
 
-rbac:
-  # Create and use rbac resources when set to true. Needed to fetch k8s metadata from the api-server.
-  create: true
-
 serviceAccount:
+  # -- Secrets containing credentials when pulling from private/secure registries.
+  imagePullSecrets: []
   # -- Specifies whether a service account should be created.
-  create: true
+  create: false
   # -- Annotations to add to the service account.
   annotations: {}
   # -- The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+
+rbac:
+  # Create and use rbac resources when set to true. Needed to list and update configmaps in Falco's namespace.
+  create: false
 
 # -- Add additional pod annotations
 podAnnotations: {}
@@ -829,6 +831,7 @@ falco:
     k8s_healthz_endpoint: /healthz
     ssl_enabled: false
     ssl_certificate: /etc/falco/falco.pem
+    prometheus_metrics_enabled: true
 
   ##############################################################################
   # Falco logging / alerting / metrics related to software functioning (basic) #
@@ -1131,7 +1134,7 @@ falco:
     # Typically, in production, you only use `output_rule` or `output_file`, but not both. 
     # However, if you have a very unique use case, you can use both together.
     # Set `webserver.prometheus_metrics_enabled` for Prometheus output.
-    output_rule: true
+    output_rule: false
     # output_file: /tmp/falco_stats.jsonl
     rules_counters_enabled: true
     resource_utilization_enabled: true
