@@ -80,7 +80,7 @@ gardener-extension-shoot-falco-service:
           - *shoot-falco-service-admission-runtime
       steps:
         verify:
-          image: &golang-test 'golang:1.24.2'
+          image: &golang-test 'golang:1.24.3'
         verify-falco-rules:
           privilege_mode: privileged
         provide-falco-profile:
