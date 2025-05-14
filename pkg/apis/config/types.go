@@ -27,6 +27,9 @@ type Falco struct {
 	// PriorityClass to use for Falco shoot deployment
 	PriorityClassName *string
 
+	// Central storage configuration
+	CentralStorage *CentralStorageConfig
+
 	// Lifetime of the CA certificates
 	// (Falco - Falcosidekick communication)
 	CertificateLifetime *metav1.Duration
@@ -34,16 +37,19 @@ type Falco struct {
 	// Renew CA certificates after this duration
 	CertificateRenewAfter *metav1.Duration
 
+	// Default event logger
+	// possible values are: "none", "central", "logging", "webhook"
+	DefaultEventDestination *string
+}
+
+// Central storage configuration
+type CentralStorageConfig struct {
 	// Token lifetime
 	TokenLifetime *metav1.Duration
 
 	// Private key for token issuer
 	TokenIssuerPrivateKey string
 
-	// Event inggestor URL
-	IngestorURL string
-
-	// Default event logger
-	// possible values are: "none", "central", "logging", "webhook"
-	DefaultEventDestination *string
+	// Ingestor URL
+	URL string
 }
