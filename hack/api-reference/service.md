@@ -137,6 +137,16 @@ Configuration for custom webhook</p>
 </tr>
 <tr>
 <td>
+<code>heartbeatEvent</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>nodeSelector</code></br>
 <em>
 map[string]string

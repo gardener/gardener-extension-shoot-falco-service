@@ -284,6 +284,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err := c.generateCustomRules(ctx, log, cluster, namespace, falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}
+	if err := c.generateHeartbeatRule(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+		return nil, err
+	}
 	return falcoChartValues, nil
 }
 
@@ -341,6 +344,17 @@ func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}
 		},
 	}
 	falcoChartValues["falcoctl"] = falcoctl
+	return nil
+}
+
+func (c *ConfigBuilder) generateHeartbeatRule(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+	if falcoServiceConfig.HeartbeatEvent != nil && *falcoServiceConfig.HeartbeatEvent {
+		r, err := c.getFalcoRulesFile(constants.HeartbeatRule, *falcoVersion)
+		if err != nil {
+			return err
+		}
+		falcoChartValues["heartbeatRule"] = r
+	}
 	return nil
 }
 
