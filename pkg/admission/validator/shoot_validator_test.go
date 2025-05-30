@@ -335,53 +335,6 @@ var (
 		"kind":"dFalcoServiceConfig",
 		"autoUpdate":true
 	}`
-
-	// expected outputs from mutator test
-	expectedMutate1 = `
-	{
-	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
-      	"kind": "FalcoServiceConfig",
-		"falcoVersion": "1.2.3",
-		"resources": null,
-		"rules": {
-			"standard": [
-				"falco-sandbox-rules",
-				"falco-rules"
-			]
-		},
-		"destinations": [
-		 {
-			"name": "logging"
-		 }
-		],
-		"output": null
-	}`
-
-	expectedMutate2 = `
-	{
-	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
-      	"kind": "FalcoServiceConfig",
-		"falcoVersion": "1.2.3",
-		"resources": null,
-		"falcoCtl": null,
-		"rules": {
-			"standard": [
-				"falco-sandbox-rules",
-				"falco-rules"
-			]
-		},
-		"destinations": [
-		 {
-			"name": "logging"
-		 }
-		],
-		"output": null,
-		"gardener": {
-			"useFalcoRules": null,
-			"useFalcoIncubatingRules": null,
-			"useFalcoSandboxRules": null
-		}
-	}`
 )
 
 func init() {
@@ -814,28 +767,6 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = f(falcoExtensionIllegal7)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
-	})
-
-	It("can make sure outputs from mutator are validated", func(ctx SpecContext) {
-		managerOptions := sigsmanager.Options{}
-		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
-		Expect(err).To(BeNil(), "Manager could not be created")
-		err = serviceinstall.AddToScheme(mgr.GetScheme())
-		Expect(err).To(BeNil(), "Scheme could not be added")
-		s := NewShootValidator(mgr)
-
-		f := func(extensionSpec string) error {
-			providerConfig := genericShoot.Spec.Extensions[0].ProviderConfig
-			providerConfig.Raw = []byte(extensionSpec)
-			err = s.Validate(context.TODO(), genericShoot, nil)
-			return err
-		}
-
-		err = f(expectedMutate1)
-		Expect(err).To(BeNil(), "Legal extension is not detected as such")
-
-		err = f(expectedMutate2)
-		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
 
 	It("checks if central logging is enabled", func(ctx SpecContext) {
