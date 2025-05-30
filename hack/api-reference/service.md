@@ -68,81 +68,14 @@ bool
 </tr>
 <tr>
 <td>
-<code>resources</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>use &ldquo;gardener&rdquo; or &ldquo;falcoctl&rdquo;, defaults to &ldquo;gardener&rdquo;</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>falcoCtl</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">
-FalcoCtl
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Falcoctl configuration</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>gardener</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Gardener">
-Gardener
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Configuration for Gardener managed Falco</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>output</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Output">
-Output
-</a>
-</em>
-</td>
-<td>
-<p>Specify the output configuration. Default to log Falco events
-in the Gardener monitoring stack.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>webhook</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Webhook">
-Webhook
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>required for migration
-Configuration for custom webhook</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>heartbeatEvent</code></br>
 <em>
 bool
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Enable periodic heartbeat events</p>
 </td>
 </tr>
 <tr>
@@ -153,6 +86,8 @@ map[string]string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>nodeSelector for Falco pods</p>
 </td>
 </tr>
 <tr>
@@ -171,8 +106,8 @@ Rules
 <td>
 <code>destinations</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.Destination">
-[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.Destination
+<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..Destination">
+[]..Destination
 </a>
 </em>
 </td>
@@ -241,10 +176,6 @@ string
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl
 </h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
-</p>
 <p>
 </p>
 <table>
@@ -382,10 +313,6 @@ string
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.Gardener">Gardener
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
-</p>
-<p>
 </p>
 <table>
 <thead>
@@ -486,10 +413,6 @@ bool
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.Output">Output
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
-</p>
-<p>
 </p>
 <table>
 <thead>
@@ -563,8 +486,8 @@ Webhook
 <td>
 <code>custom</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.CustomRule">
-[]github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1.CustomRule
+<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..CustomRule">
+[]..CustomRule
 </a>
 </em>
 </td>
@@ -577,7 +500,6 @@ Webhook
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>, 
 <a href="#falco.extensions.gardener.cloud/v1alpha1.Output">Output</a>)
 </p>
 <p>
