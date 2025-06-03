@@ -229,11 +229,6 @@ func Convert_service_FalcoCtlIndex_To_v1alpha1_FalcoCtlIndex(in *service.FalcoCt
 func autoConvert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *FalcoServiceConfig, out *service.FalcoServiceConfig, s conversion.Scope) error {
 	out.FalcoVersion = (*string)(unsafe.Pointer(in.FalcoVersion))
 	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
-	out.Resources = (*string)(unsafe.Pointer(in.Resources))
-	out.FalcoCtl = (*service.FalcoCtl)(unsafe.Pointer(in.FalcoCtl))
-	out.Gardener = (*service.Gardener)(unsafe.Pointer(in.Gardener))
-	out.Output = (*service.Output)(unsafe.Pointer(in.Output))
-	out.CustomWebhook = (*service.Webhook)(unsafe.Pointer(in.CustomWebhook))
 	out.HeartbeatEvent = (*bool)(unsafe.Pointer(in.HeartbeatEvent))
 	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
 	out.Rules = (*service.Rules)(unsafe.Pointer(in.Rules))
@@ -249,11 +244,6 @@ func Convert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *Falco
 func autoConvert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *service.FalcoServiceConfig, out *FalcoServiceConfig, s conversion.Scope) error {
 	out.FalcoVersion = (*string)(unsafe.Pointer(in.FalcoVersion))
 	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
-	out.Resources = (*string)(unsafe.Pointer(in.Resources))
-	out.FalcoCtl = (*FalcoCtl)(unsafe.Pointer(in.FalcoCtl))
-	out.Gardener = (*Gardener)(unsafe.Pointer(in.Gardener))
-	out.Output = (*Output)(unsafe.Pointer(in.Output))
-	out.CustomWebhook = (*Webhook)(unsafe.Pointer(in.CustomWebhook))
 	out.HeartbeatEvent = (*bool)(unsafe.Pointer(in.HeartbeatEvent))
 	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
 	out.Rules = (*Rules)(unsafe.Pointer(in.Rules))

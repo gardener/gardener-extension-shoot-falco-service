@@ -21,33 +21,6 @@ type FalcoServiceConfig struct {
 	// +optional
 	AutoUpdate *bool
 
-	// -------------------------------------------------------------------
-	// remove by 2025-05-01
-
-	// use "gardener" or "falcoctl", defaults to "gardener"
-	// +optional
-	Resources *string
-
-	// Falcoctl configuration
-	// +optional
-	FalcoCtl *FalcoCtl
-
-	// Configuration for Gardener managed Falco
-	// +optional
-	Gardener *Gardener
-
-	// Specify the output configuration. Default to log Falco events
-	// in the Gardener monitoring stack.
-	Output *Output
-
-	// required for migration
-	// Configuration for custom webhook
-	// +optional
-	CustomWebhook *Webhook
-
-	// -------------------------------------------------------------------
-	// added due to issue #215
-
 	// Enable periodic heartbeat events
 	// +optional
 	HeartbeatEvent *bool

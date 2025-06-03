@@ -15,7 +15,6 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	"github.com/go-logr/logr"
 	pkgversion "github.com/hashicorp/go-version"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -25,7 +24,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -56,41 +54,6 @@ func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
 		return fmt.Errorf("wrong object type %T", new)
 	}
 	return s.mutateShoot(ctx, shoot)
-}
-
-func setGardenerRules(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.Gardener == nil {
-		falcoConf.Gardener = &service.Gardener{}
-	}
-
-	if falcoConf.Gardener.UseFalcoRules == nil {
-		defaultRules := true
-		falcoConf.Gardener.UseFalcoRules = &defaultRules
-	}
-
-	if falcoConf.Gardener.UseFalcoIncubatingRules == nil {
-		defaultIncRules := false
-		falcoConf.Gardener.UseFalcoIncubatingRules = &defaultIncRules
-	}
-
-	if falcoConf.Gardener.UseFalcoSandboxRules == nil {
-		defaultSandRules := false
-		falcoConf.Gardener.UseFalcoSandboxRules = &defaultSandRules
-	}
-
-	if falcoConf.Gardener.CustomRules == nil {
-		falcoConf.Gardener.CustomRules = []string{}
-	}
-}
-
-func setResources(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.Resources == nil {
-		defaultResource := "gardener"
-		falcoConf.Resources = &defaultResource
-	}
-	if *falcoConf.Resources == "gardener" {
-		setGardenerRules(falcoConf)
-	}
 }
 
 func setAutoUpdate(falcoConf *service.FalcoServiceConfig) {
@@ -243,10 +206,6 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	}
 
 	setAutoUpdate(falcoConf)
-
-	log := logr.New(nil)
-
-	migration.MigrateIssue215(log, falcoConf)
 
 	setRules(falcoConf)
 

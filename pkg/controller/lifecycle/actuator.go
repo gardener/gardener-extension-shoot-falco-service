@@ -32,7 +32,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/migration"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/values"
@@ -135,8 +134,6 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
-	// migrate config to new format (migration)
-	migration.MigrateIssue215(log, falcoServiceConfig)
 	log.Info("Reconciling Falco resources for shoot " + cluster.Shoot.Name)
 	renderer, err := util.NewChartRendererForShoot(cluster.Shoot.Spec.Kubernetes.Version)
 	if err != nil {
