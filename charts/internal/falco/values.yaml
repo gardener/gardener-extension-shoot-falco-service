@@ -1381,14 +1381,14 @@ falcosidekick:
 
   image:
     # -- The image registry to pull from
-    registry: docker.io
+    # registry: docker.io
     # -- The image repository to pull from
-    repository: falcosecurity/falcosidekick
+    # repository: falcosecurity/falcosidekick
     # -- The image tag to pull
-    tag: 2.28.0
+    # tag: 2.28.0
     # -- The image pull policy
-    pullPolicy: IfNotPresent
-    # Gardener deployment is based on sha256 references
+    # pullPolicy: IfNotPresent
+    # Overwrite image definition for with Gardener sha256 references
     image: ""
 
   # -- Sidekick pod securityContext
