@@ -127,31 +127,6 @@ func (in *FalcoServiceConfig) DeepCopyInto(out *FalcoServiceConfig) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.Resources != nil {
-		in, out := &in.Resources, &out.Resources
-		*out = new(string)
-		**out = **in
-	}
-	if in.FalcoCtl != nil {
-		in, out := &in.FalcoCtl, &out.FalcoCtl
-		*out = new(FalcoCtl)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.Gardener != nil {
-		in, out := &in.Gardener, &out.Gardener
-		*out = new(Gardener)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.Output != nil {
-		in, out := &in.Output, &out.Output
-		*out = new(Output)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.CustomWebhook != nil {
-		in, out := &in.CustomWebhook, &out.CustomWebhook
-		*out = new(Webhook)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.HeartbeatEvent != nil {
 		in, out := &in.HeartbeatEvent, &out.HeartbeatEvent
 		*out = new(bool)
