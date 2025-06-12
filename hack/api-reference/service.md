@@ -116,6 +116,44 @@ Rules
 </tr>
 </tbody>
 </table>
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.ConfigMap">ConfigMap
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.CustomRule">CustomRule</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.CustomRule">CustomRule
 </h3>
 <p>
@@ -133,6 +171,18 @@ Rules
 <code>resourceName</code></br>
 <em>
 string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>shootConfigMap</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.ConfigMap">
+ConfigMap
+</a>
 </em>
 </td>
 <td>

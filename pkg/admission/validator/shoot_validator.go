@@ -216,16 +216,31 @@ func verifyStandardRules(standardRules []string) error {
 func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) error {
 	customRulesNames := make([]string, 0)
 	for _, rule := range customRules {
-		if rule.ResourceName == "" {
-			return fmt.Errorf("found custom rule with empty resource referece")
+		if rule.ResourceName != "" && rule.ShootConfigMap != nil {
+			return fmt.Errorf("found custom rule with both resource name and shoot config map defined")
+		} else if rule.ResourceName == "" && rule.ShootConfigMap == nil {
+			return fmt.Errorf("found custom rule with neither resource name nor shoot config map defined")
 		}
-		customRulesNames = append(customRulesNames, rule.ResourceName)
+		if rule.ShootConfigMap != nil {
+			if rule.ShootConfigMap.Name == "" {
+				return fmt.Errorf("found custom rule with empty config map name")
+			}
+			if rule.ShootConfigMap.Namespace == "" {
+				return fmt.Errorf("found custom rule with empty config map namespace")
+			}
+		} else {
+			customRulesNames = append(customRulesNames, rule.ResourceName)
+		}
 	}
 
 	if !unique(customRulesNames) {
 		return fmt.Errorf("duplicate entry in custom rules")
 	}
 
+	// note: we only verify rules defined in the shoot spec. we do not
+	// verify custom rules stored in the shoot cluster
+	// the reason is that the admission controller should not attempt to
+	// contact the shoot cluster to verify the rules.
 	for _, ruleName := range customRulesNames {
 		found := false
 		for _, r := range shoot.Spec.Resources {
