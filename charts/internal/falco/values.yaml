@@ -258,6 +258,26 @@ collectors:
   # -- Enable/disable all the metadata collectors.
   enabled: true
 
+  # TODO remove these collector definitions in the future releases > 0.41.0.
+  docker:
+    # -- Enable Docker support.
+    enabled: false
+    # -- The path of the Docker daemon socket.
+    socket: /var/run/docker.sock
+
+  containerd:
+    # -- Enable ContainerD support.
+    enabled: true
+    # -- The path of the ContainerD socket.
+    socket: /run/containerd/containerd.sock
+
+  crio:
+    # -- Enable CRI-O support.
+    enabled: false
+    # -- The path of the CRI-O socket.
+    socket: /run/crio/crio.sock
+  ###
+
   # -- This collector is the new container engine collector that replaces the old docker, containerd, crio and podman collectors.
   # It is designed to collect metadata from various container engines and provide a unified interface through the container plugin.
   # When enabled, it will deploy the container plugin and use it to collect metadata from the container engines.
