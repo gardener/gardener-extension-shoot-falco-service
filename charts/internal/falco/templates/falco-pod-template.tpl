@@ -146,6 +146,7 @@ spec:
           {{- end }}
       {{- end }}
       volumeMounts:
+      {{- include "falco.containerPluginVolumeMounts" . | nindent 8 -}}
         - mountPath: /etc/falco/certs
           name: certificates
       {{- if or .Values.falcoctl.artifact.install.enabled .Values.falcoctl.artifact.follow.enabled }}
