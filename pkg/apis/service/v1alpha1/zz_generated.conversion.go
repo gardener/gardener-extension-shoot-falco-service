@@ -170,7 +170,7 @@ func Convert_service_ConfigMap_To_v1alpha1_ConfigMap(in *service.ConfigMap, out 
 
 func autoConvert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *service.CustomRule, s conversion.Scope) error {
 	out.ResourceName = in.ResourceName
-	out.ShootConfigMap = (*service.ConfigMap)(unsafe.Pointer(in.ShootConfigMap))
+	out.ShootConfigMap = in.ShootConfigMap
 	return nil
 }
 
@@ -181,7 +181,7 @@ func Convert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *serv
 
 func autoConvert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, out *CustomRule, s conversion.Scope) error {
 	out.ResourceName = in.ResourceName
-	out.ShootConfigMap = (*ConfigMap)(unsafe.Pointer(in.ShootConfigMap))
+	out.ShootConfigMap = in.ShootConfigMap
 	return nil
 }
 

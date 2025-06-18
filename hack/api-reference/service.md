@@ -119,10 +119,6 @@ Rules
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.ConfigMap">ConfigMap
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.CustomRule">CustomRule</a>)
-</p>
-<p>
 </p>
 <table>
 <thead>
@@ -180,9 +176,7 @@ string
 <td>
 <code>shootConfigMap</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.ConfigMap">
-ConfigMap
-</a>
+string
 </em>
 </td>
 <td>

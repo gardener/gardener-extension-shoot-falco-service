@@ -51,7 +51,7 @@ type ConfigMap struct {
 
 type CustomRule struct {
 	ResourceName   string
-	ShootConfigMap *ConfigMap
+	ShootConfigMap string
 }
 
 type FalcoCtl struct {

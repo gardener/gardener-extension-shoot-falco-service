@@ -216,19 +216,12 @@ func verifyStandardRules(standardRules []string) error {
 func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) error {
 	customRulesNames := make([]string, 0)
 	for _, rule := range customRules {
-		if rule.ResourceName != "" && rule.ShootConfigMap != nil {
+		if rule.ResourceName != "" && rule.ShootConfigMap != "" {
 			return fmt.Errorf("found custom rule with both resource name and shoot config map defined")
-		} else if rule.ResourceName == "" && rule.ShootConfigMap == nil {
+		} else if rule.ResourceName == "" && rule.ShootConfigMap == "" {
 			return fmt.Errorf("found custom rule with neither resource name nor shoot config map defined")
 		}
-		if rule.ShootConfigMap != nil {
-			if rule.ShootConfigMap.Name == "" {
-				return fmt.Errorf("found custom rule with empty config map name")
-			}
-			if rule.ShootConfigMap.Namespace == "" {
-				return fmt.Errorf("found custom rule with empty config map namespace")
-			}
-		} else {
+		if rule.ResourceName != "" {
 			customRulesNames = append(customRulesNames, rule.ResourceName)
 		}
 	}
