@@ -258,23 +258,77 @@ collectors:
   # -- Enable/disable all the metadata collectors.
   enabled: true
 
-  docker:
-    # -- Enable Docker support.
+  # -- This collector is the new container engine collector that replaces the old docker, containerd, crio and podman collectors.
+  # It is designed to collect metadata from various container engines and provide a unified interface through the container plugin.
+  # When enabled, it will deploy the container plugin and use it to collect metadata from the container engines.
+  # Keep in mind that the old collectors (docker, containerd, crio, podman) will use the container plugin to collect metadata under the hood.
+  containerEngine:
+    # -- Enable Container Engine support.
     enabled: false
-    # -- The path of the Docker daemon socket.
-    socket: /var/run/docker.sock
+    # -- pluginRef is the OCI reference for the container plugin. It could be a full reference such as
+    # "ghcr.io/falcosecurity/plugins/plugin/container:0.3.0". Or just name + tag: container:0.3.0.
+    pluginRef: "ghcr.io/falcosecurity/plugins/plugin/container:0.3.0"
+    # -- labelMaxLen is the maximum length of the labels that can be used in the container plugin.
+    # container labels larger than this value won't be collected.
+    labelMaxLen: 100
+    # -- withSize specifies whether to enable container size inspection, which is inherently slow.
+    withSize: false
+    # -- hooks specify the hooks that will be used to collect metadata from the container engine.
+    # The available hooks are: create, start.
+    hooks: ["create"]
+    engines:
+      docker:
+        enabled: true
+        sockets: ["/var/run/docker.sock"]
+      podman:
+        enabled: true
+        sockets: ["/run/podman/podman.sock"]
+      containerd:
+        enabled: true
+        sockets: ["/run/containerd/containerd.sock"]
+      cri:
+        enabled: true
+        sockets: ["/run/crio/crio.sock"]
+      lxc:
+        enabled: true
+      libvirt_lxc:
+        enabled: true
+      bpm:
+        enabled: true
 
-  containerd:
-    # -- Enable ContainerD support.
-    enabled: true
-    # -- The path of the ContainerD socket.
-    socket: /run/containerd/containerd.sock
-
-  crio:
-    # -- Enable CRI-O support.
+  # TODO remove this collector in the future releases.
+  # -- kubernetes holds the configuration for the kubernetes collector. Starting from version 0.37.0 of Falco, the legacy
+  # kubernetes client has been removed. A new standalone component named k8s-metacollector and a Falco plugin have been developed
+  # to solve the issues that were present in the old implementation. More info here: https://github.com/falcosecurity/falco/issues/2973
+  kubernetes:
+    # -- enabled specifies whether the Kubernetes metadata should be collected using the k8smeta plugin and the k8s-metacollector component.
+    # It will deploy the k8s-metacollector external component that fetches Kubernetes metadata and pushes them to Falco instances.
+    # For more info see:
+    # https://github.com/falcosecurity/k8s-metacollector
+    # https://github.com/falcosecurity/charts/tree/master/charts/k8s-metacollector
+    # When this option is disabled, Falco falls back to the container annotations to grab the metadata.
+    # In such a case, only the ID, name, namespace, labels of the pod will be available.
     enabled: false
-    # -- The path of the CRI-O socket.
-    socket: /run/crio/crio.sock
+    # --pluginRef is the OCI reference for the k8smeta plugin. It could be a full reference such as:
+    # "ghcr.io/falcosecurity/plugins/plugin/k8smeta:0.1.0". Or just name + tag: k8smeta:0.1.0.
+    pluginRef: "ghcr.io/falcosecurity/plugins/plugin/k8smeta:0.3.0"
+    # -- collectorHostname is the address of the k8s-metacollector. When not specified it will be set to match
+    # k8s-metacollector service. e.x: falco-k8smetacollecto.falco.svc. If for any reason you need to override
+    # it, make sure to set here the address of the k8s-metacollector.
+    # It is used by the k8smeta plugin to connect to the k8s-metacollector.
+    collectorHostname: ""
+    # -- collectorPort designates the port on which the k8s-metacollector gRPC service listens. If not specified
+    # the value of the port named `broker-grpc` in k8s-metacollector.service.ports is used. The default values is 45000.
+    # It is used by the k8smeta plugin to connect to the k8s-metacollector.
+    collectorPort: ""
+    # verbosity level for the plugin logger: trace, debug, info, warning, error, critical.
+    verbosity: info
+    # The plugin needs to scan the '/proc' of the host on which is running.
+    # In Falco usually we put the host '/proc' folder under '/host/proc' so
+    # the default for this config is '/host'.
+    # The path used here must not have a final '/'.
+    # Deprecated since falco 0.41.0 and k8smeta 0.3.0.
+    hostProc: /host
 
 ###########################
 # Extras and customization #
