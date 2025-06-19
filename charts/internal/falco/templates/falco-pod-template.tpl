@@ -146,7 +146,7 @@ spec:
           {{- end }}
       {{- end }}
       volumeMounts:
-      {{- include "falco.containerPluginVolumeMounts" . | nindent 8 -}}
+      {{- include "falco.containerPluginVolumeMounts" . | nindent 8 }}
         - mountPath: /etc/falco/certs
           name: certificates
       {{- if or .Values.falcoctl.artifact.install.enabled .Values.falcoctl.artifact.follow.enabled }}
@@ -183,20 +183,12 @@ spec:
         - mountPath: /host/dev
           name: dev-fs
           readOnly: true
-        - name: sys-fs
-          mountPath: /sys/module/falco
+        - mountPath: /sys/module/falco
+          name: sys-fs
         {{- end }}
         {{- if and .Values.driver.enabled (and (eq .Values.driver.kind "ebpf") (contains "falco-no-driver" .Values.image.repository)) }}
         - name: debugfs
           mountPath: /sys/kernel/debug
-        {{- end }}
-        {{- with .Values.collectors }}
-        {{- if .enabled }}
-        {{- if .containerd.enabled }}
-        - mountPath: /host/run/containerd/containerd.sock
-          name: containerd-socket
-        {{- end }}
-        {{- end }}
         {{- end }}
         - mountPath: /etc/falco/falco.yaml
           name: falco-yaml
@@ -264,6 +256,7 @@ spec:
     {{- include "falcoctl.initContainer" . | nindent 4 }}
   {{- end }}
   volumes:
+    {{- include "falco.containerPluginVolumes" . | nindent 4 }}
     - name: certificates
       secret:
         secretName: falco-certs
