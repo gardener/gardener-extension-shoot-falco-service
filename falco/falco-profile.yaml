@@ -12,8 +12,8 @@ spec:
       tag: 0.40.0
       version: 0.40.0
     - repository: falcosecurity/falco
-      tag: 0.41.0
-      version: 0.41.0
+      tag: 0.41.2
+      version: 0.41.2
     falcosidekick:
     - repository: falcosecurity/falcosidekick
       tag: 2.30.0
@@ -32,7 +32,7 @@ spec:
       version: 0.40.0
     - classification: preview
       rulesVersion: 4.0.0
-      version: 0.41.0
+      version: 0.41.2
     falcosidekick:
     - classification: deprecated
       version: 2.30.0

@@ -6,7 +6,7 @@
   - version: 0.40.0
     classification: supported
     rulesVersion: 3.2.0
-  - version: 0.41.0
+  - version: 0.41.2
     classification: preview
     rulesVersion: 4.0.0
 
