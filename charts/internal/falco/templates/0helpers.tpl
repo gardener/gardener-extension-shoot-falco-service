@@ -184,7 +184,8 @@ Set appropriate falco rule configuration if rules are managed by the Gardener ex
       {{- $rulesFile := printf "%s%s" "/etc/falco/rules.d/" $customRule.filename }}
       {{- $rulesFileList = append $rulesFileList $rulesFile }}
     {{- end }}
-    {{- $_ := set .Values.falco "rules_files" $rulesFileList }}
+    {{ $allRules := concat $rulesFileList .Values.rules_files_source }}
+    {{- $_ := set .Values.falco "rules_files" $allRules }}
 {{- end -}}
 
 {{/*
