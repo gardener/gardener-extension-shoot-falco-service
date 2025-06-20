@@ -424,7 +424,7 @@ func (c *ConfigBuilder) referenceShootCustomRules(ctx context.Context, log logr.
 			shoot_custom_rules = append(shoot_custom_rules, cr)
 		}
 	}
-	falcoChartValues["shootCustomRules"] = shoot_custom_rules
+	falcoChartValues["shoot_custom_rules"] = shoot_custom_rules
 	falcoChartValues["rules_files_source"] = rules_files
 	return nil
 }

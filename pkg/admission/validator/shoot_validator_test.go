@@ -194,6 +194,58 @@ var (
 		]
 	}`
 
+	falcoExtensionwithShootRules1 = `
+	{
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"custom": [
+			 {
+				"resourceName": "dummy-custom-rules-ref"
+			 }, {
+				"shootConfigMap": "my-shoot-rules"
+			}
+			]
+		},
+		"destinations": [
+		 {
+			"name": "stdout"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
+	}`
+
+	// legal
+	falcoExtensionwithShootRules2 = `
+	{
+	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"custom": [
+			 {
+				"resourceName": "dummy-custom-rules-ref",
+				"shootConfigMap": ""
+			 }, {
+				"shootConfigMap": "my-shoot-rules"
+			}
+			]
+		},
+		"destinations": [
+		 {
+			"name": "stdout"
+		 },
+		 {
+		 	"name": "custom",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
+	}`
+
 	falcoExtensionIllegalNoDestination = `
 	{
 	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
@@ -334,6 +386,53 @@ var (
 		"apiVersion":"nonsense.extensions.gardener.cloud/v1alpha1",
 		"kind":"dFalcoServiceConfig",
 		"autoUpdate":true
+	}`
+
+	falcoExtensionIllegalWrongCustomRule1 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			],
+			"custom": [
+			{
+				"shootConfigMap": ""
+			}
+			]
+		},
+		"destinations": [
+		 {
+		 	"name": "stdout"
+		 }
+		]
+	}`
+
+	falcoExtensionIllegalWrongCustomRule2 = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			],
+			"custom": [
+			{
+				"resourceName": "dummy-custom-rules-ref",
+				"shootConfigMap": "dummy-config-map"
+			}
+			]
+		},
+		"destinations": [
+		 {
+		 	"name": "stdout"
+		 }
+		]
 	}`
 )
 
@@ -720,6 +819,12 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtensionCustomWebookCustomRules)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionwithShootRules1)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionwithShootRules2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
 	})
 
 	It("verify illegal extensions", func(ctx SpecContext) {
@@ -766,7 +871,15 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtensionIllegal7)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider confi"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("failed to decode shoot-falco-service provider config"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegalWrongCustomRule1)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("found custom rule with neither resource name nor shoot config map defined"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionIllegalWrongCustomRule2)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"), "Illegal extension is not detected as such ")
 	})
 
 	It("checks if central logging is enabled", func(ctx SpecContext) {

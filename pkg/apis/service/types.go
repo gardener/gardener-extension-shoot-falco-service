@@ -44,11 +44,6 @@ type Rules struct {
 	CustomRules   *[]CustomRule
 }
 
-type ConfigMap struct {
-	Name      string
-	Namespace string
-}
-
 type CustomRule struct {
 	ResourceName   string
 	ShootConfigMap string

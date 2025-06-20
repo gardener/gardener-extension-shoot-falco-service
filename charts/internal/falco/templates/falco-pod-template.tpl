@@ -223,7 +223,7 @@ spec:
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
-        {{- range $rulesConfigMap := $.Values.shootCustomRules }}
+        {{- range $rulesConfigMap := $.Values.shoot_custom_rules }}
         - mountPath: {{ printf "/etc/falco/shoot-custom-rules/%s" $rulesConfigMap.name }}
           name: {{ printf "shoot-custom-rules-%s" $rulesConfigMap.name }}
         {{- end }}
@@ -370,7 +370,7 @@ spec:
         - configMap:
             name: falco-custom-rules
         {{- end }}
-    {{- range $rulesConfigMap := $.Values.shootCustomRules }}
+    {{- range $rulesConfigMap := $.Values.shoot_custom_rules }}
     - name: {{ printf "shoot-custom-rules-%s" $rulesConfigMap.name }}
       projected:
         defaultMode: 0644

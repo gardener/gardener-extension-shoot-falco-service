@@ -46,11 +46,6 @@ type Rules struct {
 	CustomRules   *[]CustomRule `json:"custom,omitempty"`
 }
 
-type ConfigMap struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-}
-
 type CustomRule struct {
 	ResourceName   string `json:"resourceName,omitempty"`
 	ShootConfigMap string `json:"shootConfigMap,omitempty"`
