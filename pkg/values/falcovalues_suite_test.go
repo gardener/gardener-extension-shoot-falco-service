@@ -34,6 +34,6 @@ func stringValue(value string) *string {
 	return &value
 }
 
-func boolValue(value bool) *bool {
-	return &value
-}
+// func boolValue(value bool) *bool {
+// 	return &value
+// }

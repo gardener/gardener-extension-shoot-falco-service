@@ -23,35 +23,12 @@ type FalcoServiceConfig struct {
 	// +optional
 	AutoUpdate *bool `json:"autoUpdate,omitempty"`
 
-	// -------------------------------------------------------------------
-	// remove by 2025-05-01
-
-	// use "gardener" or "falcoctl", defaults to "gardener"
+	// Enable periodic heartbeat events
 	// +optional
-	Resources *string `json:"resources,omitempty"`
-
-	// Falcoctl configuration
-	// +optional
-	FalcoCtl *FalcoCtl `json:"falcoCtl,omitempty"`
-
-	// Configuration for Gardener managed Falco
-	// +optional
-	Gardener *Gardener `json:"gardener,omitempty"`
-
-	// Specify the output configuration. Default to log Falco events
-	// in the Gardener monitoring stack.
-	Output *Output `json:"output,omitempty"`
-
-	// required for migration
-	// Configuration for custom webhook
-	// +optional
-	CustomWebhook *Webhook `json:"webhook,omitempty"`
-
-	// -------------------------------------------------------------------
-	// added due to issue #215
-
 	HeartbeatEvent *bool `json:"heartbeatEvent,omitempty"`
 
+	// nodeSelector for Falco pods
+	// +optional
 	NodeSelector *map[string]string `json:"nodeSelector,omitempty"`
 
 	Rules *Rules `json:"rules,omitempty"`
