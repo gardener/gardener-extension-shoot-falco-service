@@ -295,15 +295,6 @@ spec:
       hostPath:
         path: /sys/kernel/debug
     {{- end }}
-    {{- with .Values.collectors }}
-    {{- if .enabled }}
-    {{- if .containerd.enabled }}
-    - name: containerd-socket
-      hostPath:
-        path: {{ .containerd.socket }}
-    {{- end }}
-    {{- end }}
-    {{- end }}
     {{- if or .Values.driver.enabled .Values.mounts.enforceProcMount }}
     - name: proc-fs
       hostPath:
