@@ -45,7 +45,8 @@ type Rules struct {
 }
 
 type CustomRule struct {
-	ResourceName string
+	ResourceName   string
+	ShootConfigMap string
 }
 
 type FalcoCtl struct {

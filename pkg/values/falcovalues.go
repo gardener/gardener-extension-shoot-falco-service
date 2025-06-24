@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -291,6 +292,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err := c.generateCustomRules(ctx, log, cluster, namespace, falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}
+	if err := c.referenceShootCustomRules(ctx, log, namespace, falcoChartValues, falcoServiceConfig); err != nil {
+		return nil, err
+	}
 	if err := c.generateHeartbeatRule(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}
@@ -400,6 +404,28 @@ func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger
 		return err
 	}
 	falcoChartValues["customRules"] = customRules
+	return nil
+}
+
+func (c *ConfigBuilder) referenceShootCustomRules(ctx context.Context, log logr.Logger, namespace string, falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
+
+	if falcoServiceConfig.Rules.CustomRules == nil || len(*falcoServiceConfig.Rules.CustomRules) == 0 {
+		return nil
+	}
+	shoot_custom_rules := []map[string]string{}
+	rules_files := []string{}
+	for _, rule := range *falcoServiceConfig.Rules.CustomRules {
+		if rule.ShootConfigMap != "" {
+			ruleConfigMapDir := filepath.Join("/etc", "falco", "shoot-custom-rules", rule.ShootConfigMap)
+			rules_files = append(rules_files, ruleConfigMapDir)
+			cr := map[string]string{
+				"name": rule.ShootConfigMap,
+			}
+			shoot_custom_rules = append(shoot_custom_rules, cr)
+		}
+	}
+	falcoChartValues["shoot_custom_rules"] = shoot_custom_rules
+	falcoChartValues["rules_files_source"] = rules_files
 	return nil
 }
 
@@ -540,6 +566,10 @@ func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoSer
 	}
 	var selectedConfigMaps []customRuleRef
 	for _, customRule := range *falcoServiceConfig.Rules.CustomRules {
+		if customRule.ResourceName == "" {
+			// ignore shoot configmap rules here
+			continue
+		}
 		if configMapName, ok := allConfigMaps[customRule.ResourceName]; ok {
 			cr := customRuleRef{
 				RefName:       customRule.ResourceName,
