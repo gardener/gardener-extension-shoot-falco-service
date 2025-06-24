@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	semver3 "github.com/Masterminds/semver/v3"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/go-logr/logr"
@@ -183,8 +184,22 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 	}
 
-	falcosidekickConfig := make(map[string]interface{})
-	falcosidekickConfig["enabled"] = false
+	falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	falcosidekickConfig := map[string]interface{}{
+		"image": map[string]string{
+			"image": falcosidekickImage,
+		},
+		"enabled": false,
+	}
 
 	var falcosidekickCerts map[string]string
 	if len(falcoOutputConfigs) > 0 {
@@ -194,14 +209,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 		customFields := map[string]string{
 			"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
-		}
-		falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
-		if err != nil {
-			return nil, err
-		}
-		falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
-		if err != nil {
-			return nil, err
 		}
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
 		for _, outputConfig := range falcoOutputConfigs {
@@ -229,8 +236,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"networking.gardener.cloud/to-falcosidekick": "allowed",
 		},
 		"priorityClassName": *c.config.Falco.PriorityClassName,
-		"driver": map[string]string{
-			"kind": "modern-bpf",
+		"driver": map[string]any{
+			"kind": "modern_ebpf",
+			"loader": map[string]bool{
+				"enabled": false,
+			},
 		},
 		"image": map[string]string{
 			"image": falcoImage,
@@ -243,6 +253,12 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"enabled": false,
 			},
 			"docker": map[string]bool{
+				"enabled": false,
+			},
+			"containerd": map[string]bool{
+				"enabled": true,
+			},
+			"containerEngine": map[string]bool{
 				"enabled": false,
 			},
 		},
@@ -296,6 +312,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		return nil, err
 	}
 	if err := c.generateHeartbeatRule(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+		return nil, err
+	}
+	if err := c.enableContainerPlugin(falcoChartValues, falcoVersion); err != nil {
 		return nil, err
 	}
 	return falcoChartValues, nil
@@ -365,6 +384,19 @@ func (c *ConfigBuilder) generateHeartbeatRule(falcoChartValues map[string]interf
 			return err
 		}
 		falcoChartValues["heartbeatRule"] = r
+	}
+	return nil
+}
+
+func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interface{}, falcoVersion *string) error {
+	constraint, _ := semver3.NewConstraint(">= 0.41.2")
+	v, err := semver3.NewVersion(*falcoVersion)
+	if err != nil {
+		return fmt.Errorf("invalid falco version %s: %w", *falcoVersion, err)
+	}
+	if constraint.Check(v) {
+		falcoChartValues["collectors"].(map[string]any)["containerEngine"].(map[string]bool)["enabled"] = true
+		falcoChartValues["collectors"].(map[string]any)["containerd"].(map[string]bool)["enabled"] = false
 	}
 	return nil
 }
