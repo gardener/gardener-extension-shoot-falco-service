@@ -424,8 +424,8 @@ spec:
       {{- $securityContext := set $securityContext "privileged" true -}}
     {{- end -}}
   {{- end -}}
-  {{- if eq .Values.driver.kind "modern-bpf" -}}
-    {{- if .Values.driver.modern_bpf.leastPrivileged -}}
+  {{- if (or (eq .Values.driver.kind "modern_ebpf") (eq .Values.driver.kind "modern-bpf")) -}}
+    {{- if .Values.driver.modernEbpf.leastPrivileged -}}
       {{- $securityContext := set $securityContext "capabilities" (dict "add" (list "BPF" "SYS_RESOURCE" "PERFMON" "SYS_PTRACE")) -}}
     {{- else -}}
       {{- $securityContext := set $securityContext "privileged" true -}}

@@ -202,11 +202,11 @@ driver:
     # Read more on that here: https://falco.org/docs/event-sources/kernel/#least-privileged-mode-1
     leastPrivileged: false
   # -- Configuration section for modern bpf driver.
-  modern_bpf:
+  modernEbpf:
     # -- Constrain Falco with capabilities instead of running a privileged container.
     # Ensure the modern bpf driver is enabled (i.e., setting the `driver.kind` option to `modern-bpf`).
     # Capabilities used: {CAP_SYS_RESOURCE, CAP_BPF, CAP_PERFMON, CAP_SYS_PTRACE}.
-    # Read more on that here: https://falco.org/docs/event-sources/kernel/#least-privileged-mode-2
+    # Read more on that here: https://falco.org/docs/setup/container/#docker-least-privileged-ebpf-probe
     leastPrivileged: false
     # -- bufSizePreset determines the size of the shared space between Falco and its drivers.
     # This shared space serves as a temporary storage for syscall events.
