@@ -11,6 +11,10 @@ reviewers:
 
 # GEP-27: Falco Extension - an extension to deploy and manage Falco in shoot clusters
 
+Note: this is the original enhancement proposal for the Falco extension. It 
+is kept for reference purposes only. The actual implemenetation has 
+diverged from this original proposal.
+
 ## Table of Contents
 
 - [Summary](#summary)
