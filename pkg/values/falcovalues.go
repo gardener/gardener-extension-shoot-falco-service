@@ -183,8 +183,22 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		}
 	}
 
-	falcosidekickConfig := make(map[string]interface{})
-	falcosidekickConfig["enabled"] = false
+	falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	falcosidekickConfig := map[string]any{
+		"image": map[string]string{
+			"image": falcosidekickImage,
+		},
+		"enabled": false,
+	}
 
 	var falcosidekickCerts map[string]string
 	if len(falcoOutputConfigs) > 0 {
@@ -192,21 +206,16 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		if err != nil {
 			return nil, err
 		}
+
 		customFields := map[string]string{
 			"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
 		}
-		falcoSidekickVersion, err := c.getDefaultFalcosidekickVersion()
-		if err != nil {
-			return nil, err
-		}
-		falcosidekickImage, err := c.getImageForVersion("falcosidekick", falcoSidekickVersion)
-		if err != nil {
-			return nil, err
-		}
+
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
 		for _, outputConfig := range falcoOutputConfigs {
-			falcosidekickConfig["config"].(map[string]interface{})[outputConfig.key] = outputConfig.value
+			falcosidekickConfig["config"].(map[string]any)[outputConfig.key] = outputConfig.value
 		}
+
 		falcosidekickCerts = map[string]string{
 			"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
 			"client_ca_crt": string(secrets.EncodeCertificate(cas.ClientCaCert)),
