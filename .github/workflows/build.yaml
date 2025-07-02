@@ -1,0 +1,164 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+        default: snapshot
+        description: |
+          the mode to use. either `snapshot` or `release`. Will affect effective version, as well
+          as target-oci-registry.
+
+jobs:
+  prepare:
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    with:
+      mode: ${{ inputs.mode }}
+      version-commit-callback-action-path:
+    permissions:
+      contents: read
+
+  oci-images:
+    name: Build OCI-Images
+    needs:
+      - prepare
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    secrets: inherit
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    strategy:
+      matrix:
+        args:
+          - name: gardener-extension-shoot-falco-service
+            target: gardener-extension-shoot-falco-service
+            oci-repository: gardener/extensions/shoot-falco-service
+          - name: gardener-extension-admission-shoot-falco-service
+            target: gardener-extension-admission-shoot-falco-service
+            oci-repository: gardener/extensions/shoot-falco-service
+    with:
+      name: ${{ matrix.args.name }}
+      version: ${{ needs.prepare.outputs.version }}
+      target: ${{ matrix.args.target }}
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: ${{ matrix.args.oci-repository }}
+      oci-platforms: linux/amd64,linux/arm64
+
+  helmcharts:
+    name: Build Helmcharts
+    needs:
+      - prepare
+      - oci-images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
+    strategy:
+      matrix:
+        args:
+          - name: shoot-falco-service
+            dir: charts/gardener-extension-shoot-falco-service
+            oci-repository: charts/gardener/extensions
+            ocm-mappings:
+              - ref: ocm-resource:gardener-extension-shoot-falco-service.repository
+                attribute: image.repository
+              - ref: ocm-resource:gardener-extension-shoot-falco-service.tag
+                attribute: image.tag
+          - name: shoot-falco-service-admission-application
+            dir: charts/gardener-extension-admission-shoot-falco-service/charts/application
+            oci-repository: charts/gardener/extensions
+            ocm-mappings:
+              - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
+                attribute: image.repository
+              - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
+                attribute: image.tag
+          - name: shoot-falco-service-admission-runtime
+            dir: charts/gardener-extension-admission-shoot-falco-service/charts/runtime
+            oci-repository: charts/gardener/extensions
+            ocm-mappings:
+              - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.repository
+                attribute: image.repository
+              - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
+                attribute: image.tag
+
+    with:
+      name: ${{ matrix.args.name }}
+      dir: ${{ matrix.args.dir }}
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: ${{ matrix.args.oci-repository }}
+      ocm-mappings: ${{ toJSON(matrix.args.ocm-mappings) }}
+
+  export-falco-files:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: prepare
+        run: |
+          set -eu
+          mkdir /tmp/blobs.d
+          cp falco/falco-profile.yaml /tmp/blobs.d/
+          tar czf /tmp/blobs.d/falco-rules.tar.gz -C falco/rules .
+          mv crds falco-crds
+          tar czf /tmp/blobs.d/falco-crds.tar.gz falco-crds
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          ocm-resources: |
+            - name: falcoprofile
+              relation: local
+              access:
+                type: localBlob
+                localReference: falco-profile.yaml
+            - name: falco-rules
+              relation: local
+              access:
+                type: localBlob
+                localReference: falco-rules.tar.gz
+            - name: falco-crds
+              relation: local
+              access:
+                type: localBlob
+                localReference: falco-crds.tar.gz
+          blobs-directory: /tmp/blobs.d
+
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - name: run-verify
+        run: |
+          set -eu
+          .ci/verify
+          # verify calls `make sast-report`, which generates `gosec-report.sarif`
+          mkdir /tmp/blobs.d
+          tar czf /tmp/blobs.d/gosec-report.tar.gz gosec-report.sarif
+      - name: add-sast-report-to-component-descriptor
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          blobs-directory: /tmp/blobs.d
+          ocm-resources: |
+            name: gosec-report
+            relation: local
+            access:
+              type: localBlob
+              localReference: gosec-report.tar.gz
+            labels:
+              - name: gardener.cloud/purposes
+                value:
+                  - lint
+                  - sast
+                  - gosec
+              - name: gardener.cloud/comment
+                value: |
+                  we use gosec (linter) for SAST scans
+                  see: https://github.com/securego/gosec
