@@ -138,6 +138,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 
 func autoConvert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *service.CustomRule, s conversion.Scope) error {
 	out.ResourceName = in.ResourceName
+	out.ShootConfigMap = in.ShootConfigMap
 	return nil
 }
 
@@ -148,6 +149,7 @@ func Convert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *serv
 
 func autoConvert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, out *CustomRule, s conversion.Scope) error {
 	out.ResourceName = in.ResourceName
+	out.ShootConfigMap = in.ShootConfigMap
 	return nil
 }
 

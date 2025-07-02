@@ -108,6 +108,25 @@ var (
 			},
 		},
 	}
+
+	shootExtenstionShootCustomRules = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			CustomRules: &[]service.CustomRule{
+				{
+					ResourceName: "rules1",
+				},
+				{
+					ShootConfigMap: "my-shoot-configmap",
+				},
+			},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "logging",
+			},
+		},
+	}
 	falcoProfileManager = profile.GetDummyFalcoProfileManager(
 		&map[string]profile.FalcoVersion{
 			"0.38.0": {
@@ -639,25 +658,55 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(err.Error()).To(Equal("too many custom rule files in configmap \"ref-too-many-rule-files\""))
 	})
 
-	// It("Test custom webhook functionality", func(ctx SpecContext) {
+	It("Test shoot custom rules", func(ctx SpecContext) {
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtenstionShootCustomRules)
+		Expect(err).To(BeNil())
+		//		_, err := json.MarshalIndent((values), "", "    ")
+		//		Expect(err).To(BeNil())
+		fmt.Println(values)
+		scr := values["shoot_custom_rules"].([]map[string]string)
+		Expect(len(scr)).To(Equal(1))
 
-	// 	values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhook)
-	// 	Expect(err).To(BeNil())
-	// 	js, err := json.MarshalIndent((values), "", "    ")
-	// 	Expect(err).To(BeNil())
-	// 	Expect(len(js)).To(BeNumerically(">", 100))
-	// 	// fmt.Println(string(js))
-	// 	config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		// make sure configmap is referenced properly in values
+		Expect(scr[0]["name"]).To(Equal("my-shoot-configmap"))
 
-	// 	Expect(config).To(HaveKey("webhook"))
-	// 	webhook := config["webhook"].(map[string]interface{})
-	// 	Expect(webhook).To(HaveKey("address"))
-	// 	Expect(webhook["address"].(string)).To(Equal("https://webhook.example.com"))
-	// 	Expect(webhook).To(HaveKey("checkcert"))
-	// 	Expect(webhook["checkcert"].(bool)).To(BeTrue())
-	// 	Expect(webhook).To(HaveKey("customheaders"))
-	// 	Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
-	// })
+		// render chart and check if the values are set correctly
+		renderer, err := util.NewChartRendererForShoot("1.30.2")
+		Expect(err).To(BeNil())
+		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
+		Expect(err).To(BeNil())
+
+		falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
+		Expect(falcoDaemonset).NotTo(BeNil())
+		fmt.Println(falcoDaemonset.Content)
+		ds := appsv1.DaemonSet{}
+		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
+		Expect(err).To(BeNil())
+
+		volumes := ds.Spec.Template.Spec.Volumes
+		var foundVolume *corev1.Volume
+		for _, v := range volumes {
+			if v.Name == "shoot-custom-rules-my-shoot-configmap" {
+				foundVolume = &v
+			}
+		}
+		Expect(foundVolume).NotTo(BeNil())
+		Expect(foundVolume.Projected).NotTo(BeNil())
+		Expect(*foundVolume.Projected.DefaultMode).To(Equal(int32(0644)))
+		Expect(len(foundVolume.Projected.Sources)).To(Equal(1))
+		Expect(foundVolume.Projected.Sources[0].ConfigMap).NotTo(BeNil())
+		Expect(foundVolume.Projected.Sources[0].ConfigMap.Name).To(Equal("my-shoot-configmap"))
+
+		volumeMounts := ds.Spec.Template.Spec.Containers[0].VolumeMounts
+		var foundVolumeMount *corev1.VolumeMount
+		for _, vm := range volumeMounts {
+			if vm.Name == "shoot-custom-rules-my-shoot-configmap" {
+				foundVolumeMount = &vm
+			}
+		}
+		Expect(foundVolumeMount).NotTo(BeNil())
+		Expect(foundVolumeMount.MountPath).To(Equal("/etc/falco/shoot-custom-rules/my-shoot-configmap"))
+	})
 
 	It("Test custom webhook functionality with secret", func(ctx SpecContext) {
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)

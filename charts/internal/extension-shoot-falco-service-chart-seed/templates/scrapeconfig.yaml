@@ -20,7 +20,7 @@ spec:
     namespaces:
       names:
       - kube-system
-    role: endpoints
+    role: Endpoints
     tlsConfig:
       ca: {}
       cert: {}

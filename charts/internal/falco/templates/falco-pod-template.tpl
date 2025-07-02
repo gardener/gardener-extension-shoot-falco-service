@@ -216,6 +216,10 @@ spec:
         - mountPath: /etc/falco/rules.d
           name: rules-volume
           readOnly: true
+        {{- range $rulesConfigMap := $.Values.shoot_custom_rules }}
+        - mountPath: {{ printf "/etc/falco/shoot-custom-rules/%s" $rulesConfigMap.name }}
+          name: {{ printf "shoot-custom-rules-%s" $rulesConfigMap.name }}
+        {{- end }}
   {{- if .Values.heartbeatRule }}
     - name: falco-heartbeat
       image: {{ include "falcoheartbeat.image" . }}
@@ -351,6 +355,14 @@ spec:
         - configMap:
             name: falco-custom-rules
         {{- end }}
+    {{- range $rulesConfigMap := $.Values.shoot_custom_rules }}
+    - name: {{ printf "shoot-custom-rules-%s" $rulesConfigMap.name }}
+      projected:
+        defaultMode: 0644
+        sources:
+        - configMap:
+            name: {{ $rulesConfigMap.name }}
+    {{- end }}
     {{- if or .Values.certs.existingSecret (and .Values.certs.server.key .Values.certs.server.crt .Values.certs.ca.crt) }}
     - name: certs-volume
       secret:

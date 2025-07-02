@@ -138,6 +138,16 @@ string
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>shootConfigMap</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.Destination">Destination

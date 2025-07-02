@@ -47,7 +47,8 @@ type Rules struct {
 }
 
 type CustomRule struct {
-	ResourceName string `json:"resourceName,omitempty"`
+	ResourceName   string `json:"resourceName,omitempty"`
+	ShootConfigMap string `json:"shootConfigMap,omitempty"`
 }
 
 type FalcoCtl struct {
