@@ -97,7 +97,7 @@ resources:
   # If you are enabling more than one source in falco, than consider to increase
   # the cpu limits.
   limits:
-    cpu: 1000m
+    # cpu: 1000m
     memory: 1024Mi
 # -- Selectors used to deploy Falco on a given node/nodes.
 nodeSelector: {}
