@@ -50,7 +50,7 @@ podLabels: {}
 podPriorityClassName:
 
 # -- Set securityContext for the pods
-# These security settings are overriden by the ones specified for the specific
+# These security settings are overridden by the ones specified for the specific
 # containers when there is overlap.
 podSecurityContext: {}
 

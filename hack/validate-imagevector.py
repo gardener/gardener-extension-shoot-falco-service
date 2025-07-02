@@ -10,7 +10,6 @@ Verify whehter images are available on docker hub
 
 
 def check_image(repository: str, tag: str, name: str) -> bool:
-    
     url = f"https://hub.docker.com/v2/repositories/{repository}/tags/{tag}/"
     try:
         response = urllib.request.urlopen(url)
