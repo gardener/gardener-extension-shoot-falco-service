@@ -186,5 +186,5 @@ validate-falco-rules:
 verify: check format test sast validate-imagevector spell
 
 .PHONY: verify-extended
-verify-extended: check-generate check format validate-imagevector generate-profile test sast-report
+verify-extended: check-generate check format validate-imagevector generate-profile test sast-report spell
 #verify-extended: check-generate check format test test-cov test-clean
