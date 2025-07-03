@@ -115,7 +115,7 @@ func chooseHighestVersionLowerThanCurrent(version string, versions map[string]pr
 		return nil, fmt.Errorf("could not parse current version %s", version)
 	}
 
-	// if possible return higest version lower than current
+	// if possible return highest version lower than current
 	incumbent := sortedVersions[0]
 	for _, lowest := range sortedVersions[1:] {
 		if lowest.GreaterThan(currentVersion) {

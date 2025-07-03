@@ -196,7 +196,7 @@ Get cluster name
 {{- end -}}
 
 {{/*
-Get port from .Values.falco.grpc.bind_addres.
+Get port from .Values.falco.grpc.bind_address.
 */}}
 {{- define "grpc.port" -}}
 {{- $error := "unable to extract listenPort from .Values.falco.grpc.bind_address. Make sure it is in the correct format" -}}
