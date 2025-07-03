@@ -46,6 +46,9 @@ endif
 TOOLS_DIR := hack/tools
 include $(GARDENER_HACK_DIR)/tools.mk
 
+GO_MISSPELL := $(TOOLS_BIN_DIR)/misspell
+GO_MISSPELL_VERSION ?= v0.7.0
+
 .PHONY: start
 start:
 	@LEADER_ELECTION_NAMESPACE=garden go run \
@@ -127,9 +130,15 @@ check: $(GOIMPORTS) $(GOLANGCI_LINT) $(HELM) $(YQ)
 	@bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/...  ./imagevector/... ./falco/...
 	@bash $(GARDENER_HACK_DIR)/check-charts.sh ./charts
 
+$(GO_MISSPELL):  $(call tool_version_file,$(GO_MISSPELL),$(GO_MISSPELL_VERSION))
+	GOBIN=$(abspath $(TOOLS_BIN_DIR)) go install github.com/golangci/misspell/cmd/misspell@$(GO_MISSPELL_VERSION)
+
+spell: $(GO_MISSPELL)
+	$(GO_MISSPELL) -error ./docs ./pkg ./cmd ./crds ./rules ./charts
+
 .PHONY: generate-controller-registration
 generate-controller-registration:
-	@bash $(HACK_DIR)/generate-controller-registration.sh extension-shoot-falco charts/$(EXTENSION_PREFIX)-$(NAME) 0.0.1 example/ControllerRegistration.yaml 
+	@bash $(HACK_DIR)/generate-controller-registration.sh extension-shoot-falco charts/$(EXTENSION_PREFIX)-$(NAME) 0.0.1 example/ControllerRegistration.yaml
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(HELM) $(MOCKGEN) $(YQ) $(VGOPATH)
@@ -174,7 +183,7 @@ validate-falco-rules:
 	$(HACK_DIR)/validate-falco-rules falco/falco-profile.yaml falco/rules
 
 .PHONY: verify
-verify: check format test sast validate-imagevector
+verify: check format test sast validate-imagevector spell
 
 .PHONY: verify-extended
 verify-extended: check-generate check format validate-imagevector generate-profile test sast-report
