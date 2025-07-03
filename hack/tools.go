@@ -14,7 +14,6 @@ import (
 	_ "github.com/gardener/gardener/hack/api-reference/template"
 
 	_ "github.com/ahmetb/gen-crd-api-reference-docs"
-	- "github.com/golangci/misspell/cmd/misspell"
 	_ "golang.org/x/tools/cmd/goimports"
 	_ "k8s.io/code-generator"
 )
