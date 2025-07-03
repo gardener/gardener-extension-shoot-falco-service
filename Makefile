@@ -134,7 +134,7 @@ $(GO_MISSPELL):  $(call tool_version_file,$(GO_MISSPELL),$(GO_MISSPELL_VERSION))
 	GOBIN=$(abspath $(TOOLS_BIN_DIR)) go install github.com/golangci/misspell/cmd/misspell@$(GO_MISSPELL_VERSION)
 
 spell: $(GO_MISSPELL)
-	$(GO_MISSPELL) -error ./docs ./pkg ./cmd ./crds ./rules ./charts
+	@bash $(HACK_DIR)/check-spell.sh $(GO_MISSPELL)
 
 .PHONY: generate-controller-registration
 generate-controller-registration:
