@@ -68,7 +68,7 @@ jobs:
                 attribute: image.repository
               - ref: ocm-resource:gardener-extension-shoot-falco-service.tag
                 attribute: image.tag
-          - name: shoot-falco-service-admission-application
+          - name: admission-shoot-falco-service-application
             dir: charts/gardener-extension-admission-shoot-falco-service/charts/application
             oci-repository: charts/gardener/extensions
             ocm-mappings:
@@ -76,7 +76,7 @@ jobs:
                 attribute: image.repository
               - ref: ocm-resource:gardener-extension-admission-shoot-falco-service.tag
                 attribute: image.tag
-          - name: shoot-falco-service-admission-runtime
+          - name: admission-shoot-falco-service-runtime
             dir: charts/gardener-extension-admission-shoot-falco-service/charts/runtime
             oci-repository: charts/gardener/extensions
             ocm-mappings:
