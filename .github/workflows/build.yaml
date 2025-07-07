@@ -38,7 +38,7 @@ jobs:
             oci-repository: gardener/extensions/shoot-falco-service
           - name: gardener-extension-admission-shoot-falco-service
             target: gardener-extension-admission-shoot-falco-service
-            oci-repository: gardener/extensions/shoot-falco-service
+            oci-repository: gardener/extensions/admission-shoot-falco-service
     with:
       name: ${{ matrix.args.name }}
       version: ${{ needs.prepare.outputs.version }}
