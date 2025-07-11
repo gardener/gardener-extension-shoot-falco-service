@@ -1,4 +1,4 @@
-# [Gardner Extension for Falco](https://gardener.cloud)
+# [Gardener Extension for Falco](https://gardener.cloud)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/gardener/gardener-extension-shoot-falco-service)](https://goreportcard.com/report/github.com/gardener/gardener-extension-shoot-falco-service)
 [![REUSE status](https://api.reuse.software/badge/github.com/gardener/gardener-extension-shoot-falco-service)](https://api.reuse.software/info/github.com/gardener/gardener-extension-shoot-falco-service)
