@@ -53,7 +53,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, nil
 	}
 
-	// Disbale for testing
 	requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
 	if !mustMaintainNow(shoot, r.Clock) {
 		logger.Info("Skipping Shoot because it doesn't need to be maintained now")

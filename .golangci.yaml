@@ -11,6 +11,8 @@ linters:
       - std-error-handling
     paths:
       - "zz_generated\\..*\\.go$"
+  enable:
+    - misspell
 formatters:
   exclusions:
     generated: lax

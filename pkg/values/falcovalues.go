@@ -194,7 +194,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		return nil, err
 	}
 
-	falcosidekickConfig := map[string]interface{}{
+	falcosidekickConfig := map[string]any{
 		"image": map[string]string{
 			"image": falcosidekickImage,
 		},
@@ -207,13 +207,16 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		if err != nil {
 			return nil, err
 		}
+
 		customFields := map[string]string{
 			"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
 		}
+
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
 		for _, outputConfig := range falcoOutputConfigs {
-			falcosidekickConfig["config"].(map[string]interface{})[outputConfig.key] = outputConfig.value
+			falcosidekickConfig["config"].(map[string]any)[outputConfig.key] = outputConfig.value
 		}
+
 		falcosidekickCerts = map[string]string{
 			"server_ca_crt": string(secrets.EncodeCertificate(cas.ServerCaCert)),
 			"client_ca_crt": string(secrets.EncodeCertificate(cas.ClientCaCert)),

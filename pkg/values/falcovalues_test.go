@@ -1195,7 +1195,7 @@ var _ = Describe("decompressRulesFile", func() {
 	It("should return an error for broken gzip data", func() {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
-		_, err := gz.Write([]byte("valid content for gzip but later destoryed"))
+		_, err := gz.Write([]byte("valid content for gzip but later destroyed"))
 		Expect(err).To(BeNil())
 		gz.Close()
 

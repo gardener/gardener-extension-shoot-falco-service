@@ -557,7 +557,7 @@ func TestSortVersionWithClassification(t *testing.T) {
 	// Check one expired classification
 	sorted, _ = sortVersionsWithClassification(falcoVersions, []string{dummyClassification})
 	if len(sorted) != 1 {
-		t.Errorf("Sort inlcudes expired version")
+		t.Errorf("Sort includes expired version")
 	}
 }
 
