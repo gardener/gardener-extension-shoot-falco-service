@@ -58,8 +58,8 @@ images:
 - name: falco
   sourceRepository: https://github.com/falcosecurity/falco
   repository: falcosecurity/falco
-  tag: 0.41.2
-  version: 0.41.2
+  tag: 0.41.3
+  version: 0.41.3
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
