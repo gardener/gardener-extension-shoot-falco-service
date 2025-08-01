@@ -81,6 +81,7 @@ spec:
         {{- include "falco.securityContext" . | nindent 8 }}
       args:
         - /usr/bin/falco
+        - --unbuffered
         {{- if .Values.gvisor.enabled }}
         - --gvisor-config
         - /gvisor-config/pod-init.json
