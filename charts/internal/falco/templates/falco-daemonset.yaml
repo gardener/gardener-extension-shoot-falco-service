@@ -19,5 +19,5 @@ spec:
   {{- with .Values.controller.daemonset.updateStrategy }}
   updateStrategy:
     {{- toYaml . | nindent 4 }}
-  {{- end }}  
+  {{- end }}
 {{- end }}

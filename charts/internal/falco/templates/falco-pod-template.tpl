@@ -81,6 +81,7 @@ spec:
         {{- include "falco.securityContext" . | nindent 8 }}
       args:
         - /usr/bin/falco
+        - --unbuffered
         {{- if .Values.gvisor.enabled }}
         - --gvisor-config
         - /gvisor-config/pod-init.json
@@ -146,6 +147,7 @@ spec:
           {{- end }}
       {{- end }}
       volumeMounts:
+      {{- include "falco.containerPluginVolumeMounts" . | nindent 8 }}
         - mountPath: /etc/falco/certs
           name: certificates
       {{- if or .Values.falcoctl.artifact.install.enabled .Values.falcoctl.artifact.follow.enabled }}
@@ -182,8 +184,8 @@ spec:
         - mountPath: /host/dev
           name: dev-fs
           readOnly: true
-        - name: sys-fs
-          mountPath: /sys/module/falco
+        - mountPath: /sys/module/falco
+          name: sys-fs
         {{- end }}
         {{- if and .Values.driver.enabled (and (eq .Values.driver.kind "ebpf") (contains "falco-no-driver" .Values.image.repository)) }}
         - name: debugfs
@@ -267,6 +269,7 @@ spec:
     {{- include "falcoctl.initContainer" . | nindent 4 }}
   {{- end }}
   volumes:
+    {{- include "falco.containerPluginVolumes" . | nindent 4 }}
     - name: certificates
       secret:
         secretName: falco-certs
@@ -451,8 +454,8 @@ spec:
       {{- $securityContext := set $securityContext "privileged" true -}}
     {{- end -}}
   {{- end -}}
-  {{- if eq .Values.driver.kind "modern-bpf" -}}
-    {{- if .Values.driver.modern_bpf.leastPrivileged -}}
+  {{- if (or (eq .Values.driver.kind "modern_ebpf") (eq .Values.driver.kind "modern-bpf")) -}}
+    {{- if .Values.driver.modernEbpf.leastPrivileged -}}
       {{- $securityContext := set $securityContext "capabilities" (dict "add" (list "BPF" "SYS_RESOURCE" "PERFMON" "SYS_PTRACE")) -}}
     {{- else -}}
       {{- $securityContext := set $securityContext "privileged" true -}}

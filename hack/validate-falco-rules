@@ -7,12 +7,13 @@
 
 import os
 import sys
-import yaml
 import tempfile
 import subprocess
+import yaml
+import semver
 
 
-falcoyaml = """
+FALCO_YAML = """
 log_level: debug
 log_stderr: true
 log_syslog: true
@@ -28,6 +29,16 @@ time_format_iso_8601: false
 watch_config_files: true
 webserver:
   enabled: false
+"""
+
+FALCO_YAML_PLUGIN = FALCO_YAML + """
+plugins:
+  - name: container
+    # For a summary of config option, see https://github.com/FedeDP/container_plugin?tab=readme-ov-file#configuration
+    library_path: libcontainer.so
+    init_config:
+      label_max_len: 100
+      with_size: false
 """
 
 
@@ -49,28 +60,32 @@ def get_image_for_falco_version(falco_profile, version):
 
 def load_rules(rules_dir, rules_version):
     files = [
-        "falco_rules.yaml", 
-        "falco-incubating_rules.yaml", 
+        "falco_rules.yaml",
+        "falco-incubating_rules.yaml",
         "falco-sandbox_rules.yaml"
-        ]
+    ]
     rules = {}
     for file in files:
         filename = os.path.join(rules_dir, rules_version, file)
-        with open(filename) as f:
+        with open(filename, encoding="utf-8") as f:
             rules[file] = f.read()
     return rules
 
 
-def build_config_dir(rules_files):
+def build_config_dir(rules_files, falco_version):
+    if semver.compare("0.41.0", falco_version) <= 0:
+        falco_yaml = FALCO_YAML_PLUGIN
+    else:
+        falco_yaml = FALCO_YAML
     temp_dir = tempfile.TemporaryDirectory()
     rules_dir = os.path.join(temp_dir.name, "rules.d")
     os.mkdir(rules_dir)
-    falcoconfig = os.path.join(temp_dir.name, "falco.yaml")    
-    with open(falcoconfig, "w") as f:
-        f.write(falcoyaml)
+    falcoconfig = os.path.join(temp_dir.name, "falco.yaml")
+    with open(falcoconfig, "w", encoding="utf-8") as f:
+        f.write(falco_yaml)
     for k, v in rules_files.items():
         fname = os.path.join(temp_dir.name, k)
-        with open(fname, "w") as f:
+        with open(fname, "w", encoding="utf-8") as f:
             f.write(v)
     return temp_dir
 
@@ -79,12 +94,12 @@ def run_validate(config_dir, repo, tag):
     print("Validating rules for " + repo + ":" + tag)
     res = subprocess.run([
         "docker", "run", "-t", "-v",
-        config_dir.name + ":/etc/falco", 
+        config_dir.name + ":/etc/falco",
         repo + ":" + tag,
-        "falco", "-c", "/etc/falco/falco.yaml", 
-        "--validate", "/etc/falco/falco_rules.yaml", 
+        "falco", "-c", "/etc/falco/falco.yaml",
+        "--validate", "/etc/falco/falco_rules.yaml",
         "--validate", "/etc/falco/falco-incubating_rules.yaml",
-        "--validate", "/etc/falco/falco-sandbox_rules.yaml" 
+        "--validate", "/etc/falco/falco-sandbox_rules.yaml"
     ])
     if res.returncode != 0:
         return True
@@ -94,7 +109,7 @@ def run_validate(config_dir, repo, tag):
 
 def validate_rules(falco_profile, rules_dir, falco_version, rules_version):
     rules_files = load_rules(rules_dir, rules_version)
-    config_dir = build_config_dir(rules_files)
+    config_dir = build_config_dir(rules_files, falco_version)
     repo, tag = get_image_for_falco_version(falco_profile, falco_version)
     return run_validate(config_dir, repo, tag)
 
@@ -103,10 +118,10 @@ def main():
     if len(sys.argv) != 3:
         sys.stderr.write(
             "usage: validate-falco-rules <falco-profile> <rules-dir>\n"
-            )
+        )
         sys.exit(1)
 
-    with open(sys.argv[1]) as f:
+    with open(sys.argv[1], encoding="utf-8") as f:
         falco_profile = yaml.safe_load(f)
 
     rules_dir = sys.argv[2]

@@ -55,3 +55,18 @@ images:
       confidentiality_requirement: 'low'
       integrity_requirement: 'low'
       availability_requirement: 'low'
+- name: falco
+  sourceRepository: https://github.com/falcosecurity/falco
+  repository: falcosecurity/falco
+  tag: 0.41.3
+  version: 0.41.3
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'private'
+      authentication_enforced: true
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'low'
+      integrity_requirement: 'low'
+      availability_requirement: 'low'
+

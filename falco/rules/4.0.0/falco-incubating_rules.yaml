@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright (C) 2023 The Falco Authors.
+# Copyright (C) 2025 The Falco Authors.
 #
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,11 @@
 
 # Starting with version 8, the Falco engine supports exceptions.
 # However the Falco rules file does not use them by default.
-- required_engine_version: 0.31.0
+- required_engine_version: 0.50.0
+
+- required_plugin_versions:
+    - name: container
+      version: 0.2.2
 
 - macro: open_write
   condition: (evt.type in (open,openat,openat2) and evt.is_open_write=true and fd.typechar='f' and fd.num>=0)
@@ -63,7 +67,7 @@
 # on the identity of the process performing an action such as opening
 # a file, etc., we require that the process name be known.
 - macro: proc_name_exists
-  condition: (proc.name!="<NA>")
+  condition: (not proc.name in ("<NA>","N/A"))
 
 - macro: rename
   condition: (evt.type in (rename, renameat, renameat2))
@@ -265,7 +269,7 @@
     and not proc.name in (shell_binaries)
     and not exe_running_docker_save
     and not user_known_shell_config_modifiers
-  output: A shell configuration file has been modified (file=%fd.name pcmdline=%proc.pcmdline evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: A shell configuration file has been modified | file=%fd.name pcmdline=%proc.pcmdline evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority:
     WARNING
   tags: [maturity_incubating, host, container, filesystem, mitre_persistence, T1546.004]
@@ -281,19 +285,12 @@
     ((open_write and fd.name startswith /etc/cron) or
      (spawned_process and proc.name = "crontab")) 
     and not user_known_cron_jobs
-  output: Cron jobs were scheduled to run (file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Cron jobs were scheduled to run | file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority:
     NOTICE
   tags: [maturity_incubating, host, container, filesystem, mitre_execution, T1053.003]
 
 # Use this to test whether the event occurred within a container.
-#
-# When displaying container information in the output field, use
-# %container.info, without any leading term (file=%fd.name
-# %container.info user=%user.name user_loginuid=%user.loginuid, and not file=%fd.name
-# container=%container.info user=%user.name user_loginuid=%user.loginuid). The output will change
-# based on the context and whether or not -pk/-pm/-pc was specified on
-# the command line.
 - macro: container
   condition: (container.id != host)
 
@@ -377,12 +374,14 @@
      and (user_ssh_directory or fd.name startswith /root/.ssh)
      and not user_known_read_ssh_information_activities 
      and not proc.name in (ssh_binaries)
-  output: ssh-related file/directory read by non-ssh program (file=%fd.name pcmdline=%proc.pcmdline evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: ssh-related file/directory read by non-ssh program | file=%fd.name pcmdline=%proc.pcmdline evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: ERROR
   tags: [maturity_incubating, host, container, filesystem, mitre_collection, T1005]
 
 - macro: calico_node
-  condition: (container.image.repository endswith calico/node and proc.name=calico-node)
+  # condition: (container.image.repository endswith calico/node and proc.name=calico-node)
+  # Match on proc.name only, since container.image.repository is not present in the events
+  condition: (proc.name=calico-node)
 
 - macro: postgres_running_wal_e
   condition: (proc.pname=postgres and (proc.cmdline startswith "sh -c envdir /etc/wal-e.d/env /usr/local/bin/wal-e" or proc.cmdline startswith "sh -c envdir \"/run/etc/wal-e.d/env\" wal-g wal-push"))
@@ -401,7 +400,7 @@
     and not proc.name in (db_server_binaries)
     and not postgres_running_wal_e
     and not user_known_db_spawned_processes
-  output: Database-related program spawned process other than itself (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Database-related program spawned process other than itself | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, host, container, process, database, mitre_execution, T1190]
 
@@ -442,7 +441,7 @@
     and not calico_node
     and not weaveworks_scope
     and not user_known_change_thread_namespace_activities
-  output: Namespace change (setns) by unexpected program (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Namespace change (setns) by unexpected program | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, host, container, process, mitre_privilege_escalation, T1611]
 
@@ -456,7 +455,7 @@
     evt.type=unshare and evt.dir=< 
     and container 
     and not thread.cap_permitted contains CAP_SYS_ADMIN
-  output: Change namespace privileges via unshare (res=%evt.res evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Change namespace privileges via unshare | res=%evt.res evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, container, mitre_privilege_escalation, T1611]
 
@@ -559,7 +558,6 @@
     - public.ecr.aws/falcosecurity/falco-no-driver
 
 # These container images are allowed to run with --privileged and full set of capabilities
-# TODO: Remove k8s.gcr.io reference after 01/Dec/2023
 - list: falco_privileged_images
   items: [
     falco_containers,
@@ -578,16 +576,12 @@
     gke.gcr.io/netd-amd64,
     gke.gcr.io/watcher-daemonset,
     gcr.io/google-containers/prometheus-to-sd,
-    k8s.gcr.io/ip-masq-agent-amd64,
-    k8s.gcr.io/kube-proxy,
-    k8s.gcr.io/prometheus-to-sd,
     registry.k8s.io/ip-masq-agent-amd64,
     registry.k8s.io/kube-proxy,
     registry.k8s.io/prometheus-to-sd,
     quay.io/calico/node,
     sysdig/sysdig,
     sematext_images,
-    k8s.gcr.io/dns/k8s-dns-node-cache,
     registry.k8s.io/dns/k8s-dns-node-cache,
     mcr.microsoft.com/oss/kubernetes/kube-proxy
   ]
@@ -623,7 +617,7 @@
     and not falco_privileged_containers
     and not user_privileged_containers
     and not redhat_image
-  output: Privileged container started (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Privileged container started | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: INFO
   tags: [maturity_incubating, container, cis, mitre_execution, T1610, PCI_DSS_10.2.5]
 
@@ -652,7 +646,7 @@
     and excessively_capable_container
     and not falco_privileged_containers
     and not user_privileged_containers
-  output: Excessively capable container started (cap_permitted=%thread.cap_permitted evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Excessively capable container started | cap_permitted=%thread.cap_permitted evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: INFO
   tags: [maturity_incubating, container, cis, mitre_execution, T1610]
 
@@ -673,7 +667,7 @@
     and not proc.name in (known_system_procs_network_activity_binaries)
     and not login_doing_dns_lookup
     and not user_expected_system_procs_network_activity_conditions
-  output: Known system binary sent/received network traffic (connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Known system binary sent/received network traffic | connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=%fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, host, network, process, mitre_execution, T1059]
 
@@ -712,7 +706,7 @@
     and http_proxy_procs 
     and proc.env icontains HTTP_PROXY
     and not allowed_ssh_proxy_env 
-  output: Curl or wget run with disallowed HTTP_PROXY environment variable (env=%proc.env evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Curl or wget run with disallowed HTTP_PROXY environment variable | env=%proc.env evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, host, container, users, mitre_execution, T1204]
 
@@ -752,7 +746,7 @@
     inbound_outbound 
     and fd.l4proto=udp 
     and not expected_udp_traffic
-  output: Unexpected UDP Traffic Seen (connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Unexpected UDP Traffic Seen | connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=%fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, host, container, network, mitre_exfiltration, TA0011]
 
@@ -774,16 +768,16 @@
 # https://github.com/draios/sysdig/issues/954). So in that case, allow
 # a setuid.
 - macro: known_user_in_container
-  condition: (container and user.name != "N/A")
+  condition: (container and not user.name in ("<NA>","N/A",""))
 
 # Add conditions to this macro (probably in a separate file,
 # overwriting this macro) to allow for specific combinations of
 # programs changing users by calling setuid.
 #
-# In this file, it just takes one of the condition in the base macro
-# and repeats it.
+# Add this macro to define a known benign setuid activity for falcosidekick
+# Exclude benign activities for heartbeat event
 - macro: user_known_non_sudo_setuid_conditions
-  condition: (user.name=root)
+  condition: (user.name="falcosidekick" and proc.name in (sleep, sed, date, echo))
 
 # sshd, mail programs attempt to setuid to root even when running as non-root. Excluding here to avoid meaningless FPs
 - rule: Non sudo setuid
@@ -804,7 +798,7 @@
     and not java_running_sdjagent
     and not nrpe_becoming_nagios
     and not user_known_non_sudo_setuid_conditions
-  output: Unexpected setuid call by non-sudo, non-root program (arg_uid=%evt.arg.uid evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Unexpected setuid call by non-sudo, non-root program | arg_uid=%evt.arg.uid evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, host, container, users, mitre_privilege_escalation, T1548.001]
 
@@ -836,7 +830,7 @@
     and not run_by_google_accounts_daemon 
     and not chage_list 
     and not user_known_user_management_activities
-  output: User management binary command run outside of container (gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: User management binary command run outside of container | gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, host, users, software_mgmt, mitre_persistence, T1098]
 
@@ -864,7 +858,7 @@
     and not fd.name in (allowed_dev_files)
     and not fd.name startswith /dev/tty
     and not user_known_create_files_below_dev_activities
-  output: File created below /dev by untrusted program (file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: File created below /dev by untrusted program | file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: ERROR
   tags: [maturity_incubating, host, filesystem, mitre_persistence, T1543]
 
@@ -891,7 +885,7 @@
     and container
     and fd.sip="169.254.169.254" 
     and not ec2_metadata_containers
-  output: Outbound connection to EC2 instance metadata service (connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Outbound connection to EC2 instance metadata service | connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=%fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, network, aws, container, mitre_credential_access, T1552.005]
 
@@ -912,7 +906,7 @@
     and fd.sip="169.254.169.254" 
     and not user_known_metadata_access
   enabled: true
-  output: Outbound connection to cloud instance metadata service (connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Outbound connection to cloud instance metadata service | connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=%fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, network, container, mitre_discovery, T1565]
 
@@ -932,12 +926,10 @@
   condition: (never_true)
 
 # Container is supposed to be immutable. Package management should be done in building the image.
-# TODO: Remove k8s.gcr.io reference after 01/Dec/2023
 - macro: pkg_mgmt_in_kube_proxy
   condition: >
     (proc.cmdline startswith "update-alternat"
-    and (container.image.repository = "registry.k8s.io/kube-proxy"
-    or container.image.repository = "k8s.gcr.io/kube-proxy"))
+    and container.image.repository = "registry.k8s.io/kube-proxy")
 
 - rule: Launch Package Management Process in Container
   desc: > 
@@ -953,7 +945,7 @@
     and not package_mgmt_ancestor_procs
     and not user_known_package_manager_in_container
     and not pkg_mgmt_in_kube_proxy
-  output: Package management process launched in container (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Package management process launched in container | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: ERROR
   tags: [maturity_incubating, container, process, software_mgmt, mitre_persistence, T1505]
 
@@ -970,7 +962,7 @@
     and container 
     and network_tool_procs 
     and not user_known_network_tool_activities
-  output: Network tool launched in container (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Network tool launched in container | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, container, network, process, mitre_execution, T1059]
 
@@ -984,7 +976,7 @@
     and not container 
     and network_tool_procs 
     and not user_known_network_tool_activities
-  output: Network tool launched on host (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags)
+  output: Network tool launched on host | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, host, network, process, mitre_execution, T1059]
 
@@ -1030,7 +1022,7 @@
     (modify_shell_history or truncate_shell_history) 
     and not var_lib_docker_filepath 
     and not proc.name in (docker_binaries)
-  output: Shell history deleted or renamed (file=%fd.name name=%evt.arg.name path=%evt.arg.path oldpath=%evt.arg.oldpath evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Shell history deleted or renamed | file=%fd.name name=%evt.arg.name path=%evt.arg.path oldpath=%evt.arg.oldpath evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority:
     WARNING
   tags: [maturity_incubating, host, container, process, filesystem, mitre_defense_evasion, T1070]
@@ -1061,7 +1053,7 @@
     and not proc.name in (user_known_chmod_applications)
     and not exe_running_docker_save
     and not user_known_set_setuid_or_setgid_bit_conditions
-  output: Setuid or setgid bit is set via chmod (fd=%evt.arg.fd filename=%evt.arg.filename mode=%evt.arg.mode evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Setuid or setgid bit is set via chmod | fd=%evt.arg.fd filename=%evt.arg.filename mode=%evt.arg.mode evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority:
     NOTICE
   tags: [maturity_incubating, host, container, process, users, mitre_privilege_escalation, T1548.001]
@@ -1086,7 +1078,7 @@
     and container
     and remote_file_copy_procs
     and not user_known_remote_file_copy_activities
-  output: Remote file copy tool launched in container (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Remote file copy tool launched in container | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, container, network, process, mitre_exfiltration, T1020]
 
@@ -1116,7 +1108,7 @@
     and container 
     and k8s.ns.name in (namespace_scope_network_only_subnet) 
     and not network_local_subnet 
-  output: Network connection outside local subnet (fd_rip_name=%fd.rip.name fd_lip_name=%fd.lip.name fd_cip_name=%fd.cip.name fd_sip_name=%fd.sip.name connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Network connection outside local subnet | fd_rip_name=%fd.rip.name fd_lip_name=%fd.lip.name fd_cip_name=%fd.cip.name fd_sip_name=%fd.sip.name connection=%fd.name lport=%fd.lport rport=%fd.rport fd_type=%fd.type fd_proto=%fd.l4proto evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: WARNING
   tags: [maturity_incubating, container, network, mitre_discovery, T1046, PCI_DSS_6.4.2]
 
@@ -1150,7 +1142,7 @@
     and not known_gke_mount_in_privileged_containers
     and not known_aks_mount_in_privileged_containers
     and not user_known_mount_in_privileged_containers
-  output: Mount was executed inside a privileged container (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Mount was executed inside a privileged container | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: WARNING
   tags: [maturity_incubating, container, cis, filesystem, mitre_privilege_escalation, T1611]
 
@@ -1162,8 +1154,9 @@
 
 # Users should overwrite this macro to specify conditions under which a
 # Custom condition for use of ingress remote file copy tool in container
+# Needs to be added for custom heartbeat event
 - macro: user_known_ingress_remote_file_copy_activities
-  condition: (never_true)
+  condition: (proc.name="wget" and proc.cmdline="wget -qO- http://127.0.0.1:8765/versions")
 
 - macro: curl_download
   condition: (proc.name = curl and
@@ -1182,7 +1175,7 @@
     and container 
     and (ingress_remote_file_copy_procs or curl_download) 
     and not user_known_ingress_remote_file_copy_activities
-  output: Ingress remote file copy tool launched in container (evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Ingress remote file copy tool launched in container | evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, container, network, process, mitre_command_and_control, TA0011]
 
@@ -1203,7 +1196,7 @@
     and container 
     and (fd.name glob /proc/*/environ)
     and not proc.name in (known_binaries_to_read_environment_variables_from_proc_files)
-  output: Environment variables were retrieved from /proc files (file=%fd.name gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Environment variables were retrieved from /proc files | file=%fd.name gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: WARNING
   tags: [maturity_incubating, container, filesystem, process, mitre_discovery, T1083]
 
@@ -1218,7 +1211,7 @@
 # We also let runc:[1:CHILD] count as the parent process, which can occur
 # when we lose events and lose track of state.
 - macro: container_entrypoint
-  condition: (not proc.pname exists or proc.pname in (runc:[0:PARENT], runc:[1:CHILD], runc, docker-runc, exe, docker-runc-cur, containerd-shim, systemd, crio))
+  condition: (not proc.pname exists or proc.pname in (runc:[0:PARENT], runc:[1:CHILD], runc, docker-runc, exe, docker-runc-cur, containerd-shim, systemd, crio, conmon))
 
 - macro: system_level_side_effect_artifacts_kubectl_cp
   condition: (fd.name startswith /etc or 
@@ -1242,7 +1235,7 @@
     and container_entrypoint 
     and proc.tty=0 
     and not system_level_side_effect_artifacts_kubectl_cp
-  output: Exfiltrating Artifacts via Kubernetes Control Plane (file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty %container.info)
+  output: Exfiltrating Artifacts via Kubernetes Control Plane | file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: NOTICE
   tags: [maturity_incubating, container, filesystem, mitre_exfiltration, TA0010]
 
@@ -1259,7 +1252,7 @@
     and (user_ssh_directory or fd.name startswith /root/.ssh)
     and fd.name endswith authorized_keys
     and not proc.name in (ssh_binaries)
-  output: Adding ssh keys to authorized_keys (file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty)
+  output: Adding ssh keys to authorized_keys | file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
   priority: WARNING
   tags: [maturity_incubating, host, filesystem, mitre_persistence, T1098.004]
 
@@ -1278,6 +1271,37 @@
     spawned_process 
     and glibc_tunables_env
   enabled: true
-  output: Process run with suspect environment variable which could be attempting privilege escalation (env=%proc.env evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags %container.info)
+  output: Process run with suspect environment variable which could be attempting privilege escalation | env=%proc.env evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
   priority: NOTICE
   tags: [maturity_incubating, host, container, users, mitre_privilege_escalation, TA0004]
+
+- rule: Backdoored library loaded into SSHD (CVE-2024-3094)
+  desc: This rule detects possible CVE-2024-3094 exploitation when the SSH daemon process loads a vulnerable version of the liblzma library. An attacker could exploit this to interfere with authentication in sshd via systemd, potentially compromising sensitive data or escalating their privileges.
+  condition: > 
+    open_read and 
+    proc.name=sshd and 
+    (fd.name contains "liblzma.so.5.6.0" or fd.name contains "liblzma.so.5.6.1")
+  output: SSHD loaded a backdoored version of liblzma library %fd.name with parent %proc.pname and cmdline %proc.cmdline | process=%proc.name parent=%proc.pname file=%fd.name evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid proc_exepath=%proc.exepath command=%proc.cmdline terminal=%proc.tty exe_flags=%evt.arg.flags
+  priority: WARNING
+  tags: [maturity_incubating, host, container, mitre_initial_access, T1556]
+
+- list: bpf_profiled_binaries
+  items: [falco, bpftool, systemd, runc]
+
+- macro: bpf_profiled_procs
+  condition: (proc.name in (bpf_profiled_binaries))
+
+- rule: BPF Program Not Profiled
+  desc: > 
+    BPF is a kernel technology that can be misused for malicious purposes, like "Linux Kernel Module Injection". This 
+    rule should be considered an auditing rule to notify you of any unprofiled BPF tools running in your environment. 
+    However, it requires customization after profiling your environment. BPF-powered agents make bpf syscalls all the 
+    time, so this rule only sends logs for BPF_PROG_LOAD calls (bpf cmd=5) in the enter event. If you also want to log 
+    whether the syscall failed or succeeded, remove the direction filter and add the evt.arg.res_or_fd output field.
+  condition: >
+    evt.type=bpf and evt.dir=> 
+    and (evt.arg.cmd=5 or evt.arg.cmd=BPF_PROG_LOAD)
+    and not bpf_profiled_procs
+  output: BPF Program Not Profiled | bpf_cmd=%evt.arg.cmd evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+  priority: NOTICE
+  tags: [maturity_incubating, host, container, mitre_persistence, TA0003]
