@@ -107,10 +107,14 @@ affinity: {}
 
 # -- Tolerations to allow Falco to run on Kubernetes masters.
 tolerations:
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/control-plane
+  # - effect: NoSchedule
+  #   key: node-role.kubernetes.io/master
+  # - effect: NoSchedule
+  #   key: node-role.kubernetes.io/control-plane
+  # Add this toleration for Gardener critical components
+  - key: node.gardener.cloud/critical-components-not-ready
+    effect: NoSchedule
+    operator: Exists
 
 # -- Parameters used
 healthChecks:
