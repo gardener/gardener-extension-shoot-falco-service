@@ -191,14 +191,6 @@ spec:
         - name: debugfs
           mountPath: /sys/kernel/debug
         {{- end }}
-        {{- with .Values.collectors }}
-        {{- if .enabled }}
-        {{- if .containerd.enabled }}
-        - mountPath: /host/run/containerd/containerd.sock
-          name: containerd-socket
-        {{- end }}
-        {{- end }}
-        {{- end }}
         - mountPath: /etc/falco/falco.yaml
           name: falco-yaml
           subPath: falco.yaml
@@ -307,15 +299,6 @@ spec:
     - name: debugfs
       hostPath:
         path: /sys/kernel/debug
-    {{- end }}
-    {{- with .Values.collectors }}
-    {{- if .enabled }}
-    {{- if .containerd.enabled }}
-    - name: containerd-socket
-      hostPath:
-        path: {{ .containerd.socket }}
-    {{- end }}
-    {{- end }}
     {{- end }}
     {{- if or .Values.driver.enabled .Values.mounts.enforceProcMount }}
     - name: proc-fs

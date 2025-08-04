@@ -481,7 +481,7 @@ Based on the user input it populates the metrics configuration in the falco conf
 This helper is used to add the container plugin to the falco configuration.
 */}}
 {{ define "falco.containerPlugin" -}}
-{{ if and .Values.driver.enabled .Values.collectors.enabled -}}
+{{ if and .Values.driver.enabled .Values.collectors.enabled .Values.collectors.containerEngine.enabled -}}
 {{ if and (or .Values.collectors.docker.enabled .Values.collectors.crio.enabled .Values.collectors.containerd.enabled) .Values.collectors.containerEngine.enabled -}}
 {{ fail "You can not enable one of the [docker, containerd, crio] collectors configuration and the containerEngine configuration at the same time. Please use the containerEngine configuration since the old configurations are deprecated." }}
 {{ else if or .Values.collectors.docker.enabled .Values.collectors.crio.enabled .Values.collectors.containerd.enabled .Values.collectors.containerEngine.enabled -}}
