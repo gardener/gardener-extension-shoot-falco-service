@@ -230,10 +230,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	destination := c.getDestination(falcoOutputConfigs)
 	falcoChartValues := map[string]interface{}{
 		"clusterId": *cluster.Shoot.Status.ClusterIdentity,
-		"tolerations": []map[string]string{
-			{"effect": "NoSchedule", "operator": "Exists"},
-			{"effect": "NoExecute", "operator": "Exists"},
-		},
 		"podLabels": map[string]string{
 			"networking.gardener.cloud/to-dns":           "allowed",
 			"networking.gardener.cloud/to-falcosidekick": "allowed",
