@@ -47,7 +47,7 @@ This means that the configuration above will be expanded to
 
 # Configuration details
 
-These are all configuration options which are explained below.
+This is the full configuration which is explained in more detail below.
 
 ```yaml
   - type: shoot-falco-service
@@ -56,8 +56,13 @@ These are all configuration options which are explained below.
       kind: FalcoServiceConfig
       # optional, will use the latest version tagged as "supported"
       falcoVersion: 0.40.0
-      # optional, will always default to true
+      # optional, defaults to true
       autoUpdate: true|false
+      # optional
+      nodeSelector:
+        key: value
+      # optional, defaults to false
+      heartbeatEvent: true|false
       rules:
         # standard rules from https://github.com/falcosecurity/rules/tree/main/rules
         standard:
@@ -68,8 +73,8 @@ These are all configuration options which are explained below.
         custom:
         - resourceName: rules1
       destinations:
-        # possible values are: stdout, logging, webhook, central
-        - name: logging
+        # possible values are: stdout, logging, webhook
+        - name: custom
           # options, may be required to configure destination
           resourceSecretName: secret
 ```
@@ -239,6 +244,23 @@ stringData:
     header1: value1
     ...
 ```
+
+## Other Options
+
+The `FalcoServiceConfig` supports additional options:
+
+```yaml
+      # optional
+      nodeSelector:
+        key: value
+        key2: value2
+      # optional, defaults to false
+      heartbeatEvent: true|false
+```
+
+The `nodeSelector` option allows you to specify node selectors for the Falco pods and follows the Kubernetes API [specification](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector). Only nodes matching the specified labels will run the Falco pods.
+
+The `heartbeatEvent` option enables or disables the heartbeat event, which is a periodic event sent by Falco to indicate that it is running and healthy. This can be useful for monitoring purposes.
 
 # Destinations
 
