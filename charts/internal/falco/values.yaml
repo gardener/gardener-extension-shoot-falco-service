@@ -92,7 +92,7 @@ resources:
   # to #falco slack channel for more info about it.
   requests:
     cpu: 100m
-    memory: 1024Mi
+    memory: 512Mi
   # -- Maximum amount of resources that Falco container could get.
   # If you are enabling more than one source in falco, than consider to increase
   # the cpu limits.
