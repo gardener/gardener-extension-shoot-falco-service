@@ -98,7 +98,7 @@ resources:
   # the cpu limits.
   limits:
     # cpu: 1000m
-    memory: 2048Mi
+    memory: 1024Mi
 # -- Selectors used to deploy Falco on a given node/nodes.
 nodeSelector: {}
 
