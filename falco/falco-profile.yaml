@@ -24,7 +24,7 @@ spec:
       rulesVersion: 3.2.0
       version: 0.40.0
     - classification: supported
-      rulesVersion: 4.0.0
+      rulesVersion: 3.2.0
       version: 0.41.3
     falcosidekick:
     - classification: deprecated
