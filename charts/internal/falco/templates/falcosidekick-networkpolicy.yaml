@@ -19,5 +19,25 @@ spec:
       networking.gardener.cloud/to-falcosidekick: allowed
   policyTypes:
   - Egress
-{{- end }} 
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gardener.cloud--allow-to-falcosidekick-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: falco
+    ports:
+    - port: 2801
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      networking.gardener.cloud/from-falco: allowed
+  policyTypes:
+  - Ingress
+{{- end }}
 {{- end }}
