@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/healthcheck/falcohealth"
 )
 
 var (
@@ -44,6 +45,10 @@ func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthc
 			{
 				ConditionType: string(gardencorev1beta1.ShootObservabilityComponentsHealthy),
 				HealthCheck:   general.CheckManagedResource(constants.ManagedResourceNameFalcoSeed),
+			},
+			{
+				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:   falcohealth.NewCustomFalcoHealthCheck(general.NewShootDeploymentHealthChecker("falco")),
 			},
 		},
 		sets.New[gardencorev1beta1.ConditionType](),
