@@ -24,6 +24,7 @@ spec:
       labels:
         app.kubernetes.io/name: falcosidekick
         app.kubernetes.io/instance: {{ .Release.Name }}
+        networking.gardener.cloud/from-falco: allowed
       {{- if .Values.falcosidekick.podLabels }}
 {{ toYaml .Values.falcosidekick.podLabels | indent 8 }}
       {{- end }}
