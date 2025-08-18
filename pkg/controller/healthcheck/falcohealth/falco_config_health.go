@@ -24,18 +24,18 @@ import (
 )
 
 type customFalcoHealthCheck struct {
-	shootClient    client.Client
-	logger         logr.Logger
-	deploymentCheck healthcheck.HealthCheck
+	shootClient   client.Client
+	logger        logr.Logger
+	daemonSetCheck healthcheck.HealthCheck
 }
 
-func NewCustomFalcoHealthCheck(deploymentCheck healthcheck.HealthCheck) *customFalcoHealthCheck {
-	return &customFalcoHealthCheck{deploymentCheck: deploymentCheck}
+func NewCustomFalcoHealthCheck(daemonSetCheck healthcheck.HealthCheck) *customFalcoHealthCheck {
+	return &customFalcoHealthCheck{daemonSetCheck: daemonSetCheck}
 }
 
 func (hc *customFalcoHealthCheck) SetLoggerSuffix(provider, extension string) {
 	hc.logger = log.Log.WithName(fmt.Sprintf("%s-healthcheck-custom-falco", provider))
-	hc.deploymentCheck.SetLoggerSuffix(provider, extension)
+	hc.daemonSetCheck.SetLoggerSuffix(provider, extension)
 }
 
 func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
@@ -50,27 +50,29 @@ func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.Names
 // DeepCopy clones the healthCheck
 func (hc *customFalcoHealthCheck) DeepCopy() healthcheck.HealthCheck {
 	return &customFalcoHealthCheck{
-		deploymentCheck: hc.deploymentCheck.DeepCopy(),
+		daemonSetCheck: hc.daemonSetCheck.DeepCopy(),
 		shootClient:    hc.shootClient,
 	}
 }
 
 // InjectSeedClient injects the seed client
 func (hc *customFalcoHealthCheck) InjectSeedClient(seedClient client.Client) {
-	if itf, ok := hc.deploymentCheck.(healthcheck.SeedClient); ok {
+	if itf, ok := hc.daemonSetCheck.(healthcheck.SeedClient); ok {
 		itf.InjectSeedClient(seedClient)
 	}
 }
 
 // InjectShootClient injects the shoot client
 func (hc *customFalcoHealthCheck) InjectShootClient(shootClient client.Client) {
-	if itf, ok := hc.deploymentCheck.(healthcheck.ShootClient); ok {
-		itf.InjectShootClient(shootClient)
-		hc.logger.Info("______________________________________________________ client injected into custom Falco health check", shootClient)
-	} else {
-		hc.logger.Info("______________________________________________________ Shoot client is already set, skipping injection")
-	}
+	// Always store the shoot client for our custom health check
 	hc.shootClient = shootClient
+	hc.logger.Info("Shoot client injected into custom Falco health check")
+	
+	// Also inject into the underlying health check if it supports it
+	if itf, ok := hc.daemonSetCheck.(healthcheck.ShootClient); ok {
+		itf.InjectShootClient(shootClient)
+		hc.logger.Info("Shoot client also injected into underlying health check")
+	}
 }
 
 // Check implements the HealthCheck interface
@@ -79,16 +81,14 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
 
 	// Check if shoot client is available
 	if hc.shootClient == nil {
-		hc.logger.Info("BBBBBBBBBBB Shoot client is not set, skipping health check for local development")
+		hc.logger.Info("______________________ Shoot client is not set, skipping health check for local development")
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionTrue,
 			Detail: "Skipping health check - shoot client not available (likely local development)",
 		}, nil
 	}
 
-
-	hc.logger.Info("_________________________ We have a shoot client and we will di something")
-
+	hc.logger.Info("_________________________ We have a shoot client and we will do something")
     namespaces := &corev1.NamespaceList{}
     err := hc.shootClient.List(ctx, namespaces, &client.ListOptions{Limit: 1})
 	if err != nil {
