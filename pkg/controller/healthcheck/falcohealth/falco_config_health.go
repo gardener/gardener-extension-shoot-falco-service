@@ -92,8 +92,12 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
     namespaces := &corev1.NamespaceList{}
     err := hc.shootClient.List(ctx, namespaces, &client.ListOptions{Limit: 1})
 	if err != nil {
-		hc.logger.Error(err, "Failed to list namespaces")
-		return nil, nil
+		hc.logger.Error(err, "_____________________ Failed to list namespaces")
+		return &healthcheck.SingleCheckResult{
+			Status: gardencorev1beta1.ConditionFalse,
+			Detail: fmt.Sprintf("Failed to list namespaces: %v", err),
+			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
+		}, nil
 	}
 
 	// Get Falco DaemonSet from shoot cluster
