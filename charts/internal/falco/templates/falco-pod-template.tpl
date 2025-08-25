@@ -63,7 +63,7 @@ spec:
   imagePullSecrets: 
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- if .Values.gvisor.enabled }}
+  {{- if eq .Values.driver.kind "gvisor" }}
   hostNetwork: true
   hostPID: true
   {{- end }}
