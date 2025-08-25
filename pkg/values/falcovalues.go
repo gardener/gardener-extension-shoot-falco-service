@@ -406,7 +406,7 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 	pluginConfig := map[string]interface{}{
 		"name":         "container",
 		"library_path": "libcontainer.so",
-		"init_config":  map[string]interface{}{
+		"init_config": map[string]interface{}{
 			"engines": map[string]interface{}{
 				"docker": map[string]interface{}{
 					"enabled": true,
