@@ -1185,7 +1185,7 @@ falco:
   #
   # Time durations are specified as a number, followed immediately by one of the
   # following units:
-  # 
+  #
   # ms - millisecond
   # s - second
   # m - minute
@@ -1199,7 +1199,7 @@ falco:
   # A minimum interval of 100ms is enforced for metric collection. However, for
   # production environments, we recommend selecting one of the following intervals
   # for optimal monitoring:
-  # 
+  #
   # 15m
   # 30m
   # 1h
@@ -1223,21 +1223,21 @@ falco:
   # number of CPUs to determine overall usage. Memory metrics are provided in raw
   # units (`kb` for `RSS`, `PSS` and `VSZ` or `bytes` for `container_memory_used`)
   # and can be uniformly converted to megabytes (MB) using the
-  # `convert_memory_to_mb` functionality. In environments such as Kubernetes when 
-  # deployed as daemonset, it is crucial to track Falco's container memory usage. 
-  # To customize the path of the memory metric file, you can create an environment 
-  # variable named `FALCO_CGROUP_MEM_PATH` and set it to the desired file path. By 
-  # default, Falco uses the file `/sys/fs/cgroup/memory/memory.usage_in_bytes` to 
-  # monitor container memory usage, which aligns with Kubernetes' 
-  # `container_memory_working_set_bytes` metric. Finally, we emit the overall host 
-  # CPU and memory usages, along with the total number of processes and open file 
-  # descriptors (fds) on the host, obtained from the proc file system unrelated to 
-  # Falco's monitoring. These metrics help assess Falco's usage in relation to the 
+  # `convert_memory_to_mb` functionality. In environments such as Kubernetes when
+  # deployed as daemonset, it is crucial to track Falco's container memory usage.
+  # To customize the path of the memory metric file, you can create an environment
+  # variable named `FALCO_CGROUP_MEM_PATH` and set it to the desired file path. By
+  # default, Falco uses the file `/sys/fs/cgroup/memory/memory.usage_in_bytes` to
+  # monitor container memory usage, which aligns with Kubernetes'
+  # `container_memory_working_set_bytes` metric. Finally, we emit the overall host
+  # CPU and memory usages, along with the total number of processes and open file
+  # descriptors (fds) on the host, obtained from the proc file system unrelated to
+  # Falco's monitoring. These metrics help assess Falco's usage in relation to the
   # server's workload intensity.
   #
-  # `state_counters_enabled`: Emit counters related to Falco's state engine, including 
-  # added, removed threads or file descriptors (fds), and failed lookup, store, or 
-  # retrieve actions in relation to Falco's underlying process cache table (threadtable). 
+  # `state_counters_enabled`: Emit counters related to Falco's state engine, including
+  # added, removed threads or file descriptors (fds), and failed lookup, store, or
+  # retrieve actions in relation to Falco's underlying process cache table (threadtable).
   # We also log the number of currently cached containers if applicable.
   #
   # `kernel_event_counters_enabled`: Emit kernel side event and drop counters, as
@@ -1264,9 +1264,9 @@ falco:
   # beneficial for exploring the data schema and ensuring that fields with empty
   # values are included in the output.
   #
-  # `plugins_metrics_enabled`: Falco can now expose your custom plugins' 
-  # metrics. Please note that if the respective plugin has no metrics implemented, 
-  # there will be no metrics available. In other words, there are no default or 
+  # `plugins_metrics_enabled`: Falco can now expose your custom plugins'
+  # metrics. Please note that if the respective plugin has no metrics implemented,
+  # there will be no metrics available. In other words, there are no default or
   # generic plugin metrics at this time. This may be subject to change.
   #
   # If metrics are enabled, the web server can be configured to activate the
@@ -1277,7 +1277,7 @@ falco:
   metrics:
     enabled: true
     interval: 1h
-    # Typically, in production, you only use `output_rule` or `output_file`, but not both. 
+    # Typically, in production, you only use `output_rule` or `output_file`, but not both.
     # However, if you have a very unique use case, you can use both together.
     # Set `webserver.prometheus_metrics_enabled` for Prometheus output.
     output_rule: false
@@ -1297,7 +1297,7 @@ falco:
   #######################################
   # Falco performance tuning (advanced) #
   #######################################
-  
+
   # [Stable] `base_syscalls`, use with caution, read carefully
   #
   # --- [Description]
@@ -1457,7 +1457,7 @@ falco:
     modern_ebpf:
       cpus_for_each_buffer: 2
       buf_size_preset: 4
-      drop_failed_exit: false  
+      drop_failed_exit: false
 
   # [Incubating] `container_engines`
   #
@@ -1488,7 +1488,7 @@ falco:
     docker:
       enabled: false
     cri:
-      enabled: false
+      enabled: true
       sockets: ["/run/containerd/containerd.sock"]
       disable_async: false
     podman:
