@@ -316,6 +316,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	if err := c.enableContainerPlugin(falcoChartValues, falcoVersion); err != nil {
 		return nil, err
 	}
+
 	return falcoChartValues, nil
 }
 
@@ -393,10 +394,57 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 	if err != nil {
 		return fmt.Errorf("invalid falco version %s: %w", *falcoVersion, err)
 	}
-	if constraint.Check(v) {
-		falcoChartValues["collectors"].(map[string]any)["containerEngine"].(map[string]bool)["enabled"] = true
-		falcoChartValues["collectors"].(map[string]any)["containerd"].(map[string]bool)["enabled"] = false
+	if !constraint.Check(v) {
+		return nil
 	}
+
+	falcoChartValues["collectors"].(map[string]any)["containerEngine"].(map[string]bool)["enabled"] = true
+	falcoChartValues["collectors"].(map[string]any)["containerd"].(map[string]bool)["enabled"] = false
+	falcoChartValues["collectors"].(map[string]any)["crio"].(map[string]bool)["enabled"] = false
+	falcoChartValues["collectors"].(map[string]any)["docker"].(map[string]bool)["enabled"] = false
+	falcoChartValues["falco"].(map[string]any)["load_plugins"] = []string{"container"}
+	pluginConfig := map[string]interface{}{
+		"name":         "container",
+		"library_path": "libcontainer.so",
+		"init_config": map[string]interface{}{
+			"engines": map[string]interface{}{
+				"docker": map[string]interface{}{
+					"enabled": true,
+					"sockets": []string{"/var/run/docker.sock"},
+				},
+				"cri": map[string]interface{}{
+					"enabled": true,
+					"sockets": []string{
+						"/run/containerd/containerd.sock",
+						"/run/crio/crio.sock",
+						"/run/k3s/containerd/containerd.sock",
+					},
+				},
+				"containerd": map[string]interface{}{
+					"enabled": true,
+					"sockets": []string{"/run/containerd/containerd.sock"},
+				},
+				"podman": map[string]interface{}{
+					"enabled": true,
+					"sockets": []string{
+						"/run/podman/podman.sock",
+						"/run/user/1000/podman/podman.sock",
+					},
+				},
+				"lxc": map[string]any{
+					"enabled": false,
+				},
+				"libvirt_lxc": map[string]any{
+					"enabled": false,
+				},
+				"bpm": map[string]any{
+					"enabled": false,
+				},
+			},
+		},
+	}
+	falcoChartValues["falco"].(map[string]any)["plugins"] = []interface{}{pluginConfig}
+
 	return nil
 }
 
