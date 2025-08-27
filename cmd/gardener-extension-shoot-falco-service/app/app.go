@@ -30,6 +30,7 @@ import (
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/cmd"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/healthcheck"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/lifecycle"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
@@ -146,6 +147,10 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err := lifecycle.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)
 			}
+
+            if err := healthcheck.AddToManager(ctx, mgr); err != nil {
+                return fmt.Errorf("could not add health check controller to manager: %w", err)
+            }
 
 			heartbeatCtrlOpts.Completed().Apply(&heartbeat.DefaultAddOptions)
 			if err := heartbeat.AddToManager(ctx, mgr); err != nil {
