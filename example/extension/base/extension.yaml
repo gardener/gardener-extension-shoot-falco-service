@@ -1,8 +1,6 @@
 apiVersion: operator.gardener.cloud/v1alpha1
 kind: Extension
 metadata:
-  annotations:
-    security.gardener.cloud/pod-security-enforce: baseline
   name: extension-shoot-falco-service
 spec:
   deployment:
@@ -19,7 +17,6 @@ spec:
       helm:
         ociRepository:
           ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/shoot-falco-service:v0.76.0-dev
-      injectGardenKubeconfig: true
   resources:
   - kind: Extension
     type: shoot-falco-service
