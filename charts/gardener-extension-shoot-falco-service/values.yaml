@@ -35,7 +35,7 @@ vpa:
     minAllowed:
       memory: 64Mi
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: "Recreate"
 
 falco:
   # PriorityClass to use for Falco shoot deployment
