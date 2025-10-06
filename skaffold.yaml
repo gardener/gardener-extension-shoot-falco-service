@@ -1,0 +1,91 @@
+
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: shoot-falco-service
+build:
+  insecureRegistries:
+    - garden.local.gardener.cloud:5001
+  tagPolicy:
+    customTemplate:
+      template: "{{.version}}-{{.sha}}"
+      components:
+        - name: version
+          envTemplate:
+            template: "{{.EXTENSION_VERSION}}"
+        - name: sha
+          gitCommit:
+            variant: AbbrevCommitSha
+  artifacts:
+    - image: local-skaffold/gardener-extension-shoot-falco-service
+      ko:
+        dependencies:
+          paths:
+            - cmd/gardener-extension-shoot-falco-service/
+            - imagevector/
+            - imagevector/images.yaml
+            - pkg/apis/config/
+            - pkg/apis/config/v1alpha1/
+            - pkg/apis/service/
+            - pkg/apis/profile/
+            - pkg/admission/
+            - pkg/controller/config/
+            - pkg/controller/healthcheck/
+            - pkg/controller/lifecycle/
+            - pkg/constants/
+            - pkg/secrets/
+            - pkg/utils/
+            - pkg/values/
+            - charts/
+            - falco/
+            - VERSION
+        ldflags:
+          - '{{.LD_FLAGS}}'
+        main: ./cmd/gardener-extension-shoot-falco-service/
+    - image: local-skaffold/gardener-extension-admission-shoot-falco-service
+      ko:
+        dependencies:
+          paths:
+            - cmd/gardener-extension-admission-shoot-falco-service/
+            - pkg/admission/
+            - pkg/apis/config/
+            - pkg/apis/service/
+            - pkg/constants/
+            - VERSION
+        ldflags:
+          - '{{.LD_FLAGS}}'
+        main: ./cmd/gardener-extension-admission-shoot-falco-service/
+    - image: local-skaffold/gardener-extension-shoot-falco-service/charts/extension
+      custom:
+        buildCommand: |
+          bash {{.EXTENSION_GARDENER_HACK_DIR}}/push-helm.sh charts/gardener-extension-shoot-falco-service .skaffoldImage
+        dependencies:
+          paths:
+            - charts/gardener-extension-shoot-falco-service
+      requires:
+        - image: local-skaffold/gardener-extension-shoot-falco-service
+          alias: IMG
+    - image: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/runtime
+      custom:
+        buildCommand: |
+          bash {{.EXTENSION_GARDENER_HACK_DIR}}/push-helm.sh charts/gardener-extension-admission-shoot-falco-service .skaffoldImage
+        dependencies:
+          paths:
+            - charts/gardener-extension-admission-shoot-falco-service
+      requires:
+        - image: local-skaffold/gardener-extension-admission-shoot-falco-service
+          alias: IMG
+resourceSelector:
+  allow:
+    # instruct skaffold to inject the built image reference into the image fields in our Extension object
+    - groupKind: Extension.operator.gardener.cloud
+      image:
+        - .spec.deployment.extension.helm.ociRepository.ref
+        - .spec.deployment.admission.runtimeCluster.helm.ociRepository.ref
+        - .spec.deployment.admission.virtualCluster.helm.ociRepository.ref
+manifests:
+  kustomize:
+    paths:
+      - example/extension
+deploy:
+  kubectl: {}
