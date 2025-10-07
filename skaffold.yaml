@@ -58,7 +58,7 @@ build:
     - image: local-skaffold/gardener-extension-shoot-falco-service/charts/extension
       custom:
         buildCommand: |
-          bash {{.EXTENSION_GARDENER_HACK_DIR}}/push-helm.sh charts/gardener-extension-shoot-falco-service .skaffoldImage
+          bash ${EXTENSION_GARDENER_HACK_DIR}/push-helm.sh charts/gardener-extension-shoot-falco-service .image
         dependencies:
           paths:
             - charts/gardener-extension-shoot-falco-service
@@ -68,10 +68,20 @@ build:
     - image: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/runtime
       custom:
         buildCommand: |
-          bash {{.EXTENSION_GARDENER_HACK_DIR}}/push-helm.sh charts/gardener-extension-admission-shoot-falco-service .skaffoldImage
+          bash ${EXTENSION_GARDENER_HACK_DIR}/push-helm.sh charts/gardener-extension-admission-shoot-falco-service/charts/runtime .image.repository
         dependencies:
           paths:
-            - charts/gardener-extension-admission-shoot-falco-service
+            - charts/gardener-extension-admission-shoot-falco-service/charts/runtime
+      requires:
+        - image: local-skaffold/gardener-extension-admission-shoot-falco-service
+          alias: IMG
+    - image: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/application
+      custom:
+        buildCommand: |
+          bash ${EXTENSION_GARDENER_HACK_DIR}/push-helm.sh charts/gardener-extension-admission-shoot-falco-service/charts/application .image.repository
+        dependencies:
+          paths:
+            - charts/gardener-extension-admission-shoot-falco-service/charts/application
       requires:
         - image: local-skaffold/gardener-extension-admission-shoot-falco-service
           alias: IMG
@@ -84,8 +94,7 @@ resourceSelector:
         - .spec.deployment.admission.runtimeCluster.helm.ociRepository.ref
         - .spec.deployment.admission.virtualCluster.helm.ociRepository.ref
 manifests:
-  kustomize:
-    paths:
-      - example/extension
+  rawYaml:
+      - hack/local-setup/operator-extension-resource.yaml
 deploy:
   kubectl: {}

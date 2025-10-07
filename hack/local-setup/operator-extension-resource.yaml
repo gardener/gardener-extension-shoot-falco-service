@@ -1,0 +1,84 @@
+apiVersion: operator.gardener.cloud/v1alpha1
+kind: Extension
+metadata:
+  name: extension-shoot-falco-service
+spec:
+  deployment:
+    admission:
+      runtimeCluster:
+        helm:
+          ociRepository:
+            ref: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker-pkg-dev/gardener-project/releases/charts/gardener/extensions/admission-shoot-falco-service-runtime:v0.77.0@sha256:2334f801c57b9349d9d4b84aed426face40e63600bb9091ba1017d19a892656e
+      values:
+        image:
+          repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker_pkg_dev/gardener-project/releases/gardener/extensions/admission-shoot-falco-service
+          tag: v0.77.0@sha256:500d505f1bdd09a2cb922ab4e52dd7b3c961c1ac7bdb426d73d62405a8b5b48b
+        replicaCount: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        restrictedUsage: false
+        service:
+          topologyAwareRouting:
+            enabled: true
+      virtualCluster:
+        helm:
+          ociRepository:
+            ref: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker-pkg-dev/gardener-project/releases/charts/gardener/extensions/admission-shoot-falco-service-application:v0.77.0@sha256:693fcb03cb3a13d1e220da2e5039278a2e1a7dfc3a844816cc2b42b9a599fe8b
+    extension:
+      helm:
+        ociRepository:
+          ref: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker-pkg-dev/gardener-project/releases/charts/gardener/extensions/shoot-falco-service:v0.77.0@sha256:be9b886864d43fe003620ee89da81a68d8083755ffe51cce323e253b17c773d1
+      injectGardenKubeconfig: true
+      values:
+        extensionPriorityClassName: gardener-system-900
+        falco:
+          priorityClassName: gardener-shoot-system-900
+        image:
+          repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker_pkg_dev/gardener-project/releases/gardener/extensions/shoot-falco-service
+          tag: v0.77.0@sha256:efc9579b32f38b887b42756f40b864f42d4f7259df936a3ebd78a1fbbccc05fb
+        imageVectorOverwrite: |
+          images:
+          - name: falcosidekick
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcosidekick
+            tag: sha256:e397253cd7c6a66440b45d5c4d6b898c2a9c12831bf65ed251269fcad2f85256
+            version: 2.30.0
+          - name: falcosidekick
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcosidekick
+            tag: sha256:8d3d4658761bb80d1657f421274fcf3306038f380aef8ce730d2e115408f7876
+            version: 2.31.1
+          - name: falco
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco-distroless
+            tag: sha256:4bf7144f69292997368ac9077fb509513d1946aa252854430c0c87299ed4f04e
+            version: 0.39.2
+          - name: falco
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
+            tag: sha256:2bf64100eafe0795860a7765e848627834cb2c185c0b736442f797f5381df698
+            version: 0.40.0
+          - name: falco
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
+            tag: sha256:1e5a3275b12987e95b3be993c1d1a357fc9461081cfce8e2981ac9e23554470c
+            version: 0.41.3
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        vpa:
+          enabled: true
+          resourcePolicy:
+            minAllowed:
+              memory: 128Mi
+  resources:
+  - clusterCompatibility:
+    - shoot
+    kind: Extension
+    lifecycle:
+      delete: BeforeKubeAPIServer
+      migrate: BeforeKubeAPIServer
+      reconcile: AfterKubeAPIServer
+    primary: true
+    reconcileTimeout: 3m0s
+    type: shoot-falco-service
+    workerlessSupported: false
