@@ -190,16 +190,15 @@ verify-extended: check-generate check format validate-imagevector generate-profi
 #verify-extended: check-generate check format test test-cov test-clean
 
 
-.PHONY: extension-up extension-operator-up
-extension-up extension-operator-up: export EXTENSION_VERSION = $(VERSION)
-extension-up extension-operator-up: export SKAFFOLD_DEFAULT_REPO = garden.local.gardener.cloud:5001
-extension-up extension-operator-up:  export SKAFFOLD_PUSH = true
-extension-up extension-operator-up: export LD_FLAGS = $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION gardener-extension-shoot-falco-service)
-extension-up extension-operator-up: export EXTENSION_GARDENER_HACK_DIR = $(GARDENER_HACK_DIR)
-extension-operator-up extension-operator-down: export SKAFFOLD_FILENAME = skaffold-operator.yaml
-extension-up extension-operator-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
-	$(SKAFFOLD) -v trace run --cache-artifacts=true
+.PHONY: extension-up
+extension-up: export EXTENSION_VERSION = $(VERSION)
+extension-up: export SKAFFOLD_DEFAULT_REPO = garden.local.gardener.cloud:5001
+extension-up: export SKAFFOLD_PUSH = true
+extension-up: export LD_FLAGS = $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION gardener-extension-shoot-falco-service)
+extension-up: export EXTENSION_GARDENER_HACK_DIR = $(GARDENER_HACK_DIR)
+extension-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
+	$(SKAFFOLD) run --cache-artifacts=true
 
-.PHONY: extension-down extension-operator-down
-extension-down extension-operator-down:
+.PHONY: extension-down
+extension-down:
 	$(SKAFFOLD) delete

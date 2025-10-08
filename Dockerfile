@@ -20,7 +20,7 @@ RUN make install EFFECTIVE_VERSION=$EFFECTIVE_VERSION
 ############# base
 FROM gcr.io/distroless/static-debian12:nonroot AS base
 
-############# gardener-extension-shoot-falco
+############# gardener-extension-shoot-falco-service
 FROM base AS gardener-extension-shoot-falco-service
 
 WORKDIR /
