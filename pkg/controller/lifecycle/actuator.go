@@ -43,7 +43,7 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 
 	var tokenIssuer *secrets.TokenIssuer = nil
 	fmt.Println("Checking token issuer")
-	if config.Falco.CentralStorage != nil && config.Falco.CentralStorage.Enabled == true {
+	if config.Falco.CentralStorage != nil && config.Falco.CentralStorage.Enabled {
 		if config.Falco.CentralStorage.TokenIssuerPrivateKey == "" {
 			return nil, fmt.Errorf("token issuer private key is required")
 		}
