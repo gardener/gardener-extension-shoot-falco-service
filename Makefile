@@ -198,7 +198,7 @@ extension-up extension-operator-up: export LD_FLAGS = $(shell bash $(GARDENER_HA
 extension-up extension-operator-up: export EXTENSION_GARDENER_HACK_DIR = $(GARDENER_HACK_DIR)
 extension-operator-up extension-operator-down: export SKAFFOLD_FILENAME = skaffold-operator.yaml
 extension-up extension-operator-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
-	$(SKAFFOLD) run --cache-artifacts=true
+	$(SKAFFOLD) -v trace run --cache-artifacts=true
 
 .PHONY: extension-down extension-operator-down
 extension-down extension-operator-down:

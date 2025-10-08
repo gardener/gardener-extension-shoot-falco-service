@@ -91,7 +91,9 @@ resourceSelector:
     - groupKind: Extension.operator.gardener.cloud
       image:
         - .spec.deployment.extension.helm.ociRepository.ref
+        - .spec.deployment.extension.values.image.repository
         - .spec.deployment.admission.runtimeCluster.helm.ociRepository.ref
+        - .spec.deployment.admission.values.image.repository
         - .spec.deployment.admission.virtualCluster.helm.ociRepository.ref
 manifests:
   rawYaml:

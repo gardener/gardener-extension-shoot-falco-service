@@ -8,11 +8,10 @@ spec:
       runtimeCluster:
         helm:
           ociRepository:
-            ref: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker-pkg-dev/gardener-project/releases/charts/gardener/extensions/admission-shoot-falco-service-runtime:v0.77.0@sha256:2334f801c57b9349d9d4b84aed426face40e63600bb9091ba1017d19a892656e
+            ref: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/runtime
       values:
         image:
-          repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker_pkg_dev/gardener-project/releases/gardener/extensions/admission-shoot-falco-service
-          tag: v0.77.0@sha256:500d505f1bdd09a2cb922ab4e52dd7b3c961c1ac7bdb426d73d62405a8b5b48b
+          repository: local-skaffold/gardener-extension-admission-shoot-falco-service
         replicaCount: 3
         resources:
           requests:
@@ -25,19 +24,18 @@ spec:
       virtualCluster:
         helm:
           ociRepository:
-            ref: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker-pkg-dev/gardener-project/releases/charts/gardener/extensions/admission-shoot-falco-service-application:v0.77.0@sha256:693fcb03cb3a13d1e220da2e5039278a2e1a7dfc3a844816cc2b42b9a599fe8b
+            ref: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/application
     extension:
       helm:
         ociRepository:
-          ref: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker-pkg-dev/gardener-project/releases/charts/gardener/extensions/shoot-falco-service:v0.77.0@sha256:be9b886864d43fe003620ee89da81a68d8083755ffe51cce323e253b17c773d1
+          ref: local-skaffold/gardener-extension-shoot-falco-service/charts/extension
       injectGardenKubeconfig: true
       values:
         extensionPriorityClassName: gardener-system-900
         falco:
           priorityClassName: gardener-shoot-system-900
         image:
-          repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/europe-docker_pkg_dev/gardener-project/releases/gardener/extensions/shoot-falco-service
-          tag: v0.77.0@sha256:efc9579b32f38b887b42756f40b864f42d4f7259df936a3ebd78a1fbbccc05fb
+          repository: local-skaffold/gardener-extension-shoot-falco-service
         imageVectorOverwrite: |
           images:
           - name: falcosidekick

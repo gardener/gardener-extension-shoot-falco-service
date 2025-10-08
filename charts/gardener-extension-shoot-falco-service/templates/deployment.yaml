@@ -63,10 +63,9 @@ spec:
       serviceAccountName: gardener-extension-{{ .Values.serviceName }}
       containers:
       - name: gardener-extension-{{ .Values.serviceName }}
-        image: {{ include "image" . }}
+        image: {{ include "image" .Values.image }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command:
-        - /gardener-extension-shoot-falco-service
+        args:
         - --config-file=/etc/extension-config/config.yaml
         - --leader-election-id={{ include "leaderelectionid" . }}
         env:

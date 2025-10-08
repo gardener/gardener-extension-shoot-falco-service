@@ -62,6 +62,7 @@ func autoConvert_v1alpha1_CentralStorageConfig_To_config_CentralStorageConfig(in
 	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
 	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
 	out.URL = in.URL
+	out.Enabled = in.Enabled
 	return nil
 }
 
@@ -74,6 +75,7 @@ func autoConvert_config_CentralStorageConfig_To_v1alpha1_CentralStorageConfig(in
 	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
 	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
 	out.URL = in.URL
+	out.Enabled = in.Enabled
 	return nil
 }
 
