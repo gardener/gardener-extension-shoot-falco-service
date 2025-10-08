@@ -305,12 +305,12 @@ func StoreFalcoCasInSecret(cas *FalcoCas, certs *FalcoCertificates, secret *core
 	}
 }
 
-func getDnsNames(namesapce string) []string {
+func getDnsNames(namespace string) []string {
 	return []string{
 		"falcosidekick",
-		"falcosidekick." + namesapce,
-		"falcosidekick." + namesapce + ".svc",
-		"falcosidekick." + namesapce + ".svc.cluster",
-		"falcosidekick." + namesapce + ".svc.cluster.local",
+		"falcosidekick." + namespace,
+		"falcosidekick." + namespace + ".svc",
+		"falcosidekick." + namespace + ".svc.cluster",
+		"falcosidekick." + namespace + ".svc.cluster.local",
 	}
 }
