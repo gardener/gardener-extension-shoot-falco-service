@@ -89,7 +89,7 @@ Return the proper Falco image name
     {{- . }}/
 {{- end -}}
 {{- .Values.image.repository }}:
-{{- .Values.image.tag | default .Chart.AppVersion -}}
+{{- .Values.image.tag | default (printf "%s" .Chart.AppVersion) -}}
 {{- end -}}
 
 {{/*
@@ -538,10 +538,19 @@ This helper is used to add container plugin volumes to the falco pod.
 {{ $volumes = append $volumes (dict "name" "containerd-socket" "hostPath" (dict "path" .Values.collectors.containerd.socket)) -}}
 {{- end -}}
 {{- if .Values.collectors.containerEngine.enabled -}}
-{{- range $key, $val := .Values.collectors.containerEngine.engines -}}
-{{- if and $val.enabled -}}
+{{- $seenPaths := dict -}}
+{{- $idx := 0 -}}
+{{- $engineOrder := list "docker" "podman" "containerd" "cri" "lxc" "libvirt_lxc" "bpm" -}}
+{{- range $engineName := $engineOrder -}}
+{{- $val := index $.Values.collectors.containerEngine.engines $engineName -}}
+{{- if and $val $val.enabled -}}
 {{- range $index, $socket := $val.sockets -}}
-{{ $volumes = append $volumes (dict "name" (printf "%s-socket-%d" $key $index) "hostPath" (dict "path" $socket)) -}}
+{{- $mountPath := print "/host" $socket -}}
+{{- if not (hasKey $seenPaths $mountPath) -}}
+{{ $volumes = append $volumes (dict "name" (printf "container-engine-socket-%d" $idx) "hostPath" (dict "path" $socket)) -}}
+{{- $idx = add $idx 1 -}}
+{{- $_ := set $seenPaths $mountPath true -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -571,16 +580,25 @@ This helper is used to add container plugin volumeMounts to the falco pod.
 {{ $volumeMounts = append $volumeMounts (dict "name" "containerd-socket" "mountPath" (print "/host" .Values.collectors.containerd.socket)) -}}
 {{- end -}}
 {{- if .Values.collectors.containerEngine.enabled -}}
-{{- range $key, $val := .Values.collectors.containerEngine.engines -}}
-{{- if and $val.enabled -}}
+{{- $seenPaths := dict -}}
+{{- $idx := 0 -}}
+{{- $engineOrder := list "docker" "podman" "containerd" "cri" "lxc" "libvirt_lxc" "bpm" -}}
+{{- range $engineName := $engineOrder -}}
+{{- $val := index $.Values.collectors.containerEngine.engines $engineName -}}
+{{- if and $val $val.enabled -}}
 {{- range $index, $socket := $val.sockets -}}
-{{ $volumeMounts = append $volumeMounts (dict "name" (printf "%s-socket-%d" $key $index)  "mountPath" (print "/host" $socket)) -}}
+{{- $mountPath := print "/host" $socket -}}
+{{- if not (hasKey $seenPaths $mountPath) -}}
+{{ $volumeMounts = append $volumeMounts (dict "name" (printf "container-engine-socket-%d" $idx) "mountPath" $mountPath) -}}
+{{- $idx = add $idx 1 -}}
+{{- $_ := set $seenPaths $mountPath true -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if gt (len $volumeMounts) 0 -}}
-{{ toYaml $volumeMounts }}
+{{ toYaml ($volumeMounts) }}
 {{- end -}}
 {{- end -}}
 {{- end -}}

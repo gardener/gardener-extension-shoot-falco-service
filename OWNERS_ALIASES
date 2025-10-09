@@ -1,0 +1,9 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  gardener-extension-shoot-falco-service-reviewers:
+  - lsroe
+  - marwinski
+  gardener-extension-shoot-falco-service-approvers:
+  - lsroe
+  - marwinski

@@ -58,4 +58,8 @@ type CentralStorageConfig struct {
 	// Ingestor URL
 	// +optional
 	URL string `json:"url,omitempty"`
+
+	// Central storage configuration enabled
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
