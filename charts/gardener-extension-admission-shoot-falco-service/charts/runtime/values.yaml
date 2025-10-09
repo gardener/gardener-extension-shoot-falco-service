@@ -7,7 +7,6 @@ restrictedCentralizedLogging: true
 
 image:
   repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/admission-shoot-falco-service
-  tag: latest
   pullPolicy: IfNotPresent
 replicaCount: 1
 resources: {}
