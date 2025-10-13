@@ -24,8 +24,8 @@ import (
 )
 
 type customFalcoHealthCheck struct {
-	shootClient   client.Client
-	logger        logr.Logger
+	shootClient    client.Client
+	logger         logr.Logger
 	daemonSetCheck healthcheck.HealthCheck
 }
 
@@ -39,12 +39,25 @@ func (hc *customFalcoHealthCheck) SetLoggerSuffix(provider, extension string) {
 }
 
 func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
-	// result, err := hc.daemonSetCheck.Check(ctx, request)
-	// if err != nil || result.Status != gardencorev1beta1.ConditionTrue {
-	// 	return result, err
-	// }
 	hc.logger.Info(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;The request object", "request", request, "namespace", request.Namespace, "name", request.Name)
-	return hc.checkFalco(ctx, request)
+
+	// Always run our custom check first - this takes priority over the DaemonSet check
+	result, err := hc.checkFalco(ctx, request)
+
+	// If our custom check found configuration errors, return immediately with error codes
+	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionFalse && len(result.Codes) > 0 {
+		hc.logger.Info("Custom health check found configuration errors, returning with error codes", "codes", result.Codes)
+		return result, err
+	}
+
+	// If our custom check passed or found no specific configuration issues,
+	// fall back to the generic DaemonSet check
+	if hc.daemonSetCheck != nil {
+		hc.logger.Info("No configuration errors found, falling back to DaemonSet health check")
+		return hc.daemonSetCheck.Check(ctx, request)
+	}
+
+	return result, err
 }
 
 // DeepCopy clones the healthCheck
@@ -67,7 +80,7 @@ func (hc *customFalcoHealthCheck) InjectShootClient(shootClient client.Client) {
 	// Always store the shoot client for our custom health check
 	hc.shootClient = shootClient
 	hc.logger.Info("Shoot client injected into custom Falco health check")
-	
+
 	// Also inject into the underlying health check if it supports it
 	if itf, ok := hc.daemonSetCheck.(healthcheck.ShootClient); ok {
 		itf.InjectShootClient(shootClient)
@@ -89,15 +102,22 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
 	}
 
 	hc.logger.Info("_________________________ We have a shoot client and we will do something")
-    namespaces := &corev1.NamespaceList{}
-    err := hc.shootClient.List(ctx, namespaces, &client.ListOptions{Limit: 1})
-	if err != nil {
+	namespaces := &corev1.NamespaceList{}
+
+	hc.shootClient.Status()
+
+	if err := hc.shootClient.List(ctx, namespaces, &client.ListOptions{Limit: 1}); err != nil {
 		hc.logger.Error(err, "_____________________ Failed to list namespaces")
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionFalse,
 			Detail: fmt.Sprintf("Failed to list namespaces: %v", err),
 			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
 		}, nil
+	} else {
+		hc.logger.Info("______________________ Successfully listed namespaces", "count", len(namespaces.Items))
+		for _, ns := range namespaces.Items {
+			hc.logger.Info("Namespace", "name", ns.Name)
+		}
 	}
 
 	// Get Falco DaemonSet from shoot cluster
@@ -106,8 +126,6 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
 		Name:      "falco",
 		Namespace: metav1.NamespaceSystem,
 	}
-
-	hc.shootClient.Status()
 
 	if err := hc.shootClient.Get(ctx, daemonSetKey, daemonSet); err != nil {
 		hc.logger.Error(err, "Failed to get Falco DaemonSet")
@@ -180,20 +198,38 @@ func (hc *customFalcoHealthCheck) checkPodLogs(ctx context.Context) (*healthchec
 		// Check pod conditions for configuration issues
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionFalse {
+				hc.logger.Info("Checking PodReady condition", "pod", pod.Name, "message", condition.Message, "isConfigError", isConfigurationError(condition.Message))
+				if isConfigurationError(condition.Message) {
+					configErrors = append(configErrors, fmt.Sprintf("Pod %s: %s", pod.Name, condition.Message))
+				}
+			}
+			if condition.Type == corev1.PodReadyToStartContainers && condition.Status == corev1.ConditionFalse {
+				hc.logger.Info("Checking PodReadyToStartContainers condition", "pod", pod.Name, "message", condition.Message, "isConfigError", isConfigurationError(condition.Message))
 				if isConfigurationError(condition.Message) {
 					configErrors = append(configErrors, fmt.Sprintf("Pod %s: %s", pod.Name, condition.Message))
 				}
 			}
 		}
 
+		// Check pod events for mount failures and other configuration issues
+		if eventErrors := hc.checkPodEvents(ctx, &pod); len(eventErrors) > 0 {
+			configErrors = append(configErrors, eventErrors...)
+		}
+
 		// Check container statuses for configuration errors
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if containerStatus.Name == "falco" && !containerStatus.Ready {
-				if containerStatus.State.Waiting != nil && isConfigurationError(containerStatus.State.Waiting.Message) {
-					configErrors = append(configErrors, fmt.Sprintf("Pod %s container %s: %s", pod.Name, containerStatus.Name, containerStatus.State.Waiting.Message))
+				if containerStatus.State.Waiting != nil {
+					hc.logger.Info("Checking container waiting state", "pod", pod.Name, "container", containerStatus.Name, "message", containerStatus.State.Waiting.Message, "isConfigError", isConfigurationError(containerStatus.State.Waiting.Message))
+					if isConfigurationError(containerStatus.State.Waiting.Message) {
+						configErrors = append(configErrors, fmt.Sprintf("Pod %s container %s: %s", pod.Name, containerStatus.Name, containerStatus.State.Waiting.Message))
+					}
 				}
-				if containerStatus.State.Terminated != nil && isConfigurationError(containerStatus.State.Terminated.Message) {
-					configErrors = append(configErrors, fmt.Sprintf("Pod %s container %s terminated: %s", pod.Name, containerStatus.Name, containerStatus.State.Terminated.Message))
+				if containerStatus.State.Terminated != nil {
+					hc.logger.Info("Checking container terminated state", "pod", pod.Name, "container", containerStatus.Name, "message", containerStatus.State.Terminated.Message, "isConfigError", isConfigurationError(containerStatus.State.Terminated.Message))
+					if isConfigurationError(containerStatus.State.Terminated.Message) {
+						configErrors = append(configErrors, fmt.Sprintf("Pod %s container %s terminated: %s", pod.Name, containerStatus.Name, containerStatus.State.Terminated.Message))
+					}
 				}
 			}
 		}
@@ -208,11 +244,13 @@ func (hc *customFalcoHealthCheck) checkPodLogs(ctx context.Context) (*healthchec
 		detail := fmt.Sprintf("Falco configuration errors detected: %s", strings.Join(configErrors, "; "))
 		hc.logger.Error(nil, "Configuration errors found in Falco", "errors", configErrors)
 
-		return &healthcheck.SingleCheckResult{
+		result := &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionFalse,
 			Detail: detail,
 			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
-		}, nil
+		}
+		hc.logger.Info("Returning health check result for configuration errors", "status", result.Status, "detail", result.Detail, "codes", result.Codes)
+		return result, nil
 	}
 
 	// Report general pod errors if no config errors but pods aren't ready
@@ -249,6 +287,13 @@ func isConfigurationError(message string) bool {
 
 	// Enhanced configuration error patterns based on your specific requirements
 	configErrorPatterns := []*regexp.Regexp{
+		// Volume mount failures - ConfigMap/Secret not found
+		regexp.MustCompile(`(?i)configmap.*not found`),
+		regexp.MustCompile(`(?i)secret.*not found`),
+		regexp.MustCompile(`(?i)MountVolume\.SetUp failed`),
+		regexp.MustCompile(`(?i)couldn't find key.*in Secret`),
+		regexp.MustCompile(`(?i)couldn't find key.*in ConfigMap`),
+
 		// Engine version mismatches - specific to your error case
 		regexp.MustCompile(`(?i)LOAD_ERR_VALIDATE.*Rules require engine version.*but engine version is`),
 		regexp.MustCompile(`(?i)required_engine_version.*Rules require engine version.*but engine version is`),
@@ -277,9 +322,27 @@ func isConfigurationError(message string) bool {
 		regexp.MustCompile(`(?i)custom.*rules.*error|user.*rules.*invalid`),
 		regexp.MustCompile(`(?i)shoot-custom-rules.*error`),
 
+		// Falco-specific configuration errors
+		regexp.MustCompile(`(?i)Unable to load the driver`),
+		regexp.MustCompile(`(?i)Runtime error: can't open device`),
+		regexp.MustCompile(`(?i)Unable to find a driver`),
+		regexp.MustCompile(`(?i)Failed to open device`),
+		regexp.MustCompile(`(?i)Cannot find the BPF probe file`),
+
+		// Rules-related errors
+		regexp.MustCompile(`(?i)Rules validation error`),
+		regexp.MustCompile(`(?i)Unable to load rules from`),
+		regexp.MustCompile(`(?i)Error loading rules`),
+		regexp.MustCompile(`(?i)Invalid rule`),
+
 		// Fatal configuration errors
 		regexp.MustCompile(`(?i)fatal.*configuration|critical.*config.*error`),
 		regexp.MustCompile(`(?i)startup.*failed|initialization.*error`),
+
+		// General configuration validation errors
+		regexp.MustCompile(`(?i)Invalid configuration`),
+		regexp.MustCompile(`(?i)Configuration error`),
+		regexp.MustCompile(`(?i)Failed to validate config`),
 
 		// Rules that can't be loaded/opened (your specific requirement)
 		regexp.MustCompile(`(?i)cannot.*read.*rules|unable.*to.*access.*rules`),
@@ -293,4 +356,30 @@ func isConfigurationError(message string) bool {
 	}
 
 	return false
+}
+
+// checkPodEvents checks pod events for configuration-related failures
+func (hc *customFalcoHealthCheck) checkPodEvents(ctx context.Context, pod *corev1.Pod) []string {
+	var configErrors []string
+
+	// Get events for this pod
+	events := &corev1.EventList{}
+	fieldSelector := client.MatchingFields{
+		"involvedObject.name":      pod.Name,
+		"involvedObject.namespace": pod.Namespace,
+		"involvedObject.kind":      "Pod",
+	}
+
+	if err := hc.shootClient.List(ctx, events, client.InNamespace(pod.Namespace), fieldSelector); err != nil {
+		hc.logger.Error(err, "Failed to list events for pod", "pod", pod.Name)
+		return configErrors
+	}
+
+	for _, event := range events.Items {
+		if event.Type == "Warning" && isConfigurationError(event.Message) {
+			configErrors = append(configErrors, fmt.Sprintf("Pod %s: %s", pod.Name, event.Message))
+		}
+	}
+
+	return configErrors
 }

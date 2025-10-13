@@ -148,9 +148,9 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)
 			}
 
-            if err := healthcheck.AddToManager(ctx, mgr); err != nil {
-                return fmt.Errorf("could not add health check controller to manager: %w", err)
-            }
+			if err := healthcheck.AddToManager(ctx, mgr); err != nil {
+				return fmt.Errorf("could not add health check controller to manager: %w", err)
+			}
 
 			heartbeatCtrlOpts.Completed().Apply(&heartbeat.DefaultAddOptions)
 			if err := heartbeat.AddToManager(ctx, mgr); err != nil {
