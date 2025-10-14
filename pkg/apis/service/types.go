@@ -5,6 +5,7 @@
 package service
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,6 +29,10 @@ type FalcoServiceConfig struct {
 	// nodeSelector for Falco pods
 	// +optional
 	NodeSelector *map[string]string
+
+	// tolerations for Falco pods
+	// +optional
+	Tolerations *[]corev1.Toleration
 
 	Rules *Rules
 

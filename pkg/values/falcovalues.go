@@ -298,6 +298,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		falcoChartValues["nodeSelector"] = *falcoServiceConfig.NodeSelector
 	}
 
+	if falcoServiceConfig.Tolerations != nil {
+		falcoChartValues["tolerations"] = *falcoServiceConfig.Tolerations
+	}
+
 	if err := c.generatePreamble(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}
