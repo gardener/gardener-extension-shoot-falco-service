@@ -236,7 +236,7 @@ stringData:
 
 The `nodeSelector` option specifies node selectors for Falco pods, following the Kubernetes API [specification](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector). Only nodes matching the specified labels will run Falco pods.
 
-The `tolerations` option allows Falco pods to be scheduled on nodes with taints, such as master/control-plane nodes or nodes marked with the NoSchedule effect. This follows the Kubernetes API [specification](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) for tolerations. This is particularly useful when you want Falco to run on nodes that have taints like `NoSchedule` to ensure comprehensive monitoring coverage.
+The `tolerations` option allows Falco pods to be scheduled on nodes with taints, such as master/control-plane nodes or nodes marked with the NoSchedule effect. This follows the Kubernetes API [specification](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) for tolerations. This is particularly useful when the Falco pods need to run on nodes that have taints like `NoSchedule` to ensure comprehensive security monitoring.
 
 The `heartbeatEvent` option enables or disables the heartbeat event, which is a periodic event sent by Falco to indicate it is running and healthy. This is useful for monitoring.
 
