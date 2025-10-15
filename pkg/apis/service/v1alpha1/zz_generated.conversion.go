@@ -12,6 +12,7 @@ import (
 	unsafe "unsafe"
 
 	service "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	v1 "k8s.io/api/core/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -233,6 +234,7 @@ func autoConvert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *F
 	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
 	out.HeartbeatEvent = (*bool)(unsafe.Pointer(in.HeartbeatEvent))
 	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
+	out.Tolerations = (*[]v1.Toleration)(unsafe.Pointer(in.Tolerations))
 	out.Rules = (*service.Rules)(unsafe.Pointer(in.Rules))
 	out.Destinations = (*[]service.Destination)(unsafe.Pointer(in.Destinations))
 	return nil
@@ -248,6 +250,7 @@ func autoConvert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *s
 	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
 	out.HeartbeatEvent = (*bool)(unsafe.Pointer(in.HeartbeatEvent))
 	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
+	out.Tolerations = (*[]v1.Toleration)(unsafe.Pointer(in.Tolerations))
 	out.Rules = (*Rules)(unsafe.Pointer(in.Rules))
 	out.Destinations = (*[]Destination)(unsafe.Pointer(in.Destinations))
 	return nil

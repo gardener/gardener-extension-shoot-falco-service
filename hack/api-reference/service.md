@@ -92,6 +92,18 @@ map[string]string
 </tr>
 <tr>
 <td>
+<code>tolerations</code></br>
+<em>
+[]k8s.io/api/core/v1.Toleration
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>tolerations for Falco pods</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>rules</code></br>
 <em>
 <a href="#falco.extensions.gardener.cloud/v1alpha1.Rules">

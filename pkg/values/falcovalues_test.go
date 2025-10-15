@@ -67,6 +67,17 @@ var (
 			"key1": "value1",
 			"key2": "value2",
 		},
+		Tolerations: &[]corev1.Toleration{
+			{
+				Key:      "node.gardener.cloud/critical-components-not-ready",
+				Effect:   corev1.TaintEffectNoSchedule,
+				Operator: corev1.TolerationOpExists,
+			},
+			{
+				Key:    "node-role.kubernetes.io/control-plane",
+				Effect: corev1.TaintEffectNoSchedule,
+			},
+		},
 	}
 
 	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
@@ -785,6 +796,15 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		nodeSelector := values["nodeSelector"].(map[string]string)
 		Expect(nodeSelector).To(HaveKeyWithValue("key1", "value1"))
 		Expect(nodeSelector).To(HaveKeyWithValue("key2", "value2"))
+
+		// Validate tolerations
+		tolerations := values["tolerations"].([]corev1.Toleration)
+		Expect(tolerations).To(HaveLen(2))
+		Expect(tolerations[0].Key).To(Equal("node.gardener.cloud/critical-components-not-ready"))
+		Expect(tolerations[0].Effect).To(Equal(corev1.TaintEffectNoSchedule))
+		Expect(tolerations[0].Operator).To(Equal(corev1.TolerationOpExists))
+		Expect(tolerations[1].Key).To(Equal("node-role.kubernetes.io/control-plane"))
+		Expect(tolerations[1].Effect).To(Equal(corev1.TaintEffectNoSchedule))
 
 		// render chart and check if the values are set correctly
 		renderer, err := util.NewChartRendererForShoot("1.30.2")
