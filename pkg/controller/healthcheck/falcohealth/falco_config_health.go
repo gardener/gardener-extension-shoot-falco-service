@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+//  SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
 //
-// SPDX-License-Identifier: Apache-2.0
+//  SPDX-License-Identifier: Apache-2.0
 
 package falcohealth
 
@@ -41,26 +41,25 @@ func (hc *customFalcoHealthCheck) SetLoggerSuffix(provider, extension string) {
 func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	hc.logger.Info(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;The request object", "request", request, "namespace", request.Namespace, "name", request.Name)
 
-	// Always run our custom check first - this takes priority over the DaemonSet check
 	result, err := hc.checkFalco(ctx, request)
 
-	// If our custom check found configuration errors, return immediately with error codes
 	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionFalse && len(result.Codes) > 0 {
 		hc.logger.Info("Custom health check found configuration errors, returning with error codes", "codes", result.Codes)
 		return result, err
 	}
 
-	// If our custom check passed or found no specific configuration issues,
-	// fall back to the generic DaemonSet check
 	if hc.daemonSetCheck != nil {
 		hc.logger.Info("No configuration errors found, falling back to DaemonSet health check")
-		return hc.daemonSetCheck.Check(ctx, request)
+		nameName := types.NamespacedName{
+			Name:      "falco",
+			Namespace: metav1.NamespaceSystem,
+		}
+		return hc.daemonSetCheck.Check(ctx, nameName)
 	}
 
 	return result, err
 }
 
-// DeepCopy clones the healthCheck
 func (hc *customFalcoHealthCheck) DeepCopy() healthcheck.HealthCheck {
 	return &customFalcoHealthCheck{
 		daemonSetCheck: hc.daemonSetCheck.DeepCopy(),
@@ -68,27 +67,22 @@ func (hc *customFalcoHealthCheck) DeepCopy() healthcheck.HealthCheck {
 	}
 }
 
-// InjectSeedClient injects the seed client
 func (hc *customFalcoHealthCheck) InjectSeedClient(seedClient client.Client) {
 	if itf, ok := hc.daemonSetCheck.(healthcheck.SeedClient); ok {
 		itf.InjectSeedClient(seedClient)
 	}
 }
 
-// InjectShootClient injects the shoot client
 func (hc *customFalcoHealthCheck) InjectShootClient(shootClient client.Client) {
-	// Always store the shoot client for our custom health check
 	hc.shootClient = shootClient
 	hc.logger.Info("Shoot client injected into custom Falco health check")
 
-	// Also inject into the underlying health check if it supports it
 	if itf, ok := hc.daemonSetCheck.(healthcheck.ShootClient); ok {
 		itf.InjectShootClient(shootClient)
 		hc.logger.Info("Shoot client also injected into underlying health check")
 	}
 }
 
-// Check implements the HealthCheck interface
 func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	hc.logger.Info("Checking Falco configuration health", "extension", request)
 
@@ -157,11 +151,9 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
 	}, nil
 }
 
-// checkPodLogs retrieves and analyzes Falco pod logs for configuration errors
 func (hc *customFalcoHealthCheck) checkPodLogs(ctx context.Context) (*healthcheck.SingleCheckResult, error) {
 	hc.logger.Info("Checking Falco pod logs for configuration errors")
 
-	// List Falco pods
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
 		"app.kubernetes.io/name": "falco",
@@ -184,7 +176,6 @@ func (hc *customFalcoHealthCheck) checkPodLogs(ctx context.Context) (*healthchec
 		}, nil
 	}
 
-	// Check for any non-ready pods and analyze their status
 	var configErrors []string
 	var podErrors []string
 
@@ -358,11 +349,9 @@ func isConfigurationError(message string) bool {
 	return false
 }
 
-// checkPodEvents checks pod events for configuration-related failures
 func (hc *customFalcoHealthCheck) checkPodEvents(ctx context.Context, pod *corev1.Pod) []string {
 	var configErrors []string
 
-	// Get events for this pod
 	events := &corev1.EventList{}
 	fieldSelector := client.MatchingFields{
 		"involvedObject.name":      pod.Name,
