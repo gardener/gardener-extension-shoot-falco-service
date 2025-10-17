@@ -5,18 +5,19 @@
 package falcohealth
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -27,6 +28,8 @@ type customFalcoHealthCheck struct {
 	shootClient    client.Client
 	logger         logr.Logger
 	daemonSetCheck healthcheck.HealthCheck
+	restConfig     *rest.Config
+	clientset      kubernetes.Interface
 }
 
 func NewCustomFalcoHealthCheck(daemonSetCheck healthcheck.HealthCheck) *customFalcoHealthCheck {
@@ -39,8 +42,6 @@ func (hc *customFalcoHealthCheck) SetLoggerSuffix(provider, extension string) {
 }
 
 func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
-	hc.logger.Info(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;The request object", "request", request, "namespace", request.Namespace, "name", request.Name)
-
 	result, err := hc.checkFalco(ctx, request)
 
 	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionFalse && len(result.Codes) > 0 {
@@ -49,7 +50,7 @@ func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.Names
 	}
 
 	if hc.daemonSetCheck != nil {
-		hc.logger.Info("No configuration errors found, falling back to DaemonSet health check")
+		hc.logger.V(1).Info("No configuration errors found, falling back to DaemonSet health check")
 		nameName := types.NamespacedName{
 			Name:      "falco",
 			Namespace: metav1.NamespaceSystem,
@@ -75,96 +76,42 @@ func (hc *customFalcoHealthCheck) InjectSeedClient(seedClient client.Client) {
 
 func (hc *customFalcoHealthCheck) InjectShootClient(shootClient client.Client) {
 	hc.shootClient = shootClient
-	hc.logger.Info("Shoot client injected into custom Falco health check")
+	hc.logger.V(2).Info("Shoot client injected into custom Falco health check")
+
+	if config, err := rest.InClusterConfig(); err == nil {
+		if clientset, err := kubernetes.NewForConfig(config); err == nil {
+			hc.restConfig = config
+			hc.clientset = clientset
+			hc.logger.V(2).Info("Kubernetes clientset created for log reading")
+		} else {
+			hc.logger.V(1).Info("Failed to create Kubernetes clientset", "error", err)
+		}
+	} else {
+		hc.logger.V(1).Info("Failed to get in-cluster config", "error", err)
+	}
 
 	if itf, ok := hc.daemonSetCheck.(healthcheck.ShootClient); ok {
 		itf.InjectShootClient(shootClient)
-		hc.logger.Info("Shoot client also injected into underlying health check")
+		hc.logger.V(2).Info("Shoot client also injected into underlying health check")
 	}
 }
 
 func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
-	hc.logger.Info("Checking Falco configuration health", "extension", request)
-
-	// Check if shoot client is available
 	if hc.shootClient == nil {
-		hc.logger.Info("______________________ Shoot client is not set, skipping health check for local development")
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionTrue,
-			Detail: "Skipping health check - shoot client not available (likely local development)",
+			Detail: "Skipping health check - shoot client not available",
 		}, nil
 	}
 
-	hc.logger.Info("_________________________ We have a shoot client and we will do something")
-	namespaces := &corev1.NamespaceList{}
-
-	hc.shootClient.Status()
-
-	if err := hc.shootClient.List(ctx, namespaces, &client.ListOptions{Limit: 1}); err != nil {
-		hc.logger.Error(err, "_____________________ Failed to list namespaces")
-		return &healthcheck.SingleCheckResult{
-			Status: gardencorev1beta1.ConditionFalse,
-			Detail: fmt.Sprintf("Failed to list namespaces: %v", err),
-			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
-		}, nil
-	} else {
-		hc.logger.Info("______________________ Successfully listed namespaces", "count", len(namespaces.Items))
-		for _, ns := range namespaces.Items {
-			hc.logger.Info("Namespace", "name", ns.Name)
-		}
-	}
-
-	// Get Falco DaemonSet from shoot cluster
-	daemonSet := &appsv1.DaemonSet{}
-	daemonSetKey := types.NamespacedName{
-		Name:      "falco",
-		Namespace: metav1.NamespaceSystem,
-	}
-
-	if err := hc.shootClient.Get(ctx, daemonSetKey, daemonSet); err != nil {
-		hc.logger.Error(err, "Failed to get Falco DaemonSet")
-		return &healthcheck.SingleCheckResult{
-			Status: gardencorev1beta1.ConditionFalse,
-			Detail: fmt.Sprintf("Failed to retrieve Falco DaemonSet: %v", err),
-			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
-		}, nil
-	}
-
-	// Check if DaemonSet is available
-	if daemonSet.Status.NumberAvailable == 0 {
-		hc.logger.Info("Falco DaemonSet has no available pods")
-		return hc.checkPodLogs(ctx)
-	}
-
-	// Check if desired number equals ready number
-	if daemonSet.Status.DesiredNumberScheduled != daemonSet.Status.NumberReady {
-		hc.logger.Info("Falco DaemonSet not fully ready",
-			"desired", daemonSet.Status.DesiredNumberScheduled,
-			"ready", daemonSet.Status.NumberReady)
-		return hc.checkPodLogs(ctx)
-	}
-
-	// All pods are ready, extension is healthy
-	return &healthcheck.SingleCheckResult{
-		Status: gardencorev1beta1.ConditionTrue,
-		Detail: "Falco pods are ready and healthy",
-	}, nil
-}
-
-func (hc *customFalcoHealthCheck) checkPodLogs(ctx context.Context) (*healthcheck.SingleCheckResult, error) {
-	hc.logger.Info("Checking Falco pod logs for configuration errors")
-
+	// Check if Falco pods are ready
 	podList := &corev1.PodList{}
-	labelSelector := client.MatchingLabels{
-		"app.kubernetes.io/name": "falco",
-	}
+	labelSelector := client.MatchingLabels{"app.kubernetes.io/name": "falco"}
 
 	if err := hc.shootClient.List(ctx, podList, client.InNamespace(constants.NamespaceKubeSystem), labelSelector); err != nil {
-		hc.logger.Error(err, "Failed to list Falco pods")
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionFalse,
 			Detail: fmt.Sprintf("Failed to list Falco pods: %v", err),
-			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
 		}, nil
 	}
 
@@ -172,95 +119,27 @@ func (hc *customFalcoHealthCheck) checkPodLogs(ctx context.Context) (*healthchec
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionFalse,
 			Detail: "No Falco pods found",
-			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
 		}, nil
 	}
-
-	var configErrors []string
-	var podErrors []string
 
 	for _, pod := range podList.Items {
-		if isPodReady(&pod) {
-			continue // Skip ready pods
-		}
-
-		hc.logger.Info("Checking non-ready Falco pod", "pod", pod.Name, "phase", pod.Status.Phase)
-
-		// Check pod conditions for configuration issues
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionFalse {
-				hc.logger.Info("Checking PodReady condition", "pod", pod.Name, "message", condition.Message, "isConfigError", isConfigurationError(condition.Message))
-				if isConfigurationError(condition.Message) {
-					configErrors = append(configErrors, fmt.Sprintf("Pod %s: %s", pod.Name, condition.Message))
-				}
+		if !isPodReady(&pod) {
+			if configError := hc.checkPodConfigError(ctx, &pod); configError != "" {
+				return &healthcheck.SingleCheckResult{
+					Status: gardencorev1beta1.ConditionFalse,
+					Detail: configError,
+					Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
+				}, nil
 			}
-			if condition.Type == corev1.PodReadyToStartContainers && condition.Status == corev1.ConditionFalse {
-				hc.logger.Info("Checking PodReadyToStartContainers condition", "pod", pod.Name, "message", condition.Message, "isConfigError", isConfigurationError(condition.Message))
-				if isConfigurationError(condition.Message) {
-					configErrors = append(configErrors, fmt.Sprintf("Pod %s: %s", pod.Name, condition.Message))
-				}
-			}
-		}
-
-		// Check pod events for mount failures and other configuration issues
-		if eventErrors := hc.checkPodEvents(ctx, &pod); len(eventErrors) > 0 {
-			configErrors = append(configErrors, eventErrors...)
-		}
-
-		// Check container statuses for configuration errors
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name == "falco" && !containerStatus.Ready {
-				if containerStatus.State.Waiting != nil {
-					hc.logger.Info("Checking container waiting state", "pod", pod.Name, "container", containerStatus.Name, "message", containerStatus.State.Waiting.Message, "isConfigError", isConfigurationError(containerStatus.State.Waiting.Message))
-					if isConfigurationError(containerStatus.State.Waiting.Message) {
-						configErrors = append(configErrors, fmt.Sprintf("Pod %s container %s: %s", pod.Name, containerStatus.Name, containerStatus.State.Waiting.Message))
-					}
-				}
-				if containerStatus.State.Terminated != nil {
-					hc.logger.Info("Checking container terminated state", "pod", pod.Name, "container", containerStatus.Name, "message", containerStatus.State.Terminated.Message, "isConfigError", isConfigurationError(containerStatus.State.Terminated.Message))
-					if isConfigurationError(containerStatus.State.Terminated.Message) {
-						configErrors = append(configErrors, fmt.Sprintf("Pod %s container %s terminated: %s", pod.Name, containerStatus.Name, containerStatus.State.Terminated.Message))
-					}
-				}
-			}
-		}
-
-		if len(configErrors) == 0 {
-			podErrors = append(podErrors, fmt.Sprintf("Pod %s not ready (phase: %s)", pod.Name, pod.Status.Phase))
 		}
 	}
 
-	// Report configuration errors if found
-	if len(configErrors) > 0 {
-		detail := fmt.Sprintf("Falco configuration errors detected: %s", strings.Join(configErrors, "; "))
-		hc.logger.Error(nil, "Configuration errors found in Falco", "errors", configErrors)
-
-		result := &healthcheck.SingleCheckResult{
-			Status: gardencorev1beta1.ConditionFalse,
-			Detail: detail,
-			Codes:  []gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem},
-		}
-		hc.logger.Info("Returning health check result for configuration errors", "status", result.Status, "detail", result.Detail, "codes", result.Codes)
-		return result, nil
-	}
-
-	// Report general pod errors if no config errors but pods aren't ready
-	if len(podErrors) > 0 {
-		detail := fmt.Sprintf("Falco pods not ready: %s", strings.Join(podErrors, "; "))
-		return &healthcheck.SingleCheckResult{
-			Status: gardencorev1beta1.ConditionFalse,
-			Detail: detail,
-		}, nil
-	}
-
-	// No specific errors found, but pods still not ready
 	return &healthcheck.SingleCheckResult{
-		Status: gardencorev1beta1.ConditionFalse,
-		Detail: "Falco pods are not ready, but no specific configuration errors detected",
+		Status: gardencorev1beta1.ConditionTrue,
+		Detail: "Falco pods are ready and healthy",
 	}, nil
 }
 
-// isPodReady checks if a pod is ready
 func isPodReady(pod *corev1.Pod) bool {
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
@@ -270,88 +149,8 @@ func isPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-// isConfigurationError checks if an error message indicates a configuration problem
-func isConfigurationError(message string) bool {
-	if message == "" {
-		return false
-	}
-
-	// Enhanced configuration error patterns based on your specific requirements
-	configErrorPatterns := []*regexp.Regexp{
-		// Volume mount failures - ConfigMap/Secret not found
-		regexp.MustCompile(`(?i)configmap.*not found`),
-		regexp.MustCompile(`(?i)secret.*not found`),
-		regexp.MustCompile(`(?i)MountVolume\.SetUp failed`),
-		regexp.MustCompile(`(?i)couldn't find key.*in Secret`),
-		regexp.MustCompile(`(?i)couldn't find key.*in ConfigMap`),
-
-		// Engine version mismatches - specific to your error case
-		regexp.MustCompile(`(?i)LOAD_ERR_VALIDATE.*Rules require engine version.*but engine version is`),
-		regexp.MustCompile(`(?i)required_engine_version.*Rules require engine version.*but engine version is`),
-		regexp.MustCompile(`(?i)Falco internal: hot restart failure.*required_engine_version`),
-
-		// Invalid rules files - specific to your error case
-		regexp.MustCompile(`(?i)Error:.*\.yaml: Invalid`),
-		regexp.MustCompile(`(?i)Invalid.*Errors.*In rules content`),
-		regexp.MustCompile(`(?i)shoot-custom-rules.*\.yaml.*Invalid`),
-
-		// Schema validation failures
-		regexp.MustCompile(`(?i)schema validation: (failed|error)`),
-
-		// Rules file loading errors
-		regexp.MustCompile(`(?i)unable to load rules|error loading rules|rules file.*not found`),
-		regexp.MustCompile(`(?i)yaml.*parsing.*error|yaml.*syntax.*error`),
-		regexp.MustCompile(`(?i)rule.*compilation.*error|rule.*parsing.*error`),
-		regexp.MustCompile(`(?i)failed.*to.*read.*rules|cannot.*open.*rules`),
-		regexp.MustCompile(`(?i)rules.*directory.*not.*found|rules.*path.*error`),
-
-		// Configuration file errors
-		regexp.MustCompile(`(?i)config.*file.*not.*found|config.*parsing.*error|invalid.*configuration`),
-		regexp.MustCompile(`(?i)falco\.yaml.*error|configuration.*invalid`),
-
-		// Custom rules errors - enhanced for shoot ConfigMap rules
-		regexp.MustCompile(`(?i)custom.*rules.*error|user.*rules.*invalid`),
-		regexp.MustCompile(`(?i)shoot-custom-rules.*error`),
-
-		// Falco-specific configuration errors
-		regexp.MustCompile(`(?i)Unable to load the driver`),
-		regexp.MustCompile(`(?i)Runtime error: can't open device`),
-		regexp.MustCompile(`(?i)Unable to find a driver`),
-		regexp.MustCompile(`(?i)Failed to open device`),
-		regexp.MustCompile(`(?i)Cannot find the BPF probe file`),
-
-		// Rules-related errors
-		regexp.MustCompile(`(?i)Rules validation error`),
-		regexp.MustCompile(`(?i)Unable to load rules from`),
-		regexp.MustCompile(`(?i)Error loading rules`),
-		regexp.MustCompile(`(?i)Invalid rule`),
-
-		// Fatal configuration errors
-		regexp.MustCompile(`(?i)fatal.*configuration|critical.*config.*error`),
-		regexp.MustCompile(`(?i)startup.*failed|initialization.*error`),
-
-		// General configuration validation errors
-		regexp.MustCompile(`(?i)Invalid configuration`),
-		regexp.MustCompile(`(?i)Configuration error`),
-		regexp.MustCompile(`(?i)Failed to validate config`),
-
-		// Rules that can't be loaded/opened (your specific requirement)
-		regexp.MustCompile(`(?i)cannot.*read.*rules|unable.*to.*access.*rules`),
-		regexp.MustCompile(`(?i)closing inspectors.*Error:`),
-	}
-
-	for _, pattern := range configErrorPatterns {
-		if pattern.MatchString(message) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (hc *customFalcoHealthCheck) checkPodEvents(ctx context.Context, pod *corev1.Pod) []string {
-	var configErrors []string
-
+func (hc *customFalcoHealthCheck) checkPodConfigError(ctx context.Context, pod *corev1.Pod) string {
+	// 1. Check for ConfigMap mount errors in pod events
 	events := &corev1.EventList{}
 	fieldSelector := client.MatchingFields{
 		"involvedObject.name":      pod.Name,
@@ -359,16 +158,74 @@ func (hc *customFalcoHealthCheck) checkPodEvents(ctx context.Context, pod *corev
 		"involvedObject.kind":      "Pod",
 	}
 
-	if err := hc.shootClient.List(ctx, events, client.InNamespace(pod.Namespace), fieldSelector); err != nil {
-		hc.logger.Error(err, "Failed to list events for pod", "pod", pod.Name)
-		return configErrors
-	}
-
-	for _, event := range events.Items {
-		if event.Type == "Warning" && isConfigurationError(event.Message) {
-			configErrors = append(configErrors, fmt.Sprintf("Pod %s: %s", pod.Name, event.Message))
+	if err := hc.shootClient.List(ctx, events, client.InNamespace(pod.Namespace), fieldSelector); err == nil {
+		for _, event := range events.Items {
+			if event.Type == "Warning" {
+				msg := strings.ToLower(event.Message)
+				if strings.Contains(msg, "configmap") && (strings.Contains(msg, "not found") || strings.Contains(msg, "mount")) {
+					return fmt.Sprintf("Falco ConfigMap mount error: %s", event.Message)
+				}
+			}
 		}
 	}
 
-	return configErrors
+	// 2. Check for rule misconfiguration in container logs (if clientset available)
+	if hc.clientset != nil {
+		for _, container := range pod.Spec.Containers {
+			if container.Name == "falco" {
+				if ruleError := hc.checkContainerLogsForRuleErrors(ctx, pod, container.Name); ruleError != "" {
+					return ruleError
+				}
+			}
+		}
+	}
+
+	// Fallback: check container status for exit code 1 with restarts
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "falco" && containerStatus.RestartCount > 0 {
+			if containerStatus.LastTerminationState.Terminated != nil &&
+				containerStatus.LastTerminationState.Terminated.ExitCode == 1 {
+				return "Falco rules misconfigured - container exits with error code 1, likely due to invalid rule syntax or YAML errors"
+			}
+		}
+	}
+
+	return ""
+}
+
+func (hc *customFalcoHealthCheck) checkContainerLogsForRuleErrors(ctx context.Context, pod *corev1.Pod, containerName string) string {
+	podLogOpts := &corev1.PodLogOptions{
+		Container: containerName,
+		TailLines: func(i int64) *int64 { return &i }(50),
+		Previous:  true, // Get logs from crashed container
+	}
+
+	req := hc.clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOpts)
+	logs, err := req.Stream(ctx)
+	if err != nil {
+		podLogOpts.Previous = false
+		req = hc.clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOpts)
+		logs, err = req.Stream(ctx)
+		if err != nil {
+			return ""
+		}
+	}
+	defer logs.Close()
+
+	scanner := bufio.NewScanner(logs)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if strings.Contains(line, "Error:") && strings.Contains(line, ".yaml") && strings.Contains(line, "Invalid") {
+			return fmt.Sprintf("Falco rules misconfigured: %s", line)
+		}
+		if strings.Contains(line, "LOAD_ERR_YAML_PARSE") {
+			return fmt.Sprintf("Falco YAML syntax error: %s", line)
+		}
+		if strings.Contains(line, "LOAD_ERR_VALIDATE") {
+			return fmt.Sprintf("Falco rule validation error: %s", line)
+		}
+	}
+
+	return ""
 }

@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	defaultSyncPeriod = time.Second * 30
+	defaultSyncPeriod = time.Second * 10
 	// DefaultAddOptions contains configuration for the health check controller.
 	DefaultAddOptions = healthcheck.DefaultAddArgs{
 		HealthCheckConfig: healthcheckconfig.HealthCheckConfig{SyncPeriod: metav1.Duration{Duration: defaultSyncPeriod}},
