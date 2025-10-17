@@ -1513,14 +1513,14 @@ falcosidekick:
   fullfqdn: false
   # -- Listen port. Default value: 2801
   listenPort: ""
-  # -- number of running pods
+  # -- Number of running pods
   replicaCount: 2
 
   # Deploy networkplicy for communication between Falco and Falcosidekick
   # this required when deploying Falco in shoot clusters
   deployNetworkPolicies: true
 
-  # -- number of old history to retain to allow rollback (If not set, default Kubernetes value is set to 10)
+  # -- Number of old history to retain to allow rollback (If not set, default Kubernetes value is set to 10)
   # revisionHistoryLimit: 1
 
   image:
@@ -1707,7 +1707,23 @@ falcosidekick:
   tolerations: []
 
   # -- Affinity for the Sidekick pods
-  affinity: {}
+  affinity:
+    podAntiAffinity:
+      # Zones first
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: falcosidekick
+          topologyKey: topology.kubernetes.io/zone
+      # Nodes second
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: falcosidekick
+          topologyKey: kubernetes.io/hostname
 
   # -- Extra volumes for sidekick deployment
   extraVolumes: []
