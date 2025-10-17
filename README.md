@@ -1,7 +1,8 @@
 # [Gardener Extension for Falco](https://gardener.cloud)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/gardener/gardener-extension-shoot-falco-service)](https://goreportcard.com/report/github.com/gardener/gardener-extension-shoot-falco-service)
 [![REUSE status](https://api.reuse.software/badge/github.com/gardener/gardener-extension-shoot-falco-service)](https://api.reuse.software/info/github.com/gardener/gardener-extension-shoot-falco-service)
+[![Build](https://github.com/gardener/gardener-extension-shoot-falco-service/actions/workflows/non-release.yaml/badge.svg)](https://github.com/gardener/gardener-extension-shoot-falco-service/actions/workflows/non-release.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gardener/gardener-extension-shoot-falco-service)](https://goreportcard.com/report/github.com/gardener/gardener-extension-shoot-falco-service)
 
 
 Project Gardener implements the automated management and operation of [Kubernetes](https://kubernetes.io/) clusters as a service.

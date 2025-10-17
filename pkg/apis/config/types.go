@@ -52,4 +52,7 @@ type CentralStorageConfig struct {
 
 	// Ingestor URL
 	URL string
+
+	// Enabled ?
+	Enabled bool
 }

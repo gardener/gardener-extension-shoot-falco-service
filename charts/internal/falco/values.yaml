@@ -290,8 +290,8 @@ collectors:
     # -- Enable Container Engine support.
     enabled: false
     # -- pluginRef is the OCI reference for the container plugin. It could be a full reference such as
-    # "ghcr.io/falcosecurity/plugins/plugin/container:0.3.3". Or just name + tag: container:0.3.3.
-    pluginRef: "ghcr.io/falcosecurity/plugins/plugin/container:0.3.3"
+    # "ghcr.io/falcosecurity/plugins/plugin/container:0.3.6". Or just name + tag: container:0.3.6.
+    pluginRef: "ghcr.io/falcosecurity/plugins/plugin/container:0.3.6"
     # -- labelMaxLen is the maximum length of the labels that can be used in the container plugin.
     # container labels larger than this value won't be collected.
     labelMaxLen: 100
@@ -300,6 +300,8 @@ collectors:
     # -- hooks specify the hooks that will be used to collect metadata from the container engine.
     # The available hooks are: create, start.
     hooks: ["create"]
+    # -- engines specify the container engines that will be used to collect metadata.
+    # See https://github.com/falcosecurity/plugins/blob/main/plugins/container/README.md#configuration
     engines:
       docker:
         enabled: true
@@ -312,7 +314,13 @@ collectors:
         sockets: ["/run/containerd/containerd.sock"]
       cri:
         enabled: true
-        sockets: ["/run/crio/crio.sock"]
+        sockets:
+          [
+            "/run/containerd/containerd.sock",
+            "/run/crio/crio.sock",
+            "/run/k3s/containerd/containerd.sock",
+            "/run/host-containerd/containerd.sock",
+          ]
       lxc:
         enabled: true
       libvirt_lxc:
@@ -624,6 +632,32 @@ falco:
   # applied when the corresponding plugin is enabled using the `load_plugins`
   # option.
   plugins:
+    - name: container
+      # path to the plugin .so file
+      library_path: libcontainer.so
+      init_config:
+        label_max_len: 100 # (optional, default: 100; container labels larger than this won't be reported)
+        with_size: false # (optional, default: false; whether to enable container size inspection, which is inherently slow)
+        hooks: ['create', 'start'] # (optional, default: 'create'. Some fields might not be available in create hook, but we are guaranteed that it gets triggered before first process gets started)
+        engines:
+          docker:
+            enabled: true
+            sockets: ['/var/run/docker.sock']
+          podman:
+            enabled: true
+            sockets: ['/run/podman/podman.sock', '/run/user/1000/podman/podman.sock']
+          containerd:
+            enabled: true
+            sockets: ['/run/containerd/containerd.sock']
+          cri:
+            enabled: true
+            sockets: ['/run/crio/crio.sock']
+          lxc:
+            enabled: false
+          libvirt_lxc:
+            enabled: false
+          bpm:
+            enabled: false
     - name: k8saudit
       library_path: libk8saudit.so
       init_config:
@@ -717,6 +751,56 @@ falco:
   # efficient resource usage, and smoother data flow, resulting in a more reliable
   # output mechanism. By default, buffering is disabled (false).
   buffered_outputs: false
+
+  # [Sandbox] `append_output`
+  #
+  # Add information to the Falco output.
+  # With this setting you can add more information to the Falco output message, customizable by
+  # rule, tag or source.
+  # You can also add additional data that will appear in the output_fields property
+  # of JSON formatted messages or gRPC output but will not be part of the regular output message.
+  # This allows you to add custom fields that can help you filter your Falco events without
+  # polluting the message text.
+  #
+  # Each append_output entry has an optional `match` map which specifies which rules will be
+  # affected.
+  # `match`:
+  #   `rule`: append output only to a specific rule
+  #   `source`: append output only to a specific source
+  #   `tags`: append output only to rules that have all of the specified tags
+  # If none of the above are specified (or `match` is omitted)
+  # output is appended to all events.
+  # If more than one match condition is specified output will be appended to events
+  # that match all conditions.
+  # And several options to add output:
+  #   `extra_output`: add output to the Falco message
+  #   `extra_fields`: add new fields to the JSON output and structured output, which will not
+  #             affect the regular Falco message in any way. These can be specified as a
+  #             custom name with a custom format or as any supported field
+  #             (see: https://falco.org/docs/reference/rules/supported-fields/)
+  #   `suggested_output`: enable the use of extractor plugins suggested fields for the matching source output.
+  #
+  # Example:
+  #
+  # append_output:
+  #   - match:
+  #       source: syscall
+  #     extra_output: "on CPU %evt.cpu"
+  #     extra_fields:
+  #       - home_directory: "${HOME}"
+  #       - evt.hostname
+  #
+  # In the example above every event coming from the syscall source will get an extra message
+  # at the end telling the CPU number. In addition, if `json_output` is true, in the "output_fields"
+  # property you will find three new ones: "evt.cpu", "home_directory" which will contain the value of the
+  # environment variable $HOME, and "evt.hostname" which will contain the hostname.
+
+  # By default, we enable suggested_output for any source.
+  # This means that any extractor plugin that indicates some of its fields
+  # as suggested output formats, will see these fields in the output
+  # in the form "foo_bar=$foo.bar"
+  append_output:
+    - suggested_output: true
 
   ##########################
   # Falco outputs channels #
@@ -935,8 +1019,8 @@ falco:
   # "alert", "critical", "error", "warning", "notice", "info", "debug". It is not
   # recommended for production use.
   libs_logger:
-    enabled: false
-    severity: debug
+    enabled: true
+    severity: info
 
   #################################################################################
   # Falco logging / alerting / metrics related to software functioning (advanced) #
@@ -1101,7 +1185,7 @@ falco:
   #
   # Time durations are specified as a number, followed immediately by one of the
   # following units:
-  # 
+  #
   # ms - millisecond
   # s - second
   # m - minute
@@ -1115,7 +1199,7 @@ falco:
   # A minimum interval of 100ms is enforced for metric collection. However, for
   # production environments, we recommend selecting one of the following intervals
   # for optimal monitoring:
-  # 
+  #
   # 15m
   # 30m
   # 1h
@@ -1139,21 +1223,21 @@ falco:
   # number of CPUs to determine overall usage. Memory metrics are provided in raw
   # units (`kb` for `RSS`, `PSS` and `VSZ` or `bytes` for `container_memory_used`)
   # and can be uniformly converted to megabytes (MB) using the
-  # `convert_memory_to_mb` functionality. In environments such as Kubernetes when 
-  # deployed as daemonset, it is crucial to track Falco's container memory usage. 
-  # To customize the path of the memory metric file, you can create an environment 
-  # variable named `FALCO_CGROUP_MEM_PATH` and set it to the desired file path. By 
-  # default, Falco uses the file `/sys/fs/cgroup/memory/memory.usage_in_bytes` to 
-  # monitor container memory usage, which aligns with Kubernetes' 
-  # `container_memory_working_set_bytes` metric. Finally, we emit the overall host 
-  # CPU and memory usages, along with the total number of processes and open file 
-  # descriptors (fds) on the host, obtained from the proc file system unrelated to 
-  # Falco's monitoring. These metrics help assess Falco's usage in relation to the 
+  # `convert_memory_to_mb` functionality. In environments such as Kubernetes when
+  # deployed as daemonset, it is crucial to track Falco's container memory usage.
+  # To customize the path of the memory metric file, you can create an environment
+  # variable named `FALCO_CGROUP_MEM_PATH` and set it to the desired file path. By
+  # default, Falco uses the file `/sys/fs/cgroup/memory/memory.usage_in_bytes` to
+  # monitor container memory usage, which aligns with Kubernetes'
+  # `container_memory_working_set_bytes` metric. Finally, we emit the overall host
+  # CPU and memory usages, along with the total number of processes and open file
+  # descriptors (fds) on the host, obtained from the proc file system unrelated to
+  # Falco's monitoring. These metrics help assess Falco's usage in relation to the
   # server's workload intensity.
   #
-  # `state_counters_enabled`: Emit counters related to Falco's state engine, including 
-  # added, removed threads or file descriptors (fds), and failed lookup, store, or 
-  # retrieve actions in relation to Falco's underlying process cache table (threadtable). 
+  # `state_counters_enabled`: Emit counters related to Falco's state engine, including
+  # added, removed threads or file descriptors (fds), and failed lookup, store, or
+  # retrieve actions in relation to Falco's underlying process cache table (threadtable).
   # We also log the number of currently cached containers if applicable.
   #
   # `kernel_event_counters_enabled`: Emit kernel side event and drop counters, as
@@ -1180,9 +1264,9 @@ falco:
   # beneficial for exploring the data schema and ensuring that fields with empty
   # values are included in the output.
   #
-  # `plugins_metrics_enabled`: Falco can now expose your custom plugins' 
-  # metrics. Please note that if the respective plugin has no metrics implemented, 
-  # there will be no metrics available. In other words, there are no default or 
+  # `plugins_metrics_enabled`: Falco can now expose your custom plugins'
+  # metrics. Please note that if the respective plugin has no metrics implemented,
+  # there will be no metrics available. In other words, there are no default or
   # generic plugin metrics at this time. This may be subject to change.
   #
   # If metrics are enabled, the web server can be configured to activate the
@@ -1193,7 +1277,7 @@ falco:
   metrics:
     enabled: true
     interval: 1h
-    # Typically, in production, you only use `output_rule` or `output_file`, but not both. 
+    # Typically, in production, you only use `output_rule` or `output_file`, but not both.
     # However, if you have a very unique use case, you can use both together.
     # Set `webserver.prometheus_metrics_enabled` for Prometheus output.
     output_rule: false
@@ -1213,7 +1297,7 @@ falco:
   #######################################
   # Falco performance tuning (advanced) #
   #######################################
-  
+
   # [Stable] `base_syscalls`, use with caution, read carefully
   #
   # --- [Description]
@@ -1373,33 +1457,33 @@ falco:
     modern_ebpf:
       cpus_for_each_buffer: 2
       buf_size_preset: 4
-      drop_failed_exit: false  
+      drop_failed_exit: false
 
   # [Incubating] `container_engines`
   #
-  # This option allows you to explicitly enable or disable API lookups against container 
-  # runtime sockets for each supported container runtime. 
-  # Access to these sockets enables Falco to retrieve container and Kubernetes fields, 
-  # helping identify workload owners in modern containerized environments. 
+  # This option allows you to explicitly enable or disable API lookups against container
+  # runtime sockets for each supported container runtime.
+  # Access to these sockets enables Falco to retrieve container and Kubernetes fields,
+  # helping identify workload owners in modern containerized environments.
   # Refer to the fields docs:
-  # 
+  #
   # - [Kubernetes fields](https://falco.org/docs/reference/rules/supported-fields/#field-class-k8s)
   # - [Container fields](https://falco.org/docs/reference/rules/supported-fields/#container)
-  # 
+  #
   # Additionally, Falco can use container events as a data source for alerting (evt.type = container).
-  # 
-  # For most container engines, you can solely enable or disable them, and Falco will search the 
+  #
+  # For most container engines, you can solely enable or disable them, and Falco will search the
   # default (hard-coded) container runtime socket paths, such as `/var/run/docker.sock` for Docker.
   #
   # However, for Kubernetes settings, you can customize the CRI socket paths:
-  # 
+  #
   # - `container_engines.cri.sockets`: Pass a list of container runtime sockets.
-  # - `container_engines.cri.disable_async`: Since API lookups may not always be quick or 
-  # perfect, resulting in empty fields for container metadata, you can use this option option 
+  # - `container_engines.cri.disable_async`: Since API lookups may not always be quick or
+  # perfect, resulting in empty fields for container metadata, you can use this option option
   # to disable asynchronous fetching. Note that missing fields may still occasionally occur.
-  # 
-  # The equivalent (stable) CLI args are `--cri` or `--disable-cri-async`.
-  
+
+  # Please use the collectors section to configure the container engines.
+
   container_engines:
     docker:
       enabled: false

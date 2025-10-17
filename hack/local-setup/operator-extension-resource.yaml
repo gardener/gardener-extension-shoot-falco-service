@@ -1,0 +1,82 @@
+apiVersion: operator.gardener.cloud/v1alpha1
+kind: Extension
+metadata:
+  name: extension-shoot-falco-service
+spec:
+  deployment:
+    admission:
+      runtimeCluster:
+        helm:
+          ociRepository:
+            ref: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/runtime
+      values:
+        image:
+          repository: local-skaffold/gardener-extension-admission-shoot-falco-service
+        replicaCount: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        restrictedUsage: false
+        service:
+          topologyAwareRouting:
+            enabled: true
+      virtualCluster:
+        helm:
+          ociRepository:
+            ref: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/application
+    extension:
+      helm:
+        ociRepository:
+          ref: local-skaffold/gardener-extension-shoot-falco-service/charts/extension
+      injectGardenKubeconfig: true
+      values:
+        extensionPriorityClassName: gardener-system-900
+        falco:
+          priorityClassName: gardener-shoot-system-900
+        image:
+          repository: local-skaffold/gardener-extension-shoot-falco-service
+        imageVectorOverwrite: |
+          images:
+          - name: falcosidekick
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcosidekick
+            tag: sha256:e397253cd7c6a66440b45d5c4d6b898c2a9c12831bf65ed251269fcad2f85256
+            version: 2.30.0
+          - name: falcosidekick
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falcosidekick
+            tag: sha256:8d3d4658761bb80d1657f421274fcf3306038f380aef8ce730d2e115408f7876
+            version: 2.31.1
+          - name: falco
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco-distroless
+            tag: sha256:4bf7144f69292997368ac9077fb509513d1946aa252854430c0c87299ed4f04e
+            version: 0.39.2
+          - name: falco
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
+            tag: sha256:2bf64100eafe0795860a7765e848627834cb2c185c0b736442f797f5381df698
+            version: 0.40.0
+          - name: falco
+            repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
+            tag: sha256:1e5a3275b12987e95b3be993c1d1a357fc9461081cfce8e2981ac9e23554470c
+            version: 0.41.3
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        vpa:
+          enabled: true
+          resourcePolicy:
+            minAllowed:
+              memory: 128Mi
+  resources:
+  - clusterCompatibility:
+    - shoot
+    kind: Extension
+    lifecycle:
+      delete: BeforeKubeAPIServer
+      migrate: BeforeKubeAPIServer
+      reconcile: AfterKubeAPIServer
+    primary: true
+    reconcileTimeout: 3m0s
+    type: shoot-falco-service
+    workerlessSupported: false

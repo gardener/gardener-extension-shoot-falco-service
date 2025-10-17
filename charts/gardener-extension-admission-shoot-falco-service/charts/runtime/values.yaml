@@ -7,7 +7,6 @@ restrictedCentralizedLogging: true
 
 image:
   repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/admission-shoot-falco-service
-  tag: latest
   pullPolicy: IfNotPresent
 replicaCount: 1
 resources: {}
@@ -18,7 +17,7 @@ vpa:
     minAllowed:
       memory: 64Mi
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: "Recreate"
 webhookConfig:
   serverPort: 10250
 kubeconfig: ""
