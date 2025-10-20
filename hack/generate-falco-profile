@@ -55,7 +55,7 @@ for fv in falcosidekick_versions["falcosidekickVersions"]:
         sys.stderr.write(f"Falcosidekick version {v} configured but there is no image for it\n")
 
 if has_falcoctl:
-    for fc in falcoctl_versions["falcoctlVersions"]:
+    for fc in falcoctl_versions["falcoctlVersions"] or {}:
         v = fc["version"]
         if v not in falcoctl_image_vector_map:
             has_error = True
