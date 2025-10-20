@@ -9,6 +9,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -140,6 +141,17 @@ func (in *FalcoServiceConfig) DeepCopyInto(out *FalcoServiceConfig) {
 			*out = make(map[string]string, len(*in))
 			for key, val := range *in {
 				(*out)[key] = val
+			}
+		}
+	}
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
+		*out = new([]v1.Toleration)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]v1.Toleration, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
 			}
 		}
 	}
