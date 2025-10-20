@@ -6,11 +6,12 @@ package lifecycle
 
 import (
 	"context"
-	"time"
-
+	"fmt"
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"time"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	controllerconfig "github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/config"
@@ -36,12 +37,21 @@ type AddOptions struct {
 	ServiceConfig controllerconfig.Config
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
 	IgnoreOperationAnnotation bool
+	// ExtensionClass defines the main extension class this extension is responsible for (shoot, seed, garden).
+	ExtensionClass extensionsv1alpha1.ExtensionClass
 }
 
 // AddToManager adds a Falco extension lifecycle controller to the given controller manager.
 func AddToManager(ctx context.Context, mgr manager.Manager) error {
+	var extensionClasses []extensionsv1alpha1.ExtensionClass
+	if DefaultAddOptions.ExtensionClass == extensionsv1alpha1.ExtensionClassGarden {
+		extensionClasses = []extensionsv1alpha1.ExtensionClass{extensionsv1alpha1.ExtensionClassGarden}
+	} else {
+		extensionClasses = []extensionsv1alpha1.ExtensionClass{extensionsv1alpha1.ExtensionClassShoot, extensionsv1alpha1.ExtensionClassSeed}
+	}
 	act, err := NewActuator(mgr, DefaultAddOptions.ServiceConfig.Configuration)
 	if err != nil {
+		fmt.Println("ACTUATOR FAILED " + err.Error())
 		return err
 	}
 	return extension.Add(mgr, extension.AddArgs{
@@ -52,5 +62,6 @@ func AddToManager(ctx context.Context, mgr manager.Manager) error {
 		Resync:            60 * time.Minute,
 		Predicates:        extension.DefaultPredicates(ctx, mgr, DefaultAddOptions.IgnoreOperationAnnotation),
 		Type:              constants.ExtensionType,
+		ExtensionClasses:  extensionClasses,
 	})
 }

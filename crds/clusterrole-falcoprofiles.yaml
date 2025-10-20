@@ -11,3 +11,10 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - core.gardener.cloud
+  resources:
+  - seeds
+  verbs:
+  - get
+  - list
