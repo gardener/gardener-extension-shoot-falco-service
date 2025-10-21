@@ -48,12 +48,24 @@ type Shoot struct {
 }
 
 // Mutate implements extensionswebhook.Mutator.Mutate
-func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
-	shoot, ok := new.(*gardencorev1beta1.Shoot)
-	if !ok {
-		return fmt.Errorf("wrong object type %T", new)
+func (s *Shoot) Mutate(ctx context.Context, newObj, _ client.Object) error {
+
+	switch newObj.(type) {
+	case *gardencorev1beta1.Shoot:
+		shootObj, ok := newObj.(*gardencorev1beta1.Shoot)
+		if !ok {
+			return fmt.Errorf("wrong object type %T, expected shoot", shootObj)
+		}
+		return s.mutateShoot(ctx, shootObj)
+	case *gardencorev1beta1.Seed:
+		seedObj, ok := newObj.(*gardencorev1beta1.Seed)
+		if !ok {
+			return fmt.Errorf("wrong object type %T, expected shoot", newObj)
+		}
+		return s.mutateSeed(ctx, seedObj)
+	default:
+		return fmt.Errorf("unsupported object type %T", newObj)
 	}
-	return s.mutateShoot(ctx, shoot)
 }
 
 func setAutoUpdate(falcoConf *service.FalcoServiceConfig) {
@@ -191,7 +203,6 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if s.isDisabled(new) {
 		return nil
 	}
-
 	falcoConf, err := s.ExtractFalcoConfig(new)
 	if err != nil {
 		return err
@@ -200,9 +211,30 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if falcoConf == nil {
 		falcoConf = &service.FalcoServiceConfig{}
 	}
+	newConfig, err := s.mutate(falcoConf)
+	return s.UpdateFalcoConfigShoot(new, newConfig)
+}
 
-	if err = setFalcoVersion(falcoConf); err != nil {
+func (s *Shoot) mutateSeed(_ context.Context, new *gardencorev1beta1.Seed) error {
+	falcoConf, err := s.ExtractFalcoConfig(new)
+	if err != nil {
 		return err
+	}
+	if falcoConf == nil {
+		falcoConf = &service.FalcoServiceConfig{}
+	}
+	newConfig, err := s.mutate(falcoConf)
+	return s.UpdateFalcoConfigSeed(new, newConfig)
+}
+
+func (s *Shoot) mutate(falcoConf *service.FalcoServiceConfig) (*service.FalcoServiceConfig, error) {
+
+	if falcoConf == nil {
+		falcoConf = &service.FalcoServiceConfig{}
+	}
+
+	if err := setFalcoVersion(falcoConf); err != nil {
+		return nil, err
 	}
 
 	setAutoUpdate(falcoConf)
@@ -211,7 +243,7 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	setDestinations(falcoConf)
 
-	return s.UpdateFalcoConfig(new, falcoConf)
+	return falcoConf, nil
 }
 
 func setRules(falcoConf *service.FalcoServiceConfig) {
@@ -252,17 +284,43 @@ func (s *Shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 }
 
 // findExtension returns shoot-falco-service extension.
-func (s *Shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
-	for i, ext := range shoot.Spec.Extensions {
+// func (s *Shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
+// 	for i, ext := range shoot.Spec.Extensions {
+// 		if ext.Type == constants.ExtensionType {
+// 			return &shoot.Spec.Extensions[i]
+// 		}
+// 	}
+// 	return nil
+// }
+
+func (s *Shoot) findExtension(obj client.Object) *gardencorev1beta1.Extension {
+	var extensions []gardencorev1beta1.Extension
+	switch obj.(type) {
+	case *gardencorev1beta1.Shoot:
+		shoot, ok := obj.(*gardencorev1beta1.Shoot)
+		if !ok {
+			return nil
+		}
+		extensions = shoot.Spec.Extensions
+	case *gardencorev1beta1.Seed:
+		seed, ok := obj.(*gardencorev1beta1.Seed)
+		if !ok {
+			return nil
+		}
+		extensions = seed.Spec.Extensions
+	default:
+		return nil
+	}
+	for _, ext := range extensions {
 		if ext.Type == constants.ExtensionType {
-			return &shoot.Spec.Extensions[i]
+			return &ext
 		}
 	}
 	return nil
 }
 
-func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
-	ext := s.findExtension(shoot)
+func (s *Shoot) ExtractFalcoConfig(obj client.Object) (*service.FalcoServiceConfig, error) {
+	ext := s.findExtension(obj)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}
 		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
@@ -273,7 +331,7 @@ func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 	return nil, nil
 }
 
-func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
+func (s *Shoot) UpdateFalcoConfigShoot(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
 	raw, err := s.toRaw(config)
 	if err != nil {
 		return err
@@ -295,6 +353,31 @@ func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *servic
 		})
 	}
 	shoot.Spec.Extensions[index].ProviderConfig = &runtime.RawExtension{Raw: raw}
+	return nil
+}
+
+func (s *Shoot) UpdateFalcoConfigSeed(seed *gardencorev1beta1.Seed, config *service.FalcoServiceConfig) error {
+	raw, err := s.toRaw(config)
+	if err != nil {
+		return err
+	}
+
+	extensionType := "shoot-falco-service"
+	index := -1
+	for i, ext := range seed.Spec.Extensions {
+		if ext.Type == extensionType {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		index = len(seed.Spec.Extensions)
+		seed.Spec.Extensions = append(seed.Spec.Extensions, gardencorev1beta1.Extension{
+			Type: extensionType,
+		})
+	}
+	seed.Spec.Extensions[index].ProviderConfig = &runtime.RawExtension{Raw: raw}
 	return nil
 }
 

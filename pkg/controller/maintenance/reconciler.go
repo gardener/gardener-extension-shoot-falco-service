@@ -128,7 +128,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 	}
 
 	falcoConf.FalcoVersion = versionToSet
-	if err := r.mutator.UpdateFalcoConfig(shoot, falcoConf); err != nil {
+	if err := r.mutator.UpdateFalcoConfigShoot(shoot, falcoConf); err != nil {
 		return fmt.Errorf("could not update Falco config: %s", err.Error())
 	}
 

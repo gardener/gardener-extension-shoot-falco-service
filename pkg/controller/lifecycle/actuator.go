@@ -9,13 +9,14 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/extensions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
@@ -49,8 +50,6 @@ import (
 // NewActuator returns an actuator responsible for Extension resources.
 func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Actuator, error) {
 	setConfigDefaults(config)
-	fmt.Println("Checkpoint 0")
-
 	var tokenIssuer *secrets.TokenIssuer = nil
 	if config.Falco.CentralStorage != nil && config.Falco.CentralStorage.Enabled {
 		if config.Falco.CentralStorage.TokenIssuerPrivateKey == "" {
@@ -69,7 +68,6 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 			return nil, err
 		}
 	}
-	fmt.Println("Checkpoint 1")
 	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
 
 	gardenRESTConfig, err := kubernetes.RESTConfigFromKubeconfigFile(os.Getenv("GARDEN_KUBECONFIG"), kubernetes.AuthTokenFile)
@@ -80,25 +78,16 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 	if err != nil {
 		return nil, fmt.Errorf("failed creating dynamic garden cluster object: %w", err)
 	}
-	/*	gardenCluster, err := cluster.New(gardenRESTConfig, func(opts *cluster.Options) {
-			opts.Scheme = kubernetes.GardenScheme
-		})
-	*/
-	fmt.Println("Checkpoint 2")
 
 	localClusterK8sVersion, err := getLocalClusterK8sVersion(mgr.GetConfig())
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Checkpoint 3")
 	seed, err := getSeed(context.TODO(), dynamicGardenCluster, os.Getenv("SEED_NAME"))
 	if err != nil {
 		return nil, fmt.Errorf("cannot get seed: %v", err)
 	}
-	fmt.Println("Checkpoint 4")
 
-	fmt.Printf("Local cluster k8s version %s\n", localClusterK8sVersion)
-	fmt.Printf("seed name %s\n", os.Getenv("SEED_NAME"))
 	return &actuator{
 		client:                 mgr.GetClient(),
 		config:                 mgr.GetConfig(),
