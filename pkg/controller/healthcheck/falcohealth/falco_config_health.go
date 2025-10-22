@@ -136,7 +136,6 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
 
 	return &healthcheck.SingleCheckResult{
 		Status: gardencorev1beta1.ConditionTrue,
-		Detail: "Falco pods are ready and healthy",
 	}, nil
 }
 
@@ -176,16 +175,6 @@ func (hc *customFalcoHealthCheck) checkPodConfigError(ctx context.Context, pod *
 				if ruleError := hc.checkContainerLogsForRuleErrors(ctx, pod, container.Name); ruleError != "" {
 					return ruleError
 				}
-			}
-		}
-	}
-
-	// Fallback: check container status for exit code 1 with restarts
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "falco" && containerStatus.RestartCount > 0 {
-			if containerStatus.LastTerminationState.Terminated != nil &&
-				containerStatus.LastTerminationState.Terminated.ExitCode == 1 {
-				return "Falco rules misconfigured - container exits with error code 1, likely due to invalid rule syntax or YAML errors"
 			}
 		}
 	}
