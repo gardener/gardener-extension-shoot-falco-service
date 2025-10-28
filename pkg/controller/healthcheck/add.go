@@ -19,10 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/healthcheck/falcohealth"
 )
 
 var (
-	defaultSyncPeriod = time.Second * 30
+	defaultSyncPeriod = time.Second * 10
 	// DefaultAddOptions contains configuration for the health check controller.
 	DefaultAddOptions = healthcheck.DefaultAddArgs{
 		HealthCheckConfig: healthcheckconfig.HealthCheckConfig{SyncPeriod: metav1.Duration{Duration: defaultSyncPeriod}},
@@ -44,6 +45,10 @@ func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthc
 			{
 				ConditionType: string(gardencorev1beta1.ShootObservabilityComponentsHealthy),
 				HealthCheck:   general.CheckManagedResource(constants.ManagedResourceNameFalcoSeed),
+			},
+			{
+				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:   falcohealth.NewCustomFalcoHealthCheck(general.NewShootDaemonSetHealthChecker("falco")),
 			},
 		},
 		sets.New[gardencorev1beta1.ConditionType](),

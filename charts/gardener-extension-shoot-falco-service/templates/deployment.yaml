@@ -42,6 +42,8 @@ spec:
         networking.gardener.cloud/to-dns: allowed
         networking.gardener.cloud/to-public-networks: allowed
         networking.resources.gardener.cloud/to-virtual-garden-istio-ingress-istio-ingressgateway-inte-02e09: allowed
+        networking.resources.gardener.cloud/to-all-shoots-kube-apiserver-tcp-443: allowed
+
     spec:
       {{- if gt (int .Values.replicaCount) 1 }}
       affinity:
