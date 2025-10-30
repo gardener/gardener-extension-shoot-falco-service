@@ -1,7 +1,7 @@
 apiVersion: v1
 name: falco
 version: 0.0.2
-appVersion: "0.37.2"
+appVersion: "0.42.0"
 description: Gardener Falco
 keywords:
   - monitoring
@@ -17,3 +17,6 @@ sources:
 maintainers:
   - name: Dirk Marwinski
     email: dirk.marwinski@sap.com
+  - name: Linus Roepert
+    email: linus.roepert@sap.com
+
