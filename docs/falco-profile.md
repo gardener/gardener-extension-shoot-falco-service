@@ -24,7 +24,9 @@ spec:
     - repository: falcosecurity/falcosidekick
       tag: 2.31.1
       version: 2.31.1
-    # ...other images...
+    - repository: falcosecurity/falcosidekick
+      tag: 2.32.0
+      version: 2.32.0
   versions:
     falco:
     - classification: deprecated
@@ -37,18 +39,11 @@ spec:
     - classification: preview
       rulesVersion: 3.2.0
       version: 0.40.0
-    falcoctl:
-    - classification: deprecated
-      version: 0.10.1
-    - classification: supported
-      version: 0.11.0
     falcosidekick:
-    - classification: deprecated
-      version: 2.29.0
-    - classification: supported
-      version: 2.30.0
     - classification: supported
       version: 2.31.1
+    - classification: supported
+      version: 2.32.0
 ```
 
 Any non-expired Falco version listed above can be configured in the shoot manifest. If no version is specified in the shoot manifest, the latest Falco version tagged as "supported" will be used by default.

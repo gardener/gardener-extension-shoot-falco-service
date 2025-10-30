@@ -189,7 +189,6 @@ verify: check format test sast validate-imagevector spell
 verify-extended: check-generate check format validate-imagevector generate-profile test sast-report spell
 #verify-extended: check-generate check format test test-cov test-clean
 
-
 .PHONY: extension-up
 extension-up: export EXTENSION_VERSION = $(VERSION)
 extension-up: export SKAFFOLD_DEFAULT_REPO = garden.local.gardener.cloud:5001
