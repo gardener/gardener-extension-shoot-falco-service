@@ -49,7 +49,7 @@ Below is the full configuration, explained in detail:
       apiVersion: falco.extensions.gardener.cloud/v1alpha1
       kind: FalcoServiceConfig
       # Optional: uses the latest version tagged as "supported" if omitted
-      falcoVersion: 0.40.0
+      falcoVersion: 0.42.0
       # Optional: defaults to true
       autoUpdate: true|false
       # Optional
@@ -279,3 +279,15 @@ Falco events are forwarded to central storage via the Falcosidekick [webhook out
 The [Falco event ingestor](https://github.com/gardener/falco-event-ingestor) provides a REST API to receive Falco events, validates event integrity, stores events in an SQL database, and implements configurable rate limiting per cluster to prevent overload.
 
 The [Falco event provider](https://github.com/gardener/falco-event-provider) offers a REST API to access the database. Cluster users must present a valid token (with Viewer access for the Gardener project namespace) to retrieve Falco events for their cluster.
+
+## Known Issues
+
+### Falco 0.41.x - Container Name Display Issue
+
+**Issue**: In Falco versions 0.41.0 through 0.41.3, there is a known bug where the `container.name` field in alerts displays the `container.id` instead of the actual container name. See [GitHub Issue #3631](https://github.com/falcosecurity/falco/issues/3631) for details.
+
+**Resolution**: This issue is fixed in Falco 0.42.0. If you need accurate container names in alerts, use Falco 0.40.0 or upgrade to 0.42.0.
+
+**Affected Versions**: 0.41.0, 0.41.3
+**Fixed In**: 0.42.0
+
