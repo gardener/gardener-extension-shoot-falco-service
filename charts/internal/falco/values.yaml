@@ -99,6 +99,28 @@ resources:
   limits:
     # cpu: 1000m
     memory: 1024Mi
+
+# -- VPA (VerticalPodAutoscaler) configuration for Falco DaemonSet
+vpa:
+  # -- Enable VPA for Falco pods
+  enabled: true
+  # -- Resource policy for VPA
+  resourcePolicy:
+    # -- Minimum allowed resources for Falco container
+    minAllowed:
+      memory: 128Mi
+    # -- Maximum allowed resources for Falco container
+    maxAllowed:
+      memory: 2048Mi
+    # -- Specify which resources VPA should control (only memory, not CPU)
+    controlledResources:
+      - memory
+  # -- Update policy for VPA
+  updatePolicy:
+    # -- Update mode: "Off", "Initial", "Recreate", "Auto"
+    # "Auto" is recommended for DaemonSets as it allows node-by-node updates
+    updateMode: "Auto"
+
 # -- Selectors used to deploy Falco on a given node/nodes.
 nodeSelector: {}
 
