@@ -22,11 +22,11 @@ spec:
       version: 0.42.0
     falcosidekick:
     - repository: falcosecurity/falcosidekick
-      tag: 2.30.0
-      version: 2.30.0
-    - repository: falcosecurity/falcosidekick
       tag: 2.31.1
       version: 2.31.1
+    - repository: falcosecurity/falcosidekick
+      tag: 2.32.0
+      version: 2.32.0
   versions:
     falco:
     - classification: supported
@@ -40,9 +40,9 @@ spec:
       version: 0.42.0
     falcosidekick:
     - classification: deprecated
-      version: 2.30.0
-    - classification: supported
       version: 2.31.1
+    - classification: supported
+      version: 2.32.0
 ```
 
 Any non-expired Falco version listed above can be configured in the shoot manifest. If no version is specified in the shoot manifest, the latest Falco version tagged as "supported" will be used by default.
