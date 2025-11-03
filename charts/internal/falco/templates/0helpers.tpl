@@ -416,6 +416,24 @@ be temporary and will stay here until we move this logic to the falcoctl tool.
 {{- end -}}
 
 {{/*
+Return "true" if we should mount the path specified by `driver.sysfsMountPath` in the Falco pod.
+It considers driver.enabled, driver.kind and the per-driver sysfsMount opt-outs in values.yaml.
+*/}}
+{{- define "falco.sysfsMount.enabled" -}}
+{{- if .Values.driver.enabled -}}
+  {{- if eq .Values.driver.kind "ebpf" -}}
+    {{- if .Values.driver.ebpf.sysfsMount }}true{{- else }}false{{- end -}}
+  {{- else if or (eq .Values.driver.kind "modern_ebpf") (eq .Values.driver.kind "modern-bpf") -}}
+    {{- if .Values.driver.modernEbpf.sysfsMount }}true{{- else }}false{{- end -}}
+  {{- else if eq .Values.driver.kind "auto" -}}
+    {{- if or .Values.driver.ebpf.sysfsMount .Values.driver.modernEbpf.sysfsMount }}true{{- else }}false{{- end -}}
+  {{- end -}}
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{/*
 Based on the user input it populates the driver configuration in the falco config map.
 */}}
 {{- define "falco.engineConfiguration" -}}
