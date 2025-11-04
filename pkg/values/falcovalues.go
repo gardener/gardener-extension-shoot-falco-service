@@ -71,7 +71,7 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 	}
 }
 
-func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) (map[string]interface{}, error) {
+func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) (map[string]any, error) {
 
 	// images
 	falcoServiceConfig := reconcileCtx.FalcoServiceConfig
@@ -102,7 +102,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			falcoStdoutLog = true
 
 		case constants.FalcoEventDestinationLogging:
-			// TODO: this is currently not our use case but need to think about it
 			valiHost := utils.ComputeValiHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
 			loki := map[string]interface{}{
 				"hostport":  "https://" + valiHost,
@@ -220,7 +219,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"cluster_id": *reconcileCtx.ClusterIdentity,
 		}
 
-		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields, priorityClassName)
+		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields, priorityClassName, reconcileCtx.IsShootDeployment)
 		for _, outputConfig := range falcoOutputConfigs {
 			falcosidekickConfig["config"].(map[string]any)[outputConfig.key] = outputConfig.value
 		}
@@ -237,7 +236,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 
 	destination := c.getDestination(falcoOutputConfigs)
 
-	falcoChartValues := map[string]interface{}{
+	falcoChartValues := map[string]any{
 		"clusterId":         *reconcileCtx.ClusterIdentity,
 		"priorityClassName": priorityClassName,
 		"driver": map[string]any{
@@ -249,11 +248,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 		"image": map[string]string{
 			"image": falcoImage,
 		},
-		"collectors": map[string]interface{}{
+		"collectors": map[string]any{
 			"crio": map[string]bool{
 				"enabled": false,
 			},
-			"kubernetes": map[string]interface{}{
+			"kubernetes": map[string]any{
 				"enabled": false,
 			},
 			"docker": map[string]bool{
@@ -266,13 +265,13 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				"enabled": false,
 			},
 		},
-		"extra": map[string]interface{}{
+		"extra": map[string]any{
 			"env": []map[string]string{
 				{"name": "SKIP_DRIVER_LOADER", "value": "yes"},
 			},
 		},
-		"falco": map[string]interface{}{
-			"http_output": map[string]interface{}{
+		"falco": map[string]any{
+			"http_output": map[string]any{
 				"enabled":  falcosidekickConfig["enabled"],
 				"insecure": true,
 				"url":      fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", metav1.NamespaceSystem, 2801),
@@ -288,7 +287,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"create": false,
 		},
 		"falcosidekick": falcosidekickConfig,
-		"gardenerExtensionShootFalcoService": map[string]interface{}{
+		"gardenerExtensionShootFalcoService": map[string]any{
 			"output": map[string]string{
 				"eventCollector": destination,
 			},
@@ -356,12 +355,10 @@ func (c *ConfigBuilder) generateSidekickDefaultValues(
 	cas *secrets.FalcoCas,
 	certs *secrets.FalcoCertificates,
 	customFields map[string]string,
-	priorityClassName string) map[string]interface{} {
-	return map[string]interface{}{
-		"podLabels": map[string]string{
-			"networking.gardener.cloud/to-dns":             "allowed",
-			"networking.gardener.cloud/to-public-networks": "allowed",
-		},
+	priorityClassName string,
+	isShootDeployment bool) map[string]interface{} {
+
+	sidekickValues := map[string]interface{}{
 		"enabled":  true,
 		"fullfqdn": true,
 		"image": map[string]string{
@@ -380,6 +377,16 @@ func (c *ConfigBuilder) generateSidekickDefaultValues(
 			"customfields": customFields,
 		},
 	}
+
+	// Only set networking labels for Gardener-managed shoot clusters
+	if isShootDeployment {
+		sidekickValues["podLabels"] = map[string]string{
+			"networking.gardener.cloud/to-dns":             "allowed",
+			"networking.gardener.cloud/to-public-networks": "allowed",
+			"networking.gardener.cloud/from-falco":         "allowed",
+		}
+	}
+	return sidekickValues
 }
 
 func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}) error {

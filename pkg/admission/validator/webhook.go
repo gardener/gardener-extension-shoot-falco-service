@@ -5,6 +5,7 @@
 package validator
 
 import (
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,7 @@ func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	loggerInstance.Info("Setting up webhook", "name", ValidatorName)
 
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider: "shoot-falco-service",
+		Provider: constants.ExtensionType,
 		Name:     ValidatorName,
 		Path:     ValidatorPath,
 		Validators: map[extensionswebhook.Validator][]extensionswebhook.Type{

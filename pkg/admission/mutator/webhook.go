@@ -5,6 +5,7 @@
 package mutator
 
 import (
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,9 +23,8 @@ var logger = log.Log.WithName("shoot-falco-service-validator-webhook")
 // New creates a new webhook that validates Shoot resources.
 func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	logger.Info("Setting up webhook", "name", MutatorName)
-	logger.Info("V1t")
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider: "shoot-falco-service",
+		Provider: constants.ExtensionType,
 		Name:     MutatorName,
 		Path:     MutatorPath,
 		Mutators: map[extensionswebhook.Mutator][]extensionswebhook.Type{

@@ -26,6 +26,11 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
+const (
+	// maxEventDestinations defines the maximum number of event destinations allowed
+	maxEventDestinations = 2
+)
+
 // extra Falco options
 type FalcoWebhookOptions struct {
 	// if set to true, project namespace must be annotated with falco.gardener.cloud/enabled=true to
@@ -37,7 +42,7 @@ type FalcoWebhookOptions struct {
 	RestrictedCentralizedLogging bool
 }
 
-var DefautltFalcoWebhookOptions = FalcoWebhookOptions{}
+var DefaultFalcoWebhookOptions = FalcoWebhookOptions{}
 
 // Complete implements Completer.Complete.
 func (o *FalcoWebhookOptions) Complete() error {
@@ -63,7 +68,7 @@ func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
 
 // NewShootValidator returns a new instance of a shoot validator.
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
-	return NewShootValidatorWithOption(mgr, &DefautltFalcoWebhookOptions)
+	return NewShootValidatorWithOption(mgr, &DefaultFalcoWebhookOptions)
 }
 
 func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
@@ -94,13 +99,11 @@ func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 
 	switch newObj := new.(type) {
 	case *core.Shoot:
-		// old and new are shoots
 		oldShoot, ok := old.(*core.Shoot)
 		if !ok {
 			oldShoot = nil
 		}
-		shoot := newObj
-		return s.validateShoot(ctx, shoot, oldShoot)
+		return s.validateShoot(ctx, newObj, oldShoot)
 
 	case *core.Seed:
 		return s.validateSeed(ctx, newObj)
@@ -192,13 +195,12 @@ func (s *shoot) validateSeed(_ context.Context, seed *core.Seed) error {
 }
 
 func unique(slice []string) bool {
-	unique := make(map[string]bool, len(slice))
+	seen := make(map[string]bool, len(slice))
 	for _, elem := range slice {
-		if _, ok := unique[elem]; ok {
+		if seen[elem] {
 			return false
-		} else {
-			unique[elem] = true
 		}
+		seen[elem] = true
 	}
 	return true
 }
@@ -284,48 +286,14 @@ func verifyCustomRules(customRules []service.CustomRule, resources []core.NamedR
 }
 
 func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
-	if falcoConf.Destinations == nil {
-		return fmt.Errorf("event destination property is not defined")
-	}
-
-	if len(*falcoConf.Destinations) == 0 {
-		return fmt.Errorf("no event destination is set")
-	}
-
-	if len(*falcoConf.Destinations) > 2 {
-		return fmt.Errorf("more than two event destinations are not allowed")
-	}
-
-	eventDestinationNames := make([]string, 0)
-	for _, dest := range *falcoConf.Destinations {
-		if !slices.Contains(constants.AllowedDestinations, dest.Name) {
-			return fmt.Errorf("unknown event destination %s", dest.Name)
-		}
-		eventDestinationNames = append(eventDestinationNames, dest.Name)
-	}
-
-	if !unique(eventDestinationNames) {
-		return fmt.Errorf("duplicate entry in event destinations")
-	}
-
-	if len(eventDestinationNames) > 1 {
-		if !slices.Contains(eventDestinationNames, constants.FalcoEventDestinationStdout) {
-			return fmt.Errorf("output destinations can only be paired with stdout")
-		}
-	}
-
-	idxCustom := slices.IndexFunc(*falcoConf.Destinations, func(dest service.Destination) bool {
-		return dest.Name == constants.FalcoEventDestinationCustom
-	})
-
-	if idxCustom != -1 { // custom event destination is set
-		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], shoot.Spec.Resources)
-	}
-
-	return nil
+	return verifyEventDestinationsCommon(falcoConf, shoot.Spec.Resources, constants.AllowedDestinations)
 }
 
 func verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfig, seed *core.Seed) error {
+	return verifyEventDestinationsCommon(falcoConf, seed.Spec.Resources, constants.AllowedDestinationsSeed)
+}
+
+func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resources []core.NamedResourceReference, allowedDestinations []string) error {
 	if falcoConf.Destinations == nil {
 		return fmt.Errorf("event destination property is not defined")
 	}
@@ -334,14 +302,14 @@ func verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfig, seed *co
 		return fmt.Errorf("no event destination is set")
 	}
 
-	if len(*falcoConf.Destinations) > 2 {
-		return fmt.Errorf("more than two event destinations are not allowed")
+	if len(*falcoConf.Destinations) > maxEventDestinations {
+		return fmt.Errorf("more than %d event destinations are not allowed", maxEventDestinations)
 	}
 
-	eventDestinationNames := make([]string, 0)
+	eventDestinationNames := make([]string, 0, len(*falcoConf.Destinations))
 	for _, dest := range *falcoConf.Destinations {
-		if !slices.Contains(constants.AllowedDestinationsSeed, dest.Name) {
-			return fmt.Errorf("unknown event destination %s", dest.Name)
+		if !slices.Contains(allowedDestinations, dest.Name) {
+			return fmt.Errorf("unknown event destination: %s", dest.Name)
 		}
 		eventDestinationNames = append(eventDestinationNames, dest.Name)
 	}
@@ -360,8 +328,8 @@ func verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfig, seed *co
 		return dest.Name == constants.FalcoEventDestinationCustom
 	})
 
-	if idxCustom != -1 { // custom event destination is set
-		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], seed.Spec.Resources)
+	if idxCustom != -1 {
+		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], resources)
 	}
 
 	return nil
@@ -432,24 +400,24 @@ func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 
 // findExtension returns shoot-falco-service extension.
 func (s *shoot) findExtension(obj client.Object) *core.Extension {
-	var extentions []core.Extension
+	var extensions []core.Extension
 	switch o := obj.(type) {
 	case *core.Shoot:
 		if o == nil {
 			return nil
 		}
-		extentions = o.Spec.Extensions
+		extensions = o.Spec.Extensions
 	case *core.Seed:
 		if o == nil {
 			return nil
 		}
-		extentions = o.Spec.Extensions
+		extensions = o.Spec.Extensions
 	default:
 		return nil
 	}
-	for _, ext := range extentions {
-		if ext.Type == constants.ExtensionType {
-			return &ext
+	for i := range extensions {
+		if extensions[i].Type == constants.ExtensionType {
+			return &extensions[i]
 		}
 	}
 	return nil

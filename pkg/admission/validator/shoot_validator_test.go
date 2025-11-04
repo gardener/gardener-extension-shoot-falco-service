@@ -997,7 +997,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtensionForSeedIllegal)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("unknown event destination logging"))
+		Expect(err.Error()).To(ContainSubstring("unknown event destination: logging"))
 		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"))
 	})
 })

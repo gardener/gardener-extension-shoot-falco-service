@@ -139,6 +139,17 @@ var (
 			},
 		},
 	}
+	seedExtenstionSimple = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "central",
+			},
+		},
+	}
 	falcoProfileManager = profile.GetDummyFalcoProfileManager(
 		&map[string]profile.FalcoVersion{
 			"0.38.0": {
@@ -730,6 +741,20 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		}
 		Expect(foundVolumeMount).NotTo(BeNil())
 		Expect(foundVolumeMount.MountPath).To(Equal("/etc/falco/shoot-custom-rules/my-shoot-configmap"))
+
+		// Check falcosidekick deployment
+		falcosidekickDeployment := getManifest(release, "falco/templates/falcosidekick-deployment.yaml")
+		Expect(falcosidekickDeployment).NotTo(BeNil())
+
+		deployment := appsv1.Deployment{}
+		err = yaml.Unmarshal([]byte(falcosidekickDeployment.Content), &deployment)
+		Expect(err).To(BeNil())
+
+		// Verify that networking labels are NOT set on the falcosidekick deployment for seed clusters
+		labels := deployment.Spec.Template.ObjectMeta.Labels
+		Expect(labels).To(HaveKey("networking.gardener.cloud/to-dns"))
+		Expect(labels).To(HaveKey("networking.gardener.cloud/to-public-networks"))
+		Expect(labels).To(HaveKey("networking.gardener.cloud/from-falco"))
 	})
 
 	It("Test custom webhook functionality with secret", func(ctx SpecContext) {
@@ -1326,5 +1351,45 @@ var _ = Describe("BuildFalcoValues", func() {
 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
+	})
+
+	It("Test falco on seed", func(ctx SpecContext) {
+		// Create a seed reconcile context (non-Gardener managed cluster)
+		seedReconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: seedExtenstionSimple,
+			Namespace:          "shoot--test--foo",
+			IsSeedDeployment:   true,
+			IsShootDeployment:  false,
+			ClusterIdentity:    stringValue("seed-cluster-identity"),
+			ClusterName:        "seed-cluster",
+		}
+		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: 0},
+			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+			URL:                   "dummy",
+		}
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, seedReconcileCtx)
+		Expect(err).To(BeNil())
+		Expect(values).NotTo(BeNil())
+
+		// Render chart and check if the values are set correctly
+		renderer, err := util.NewChartRendererForShoot("1.30.2")
+		Expect(err).To(BeNil())
+		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
+		Expect(err).To(BeNil())
+
+		// Check falcosidekick deployment
+		falcosidekickDeployment := getManifest(release, "falco/templates/falcosidekick-deployment.yaml")
+		Expect(falcosidekickDeployment).NotTo(BeNil())
+
+		deployment := appsv1.Deployment{}
+		err = yaml.Unmarshal([]byte(falcosidekickDeployment.Content), &deployment)
+		Expect(err).To(BeNil())
+
+		// Verify that networking labels are NOT set on the falcosidekick deployment for seed clusters
+		labels := deployment.Spec.Template.ObjectMeta.Labels
+		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-dns"))
+		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-public-networks"))
+		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/from-falco"))
 	})
 })
