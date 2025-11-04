@@ -22,13 +22,15 @@ var logger = log.Log.WithName("shoot-falco-service-validator-webhook")
 // New creates a new webhook that validates Shoot resources.
 func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	logger.Info("Setting up webhook", "name", MutatorName)
-
+	logger.Info("V1t")
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
 		Provider: "shoot-falco-service",
 		Name:     MutatorName,
 		Path:     MutatorPath,
 		Mutators: map[extensionswebhook.Mutator][]extensionswebhook.Type{
-			NewShootMutator(mgr): {{Obj: &gardencorev1beta1.Shoot{}}},
+			NewShootMutator(mgr): {
+				{Obj: &gardencorev1beta1.Shoot{}},
+				{Obj: &gardencorev1beta1.Seed{}}},
 		},
 		Target: extensionswebhook.TargetSeed,
 		ObjectSelector: &metav1.LabelSelector{
