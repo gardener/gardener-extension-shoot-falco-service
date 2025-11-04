@@ -7,6 +7,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/controller/heartbeat"
@@ -20,7 +22,6 @@ import (
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/version"
 	"k8s.io/component-base/version/verflag"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

@@ -13,19 +13,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gardener/gardener/pkg/client/kubernetes"
-	"github.com/gardener/gardener/pkg/extensions"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardenerv1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
-
 	"github.com/gardener/gardener/pkg/chartrenderer"
+	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/extensions"
 	managedresources "github.com/gardener/gardener/pkg/utils/managedresources"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -207,7 +205,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) error {
 
-	log.Info("Creating Falco shoot resources for shoot " + reconcileCtx.Namespace)
+	log.Info("creating Falco resources for shoot " + reconcileCtx.Namespace)
 	renderer, err := util.NewChartRendererForShoot(reconcileCtx.TargetClusterK8sVersion)
 	if err != nil {
 		return fmt.Errorf("could not create chart renderer for rendering manged resource chart for shoot: %w", err)
@@ -397,23 +395,6 @@ func getLocalClusterK8sVersion(cfg *rest.Config) (string, error) {
 	return v.Major + "." + v.Minor, nil
 }
 
-// []gardenerv1beta1.NamedResourceReference
-
-func getSecret(ctx context.Context, c client.Client, namespace string, name string) (*corev1.Secret, error) {
-
-	secret := corev1.Secret{}
-	err := c.Get(ctx,
-		client.ObjectKey{
-			Namespace: namespace,
-			Name:      name,
-		},
-		&secret)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secretRef %s: %v", name, err)
-	}
-	return &secret, err
-}
-
 func (a *actuator) getClusterResourcesForShoot(cluster *extensions.Cluster) []gardenerv1beta1.NamedResourceReference {
 	return cluster.Shoot.Spec.Resources
 }
@@ -422,17 +403,6 @@ func (a *actuator) getClusterResourcesForSeed() []gardenerv1beta1.NamedResourceR
 	return a.seed.Spec.Resources
 }
 
-/*
-	func (a *actuator) getClusterResourcesForSeed(ctx context.Context, seedName string) ([]gardenerv1beta1.NamedResourceReference, error) {
-		seed := &gardenerv1beta1.Seed{}
-		err := a.gardenClient.Get(ctx,
-			client.ObjectKey{
-				Name: seedName},
-			seed)
-
-		return seed.Spec.Resources, err
-	}
-*/
 func getSeed(ctx context.Context, client *dynamic.DynamicClient, seedName string) (*gardenerv1beta1.Seed, error) {
 	seedResource, err := client.Resource(gardenerv1beta1.SchemeGroupVersion.WithResource("seeds")).Get(ctx, seedName, metav1.GetOptions{})
 	if err != nil {
@@ -444,8 +414,4 @@ func getSeed(ctx context.Context, client *dynamic.DynamicClient, seedName string
 		return nil, err
 	}
 	return &seed, nil
-}
-
-func (a *actuator) getClusterResourcesForGarden() {
-	// TODO
 }

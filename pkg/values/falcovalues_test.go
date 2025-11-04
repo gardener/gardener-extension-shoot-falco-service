@@ -751,7 +751,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(err).To(BeNil())
 
 		// Verify that networking labels are NOT set on the falcosidekick deployment for seed clusters
-		labels := deployment.Spec.Template.ObjectMeta.Labels
+		labels := deployment.Spec.Template.Labels
 		Expect(labels).To(HaveKey("networking.gardener.cloud/to-dns"))
 		Expect(labels).To(HaveKey("networking.gardener.cloud/to-public-networks"))
 		Expect(labels).To(HaveKey("networking.gardener.cloud/from-falco"))
@@ -900,7 +900,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		// make sure networking labels are set correctly when running in
 		// gardener managed shoot (have been removed when running in seed
 		// context)
-		labels := ds.Spec.Template.ObjectMeta.Labels
+		labels := ds.Spec.Template.Labels
 		Expect(labels).To(HaveKeyWithValue("networking.gardener.cloud/to-dns", "allowed"))
 		Expect(labels).To(HaveKeyWithValue("networking.gardener.cloud/to-falcosidekick", "allowed"))
 
@@ -1387,7 +1387,7 @@ var _ = Describe("BuildFalcoValues", func() {
 		Expect(err).To(BeNil())
 
 		// Verify that networking labels are NOT set on the falcosidekick deployment for seed clusters
-		labels := deployment.Spec.Template.ObjectMeta.Labels
+		labels := deployment.Spec.Template.Labels
 		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-dns"))
 		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-public-networks"))
 		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/from-falco"))
