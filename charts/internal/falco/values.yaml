@@ -1786,3 +1786,6 @@ shoot_custom_rules: []
 
 # directories where shoot cluster Falco rules are mounted
 rules_files_source: []
+
+# falco version
+falcoVersion: ""

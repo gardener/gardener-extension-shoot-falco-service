@@ -82,6 +82,9 @@ spec:
       args:
         - /usr/bin/falco
         - --unbuffered
+        {{- if (semverCompare "< 0.42.0" .Values.falcoVersion) }}
+        - -pk
+        {{- end }}
         {{- if .Values.gvisor.enabled }}
         - --gvisor-config
         - /gvisor-config/pod-init.json
@@ -101,7 +104,6 @@ spec:
         - "$(FALCO_K8S_NODE_NAME)"
         {{- end }}
         {{- end }}
-        - -pk
         {{- end }}
         {{- end }}
     {{- with .Values.extra.args }}
