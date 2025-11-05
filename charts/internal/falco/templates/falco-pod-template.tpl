@@ -82,7 +82,7 @@ spec:
       args:
         - /usr/bin/falco
         - --unbuffered
-        {{- if (semverCompare "< 0.42.0" .Values.falcoVersion) }}
+        {{- if and .Values.falcoVersion (semverCompare "< 0.42.0" .Values.falcoVersion) }}
         - -pk
         {{- end }}
         {{- if .Values.gvisor.enabled }}
