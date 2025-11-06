@@ -11,15 +11,15 @@ metadata:
 spec:
   images:
     falco:
-    - repository: falcosecurity/falco-distroless
-      tag: 0.39.1
-      version: 0.39.1
-    - repository: falcosecurity/falco-distroless
-      tag: 0.39.2
-      version: 0.39.2
     - repository: falcosecurity/falco
       tag: 0.40.0
       version: 0.40.0
+    - repository: falcosecurity/falco
+      tag: 0.41.3
+      version: 0.41.3
+    - repository: falcosecurity/falco
+      tag: 0.42.0
+      version: 0.42.0
     falcosidekick:
     - repository: falcosecurity/falcosidekick
       tag: 2.31.1
@@ -29,18 +29,17 @@ spec:
       version: 2.32.0
   versions:
     falco:
-    - classification: deprecated
-      expirationDate: "2025-04-15T23:59:59Z"
-      rulesVersion: 3.2.0
-      version: 0.39.1
     - classification: supported
-      rulesVersion: 3.2.0
-      version: 0.39.2
-    - classification: preview
       rulesVersion: 3.2.0
       version: 0.40.0
-    falcosidekick:
     - classification: supported
+      rulesVersion: 4.0.0
+      version: 0.41.3
+    - classification: supported
+      rulesVersion: 4.0.0
+      version: 0.42.0
+    falcosidekick:
+    - classification: deprecated
       version: 2.31.1
     - classification: supported
       version: 2.32.0
