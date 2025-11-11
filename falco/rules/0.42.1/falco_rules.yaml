@@ -908,7 +908,7 @@
 
 # a placeholder for whitelist log files that could be cleared. Recommend the macro as (fd.name startswith "/var/log/app1*")
 - macro: allowed_clear_log_files
-  condition: (never_true)
+  condition: (fd.name startswith "/var/log/positions.yaml")
 
 - macro: trusted_logging_images
   condition: (container.image.repository endswith "splunk/fluentd-hec" or
