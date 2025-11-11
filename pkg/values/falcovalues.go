@@ -17,8 +17,6 @@ import (
 	"strings"
 
 	semver3 "github.com/Masterminds/semver/v3"
-	"github.com/gardener/gardener/extensions/pkg/controller"
-	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/go-logr/logr"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
@@ -73,9 +71,10 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 	}
 }
 
-func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) (map[string]interface{}, error) {
+func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) (map[string]any, error) {
 
 	// images
+	falcoServiceConfig := reconcileCtx.FalcoServiceConfig
 	falcoVersion := falcoServiceConfig.FalcoVersion
 	falcoImage, err := c.getImageForVersion("falco", *falcoVersion)
 	if err != nil {
@@ -89,13 +88,21 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		return nil, fmt.Errorf("no destinations configured")
 	}
 
+	// priority class names are different in infrastructure clusters
+	var priorityClassName string
+	if reconcileCtx.IsShootDeployment {
+		priorityClassName = *c.config.Falco.PriorityClassName
+	} else if reconcileCtx.IsSeedDeployment {
+		priorityClassName = "gardener-system-900"
+	}
+
 	for _, dest := range *falcoServiceConfig.Destinations {
 		switch dest.Name {
 		case constants.FalcoEventDestinationStdout:
 			falcoStdoutLog = true
 
 		case constants.FalcoEventDestinationLogging:
-			valiHost := utils.ComputeValiHost(*cluster.Shoot, *cluster.Seed)
+			valiHost := utils.ComputeValiHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
 			loki := map[string]interface{}{
 				"hostport":  "https://" + valiHost,
 				"endpoint":  "/vali/api/v1/push",
@@ -113,7 +120,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 		case constants.FalcoEventDestinationCustom:
 			webhook := map[string]any{}
-			secret, err := c.loadCustomWebhookSecret(ctx, log, cluster, namespace, *dest.ResourceSecretName)
+			secret, err := c.loadCustomWebhookSecret(ctx, log, reconcileCtx, *dest.ResourceSecretName)
 			if err != nil {
 				return nil, err
 			}
@@ -166,7 +173,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			ingestorAddress := c.config.Falco.CentralStorage.URL
 
 			// ok to generate new token on each reconcile
-			token, _ := c.tokenIssuer.IssueToken(*cluster.Shoot.Status.ClusterIdentity)
+			token, _ := c.tokenIssuer.IssueToken(*reconcileCtx.ClusterIdentity)
 			customHeaders := map[string]string{
 				"Authorization": "Bearer " + token,
 			}
@@ -203,16 +210,16 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 
 	var falcosidekickCerts map[string]string
 	if len(falcoOutputConfigs) > 0 {
-		cas, certs, err := c.getFalcoCertificates(ctx, log, cluster, namespace)
+		cas, certs, err := c.getFalcoCertificates(ctx, log, reconcileCtx)
 		if err != nil {
 			return nil, err
 		}
 
 		customFields := map[string]string{
-			"cluster_id": *cluster.Shoot.Status.ClusterIdentity,
+			"cluster_id": *reconcileCtx.ClusterIdentity,
 		}
 
-		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields)
+		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields, priorityClassName, reconcileCtx.IsShootDeployment)
 		for _, outputConfig := range falcoOutputConfigs {
 			falcosidekickConfig["config"].(map[string]any)[outputConfig.key] = outputConfig.value
 		}
@@ -228,14 +235,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 	}
 
 	destination := c.getDestination(falcoOutputConfigs)
-	falcoChartValues := map[string]interface{}{
-		"falcoVersion": *falcoVersion,
-		"clusterId":    *cluster.Shoot.Status.ClusterIdentity,
-		"podLabels": map[string]string{
-			"networking.gardener.cloud/to-dns":           "allowed",
-			"networking.gardener.cloud/to-falcosidekick": "allowed",
-		},
-		"priorityClassName": *c.config.Falco.PriorityClassName,
+	falcoChartValues := map[string]any{
+		"clusterId":         *reconcileCtx.ClusterIdentity,
+		"priorityClassName": priorityClassName,
+		"falcoVersion":      *falcoVersion,
 		"driver": map[string]any{
 			"kind": "modern_ebpf",
 			"loader": map[string]bool{
@@ -245,11 +248,11 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		"image": map[string]string{
 			"image": falcoImage,
 		},
-		"collectors": map[string]interface{}{
+		"collectors": map[string]any{
 			"crio": map[string]bool{
 				"enabled": false,
 			},
-			"kubernetes": map[string]interface{}{
+			"kubernetes": map[string]any{
 				"enabled": false,
 			},
 			"docker": map[string]bool{
@@ -262,13 +265,13 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 				"enabled": false,
 			},
 		},
-		"extra": map[string]interface{}{
+		"extra": map[string]any{
 			"env": []map[string]string{
 				{"name": "SKIP_DRIVER_LOADER", "value": "yes"},
 			},
 		},
-		"falco": map[string]interface{}{
-			"http_output": map[string]interface{}{
+		"falco": map[string]any{
+			"http_output": map[string]any{
 				"enabled":  falcosidekickConfig["enabled"],
 				"insecure": true,
 				"url":      fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", metav1.NamespaceSystem, 2801),
@@ -284,11 +287,19 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 			"create": false,
 		},
 		"falcosidekick": falcosidekickConfig,
-		"gardenerExtensionShootFalcoService": map[string]interface{}{
+		"gardenerExtensionShootFalcoService": map[string]any{
 			"output": map[string]string{
 				"eventCollector": destination,
 			},
 		},
+	}
+
+	// only do this for non-Gardener managed clusters
+	if reconcileCtx.IsShootDeployment {
+		falcoChartValues["podLabels"] = map[string]string{
+			"networking.gardener.cloud/to-dns":           "allowed",
+			"networking.gardener.cloud/to-falcosidekick": "allowed",
+		}
 	}
 
 	if falcosidekickConfig["enabled"] == true {
@@ -303,16 +314,16 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, c
 		falcoChartValues["tolerations"] = *falcoServiceConfig.Tolerations
 	}
 
-	if err := c.generatePreamble(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+	if err := c.generatePreamble(falcoChartValues); err != nil {
 		return nil, err
 	}
 	if err := c.generateStandardRules(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
 		return nil, err
 	}
-	if err := c.generateCustomRules(ctx, log, cluster, namespace, falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
+	if err := c.generateCustomRules(ctx, log, reconcileCtx, falcoChartValues); err != nil {
 		return nil, err
 	}
-	if err := c.referenceShootCustomRules(ctx, log, namespace, falcoChartValues, falcoServiceConfig); err != nil {
+	if err := c.referenceShootCustomRules(falcoChartValues, falcoServiceConfig); err != nil {
 		return nil, err
 	}
 	if err := c.generateHeartbeatRule(falcoChartValues, falcoServiceConfig, falcoVersion); err != nil {
@@ -338,18 +349,21 @@ func (*ConfigBuilder) getDestination(falcoOutputConfigs []falcoOutputConfig) str
 	return falcoOutputConfigs[0].key
 }
 
-func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string, cas *secrets.FalcoCas, certs *secrets.FalcoCertificates, customFields map[string]string) map[string]interface{} {
-	return map[string]interface{}{
-		"podLabels": map[string]string{
-			"networking.gardener.cloud/to-dns":             "allowed",
-			"networking.gardener.cloud/to-public-networks": "allowed",
-		},
+func (c *ConfigBuilder) generateSidekickDefaultValues(
+	falcosidekickImage string,
+	cas *secrets.FalcoCas,
+	certs *secrets.FalcoCertificates,
+	customFields map[string]string,
+	priorityClassName string,
+	isShootDeployment bool) map[string]interface{} {
+
+	sidekickValues := map[string]interface{}{
 		"enabled":  true,
 		"fullfqdn": true,
 		"image": map[string]string{
 			"image": falcosidekickImage,
 		},
-		"priorityClassName": *c.config.Falco.PriorityClassName,
+		"priorityClassName": priorityClassName,
 		"config": map[string]interface{}{
 			"debug": true,
 			"tlsserver": map[string]interface{}{
@@ -362,9 +376,19 @@ func (c *ConfigBuilder) generateSidekickDefaultValues(falcosidekickImage string,
 			"customfields": customFields,
 		},
 	}
+
+	// Only set networking labels for Gardener-managed shoot clusters
+	if isShootDeployment {
+		sidekickValues["podLabels"] = map[string]string{
+			"networking.gardener.cloud/to-dns":             "allowed",
+			"networking.gardener.cloud/to-public-networks": "allowed",
+			"networking.gardener.cloud/from-falco":         "allowed",
+		}
+	}
+	return sidekickValues
 }
 
-func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
+func (c *ConfigBuilder) generatePreamble(falcoChartValues map[string]interface{}) error {
 	falcoChartValues["configProvider"] = "gardener"
 	// disable falcoctl
 	falcoctl := map[string]interface{}{
@@ -481,8 +505,8 @@ func (c *ConfigBuilder) generateStandardRules(falcoChartValues map[string]interf
 	return nil
 }
 
-func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
-	customRules, err := c.getCustomRules(ctx, log, cluster, namespace, falcoServiceConfig)
+func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext, falcoChartValues map[string]interface{}) error {
+	customRules, err := c.getCustomRules(ctx, log, reconcileCtx)
 	if err != nil {
 		return err
 	}
@@ -490,7 +514,7 @@ func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger
 	return nil
 }
 
-func (c *ConfigBuilder) referenceShootCustomRules(ctx context.Context, log logr.Logger, namespace string, falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
+func (c *ConfigBuilder) referenceShootCustomRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
 	if falcoServiceConfig.Rules.CustomRules == nil || len(*falcoServiceConfig.Rules.CustomRules) == 0 {
 		return nil
@@ -590,21 +614,21 @@ func (c *ConfigBuilder) loadFalcoCertificates(ctx context.Context, namespace str
 	return secrets.LoadCertificatesFromSecret(certs)
 }
 
-func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logger, cluster *controller.Cluster, namespace string) (*secrets.FalcoCas, *secrets.FalcoCertificates, error) {
+func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) (*secrets.FalcoCas, *secrets.FalcoCertificates, error) {
 
-	cas, certs, err := c.loadFalcoCertificates(ctx, namespace)
+	cas, certs, err := c.loadFalcoCertificates(ctx, reconcileCtx.Namespace)
 	if err != nil {
 		log.Info("cannot load Falco certificates from secret, generating new certificates: " + err.Error())
 		// need to generate everything
-		cas, err = secrets.GenerateFalcoCas(cluster.Shoot.Name, constants.DefaultCALifetime)
+		cas, err = secrets.GenerateFalcoCas(reconcileCtx.ClusterName, constants.DefaultCALifetime)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 		}
-		certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, c.config.Falco.CertificateLifetime.Duration)
+		certs, err = secrets.GenerateKeysAndCerts(cas, reconcileCtx.ClusterName, c.config.Falco.CertificateLifetime.Duration)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
 		}
-		err = c.storeFalcoCas(ctx, namespace, cas, certs)
+		err = c.storeFalcoCas(ctx, reconcileCtx.Namespace, cas, certs)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -613,20 +637,20 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 		renewed := false
 		if secrets.CaNeedsRenewal(cas, constants.DefaultCARenewAfter) {
 			renewed = true
-			cas, err = secrets.GenerateFalcoCas(cluster.Shoot.Name, constants.DefaultCALifetime)
+			cas, err = secrets.GenerateFalcoCas(reconcileCtx.ClusterName, constants.DefaultCALifetime)
 			if err != nil {
 				return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 			}
 		}
 		if renewed || secrets.CertsNeedRenewal(certs, c.config.Falco.CertificateRenewAfter.Duration) {
 			renewed = true
-			certs, err = secrets.GenerateKeysAndCerts(cas, cluster.Shoot.Name, c.config.Falco.CertificateLifetime.Duration)
+			certs, err = secrets.GenerateKeysAndCerts(cas, reconcileCtx.ClusterName, c.config.Falco.CertificateLifetime.Duration)
 			if err != nil {
 				return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
 			}
 		}
 		if renewed {
-			err = c.storeFalcoCas(ctx, namespace, cas, certs)
+			err = c.storeFalcoCas(ctx, reconcileCtx.Namespace, cas, certs)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -636,19 +660,19 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 	return cas, certs, nil
 }
 
-func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRuleRef, error) {
-	if falcoServiceConfig.Rules.CustomRules == nil || len(*falcoServiceConfig.Rules.CustomRules) == 0 {
+func (c *ConfigBuilder) extractCustomRules(reconcileCtx *utils.ReconcileContext) ([]customRuleRef, error) {
+	if reconcileCtx.FalcoServiceConfig.Rules.CustomRules == nil || len(*reconcileCtx.FalcoServiceConfig.Rules.CustomRules) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}
 	allConfigMaps := make(map[string]string)
-	for _, r := range cluster.Shoot.Spec.Resources {
+	for _, r := range reconcileCtx.ResourceSection {
 		if r.ResourceRef.Kind == "ConfigMap" && r.ResourceRef.APIVersion == "v1" {
 			allConfigMaps[r.Name] = r.ResourceRef.Name
 		}
 	}
 	var selectedConfigMaps []customRuleRef
-	for _, customRule := range *falcoServiceConfig.Rules.CustomRules {
+	for _, customRule := range *reconcileCtx.FalcoServiceConfig.Rules.CustomRules {
 		if customRule.ResourceName == "" {
 			// ignore shoot configmap rules here
 			continue
@@ -666,17 +690,17 @@ func (c *ConfigBuilder) extractCustomRules(cluster *extensions.Cluster, falcoSer
 	return selectedConfigMaps, nil
 }
 
-func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, falcoServiceConfig *apisservice.FalcoServiceConfig) ([]customRulesFile, error) {
-	selectedConfigMaps, err := c.extractCustomRules(cluster, falcoServiceConfig)
+func (c *ConfigBuilder) getCustomRules(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) ([]customRulesFile, error) {
+	selectedConfigMaps, err := c.extractCustomRules(reconcileCtx)
 	if err != nil {
 		return nil, err
 	}
-	return c.loadRuleConfig(ctx, log, namespace, selectedConfigMaps)
+	return c.loadRuleConfig(ctx, log, reconcileCtx.Namespace, selectedConfigMaps)
 }
 
-func (c *ConfigBuilder) loadCustomWebhookSecret(ctx context.Context, log logr.Logger, cluster *extensions.Cluster, namespace string, secretRefName string) (*corev1.Secret, error) {
+func (c *ConfigBuilder) loadCustomWebhookSecret(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext, secretRefName string) (*corev1.Secret, error) {
 	secretName := ""
-	for _, ref := range cluster.Shoot.Spec.Resources {
+	for _, ref := range reconcileCtx.ResourceSection {
 		if ref.ResourceRef.Kind == "Secret" && ref.ResourceRef.APIVersion == "v1" && ref.Name == secretRefName {
 			secretName = ref.ResourceRef.Name
 			break
@@ -692,7 +716,7 @@ func (c *ConfigBuilder) loadCustomWebhookSecret(ctx context.Context, log logr.Lo
 	secret := corev1.Secret{}
 	err := c.client.Get(ctx,
 		client.ObjectKey{
-			Namespace: namespace,
+			Namespace: reconcileCtx.Namespace,
 			Name:      customWebhookSecretName,
 		},
 		&secret)
@@ -703,7 +727,7 @@ func (c *ConfigBuilder) loadCustomWebhookSecret(ctx context.Context, log logr.Lo
 	return &secret, err
 }
 
-// load rule files from named configmap and retrun them in alphanumeric order
+// load rule files from named configmap and return them in alphanumeric order
 // based on the filename
 func (c *ConfigBuilder) loadRulesFromConfigmap(ctx context.Context, log logr.Logger, ruleFilenames map[string]bool, namespace string, configmapName string) ([]customRulesFile, error) {
 

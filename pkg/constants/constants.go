@@ -77,6 +77,7 @@ var (
 	AlwaysEnabledNamespaces         = []string{"garden"}
 	CentralLoggingAllowedNamespaces = []string{"garden"}
 	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
+	AllowedDestinationsSeed         = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventDestination)

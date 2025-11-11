@@ -26,6 +26,11 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
+const (
+	// maxEventDestinations defines the maximum number of event destinations allowed
+	maxEventDestinations = 2
+)
+
 // extra Falco options
 type FalcoWebhookOptions struct {
 	// if set to true, project namespace must be annotated with falco.gardener.cloud/enabled=true to
@@ -37,7 +42,7 @@ type FalcoWebhookOptions struct {
 	RestrictedCentralizedLogging bool
 }
 
-var DefautltFalcoWebhookOptions = FalcoWebhookOptions{}
+var DefaultFalcoWebhookOptions = FalcoWebhookOptions{}
 
 // Complete implements Completer.Complete.
 func (o *FalcoWebhookOptions) Complete() error {
@@ -63,7 +68,7 @@ func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
 
 // NewShootValidator returns a new instance of a shoot validator.
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
-	return NewShootValidatorWithOption(mgr, &DefautltFalcoWebhookOptions)
+	return NewShootValidatorWithOption(mgr, &DefaultFalcoWebhookOptions)
 }
 
 func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
@@ -91,16 +96,21 @@ type shoot struct {
 
 // Validate implements extensionswebhook.Validator.Validate
 func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
-	oldShoot, ok := old.(*core.Shoot)
-	if !ok {
-		oldShoot = nil
-	}
 
-	shoot, ok := new.(*core.Shoot)
-	if !ok {
+	switch newObj := new.(type) {
+	case *core.Shoot:
+		oldShoot, ok := old.(*core.Shoot)
+		if !ok {
+			oldShoot = nil
+		}
+		return s.validateShoot(ctx, newObj, oldShoot)
+
+	case *core.Seed:
+		return s.validateSeed(ctx, newObj)
+
+	default:
 		return fmt.Errorf("wrong object type %T", new)
 	}
-	return s.validateShoot(ctx, shoot, oldShoot)
 }
 
 func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *core.Shoot) error {
@@ -142,7 +152,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyRules(falcoConf, shoot); err != nil {
+	if err := verifyRules(falcoConf, shoot.Spec.Resources); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -157,19 +167,45 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	return nil
 }
 
+func (s *shoot) validateSeed(_ context.Context, seed *core.Seed) error {
+	falcoConf, err := s.extractFalcoConfig(seed)
+	if err != nil {
+		return err
+	}
+
+	allErrs := []error{}
+
+	if err := verifyFalcoVersion(falcoConf, falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyRules(falcoConf, seed.Spec.Resources); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyEventDestinationsSeed(falcoConf, seed); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
+	}
+
+	return nil
+}
+
 func unique(slice []string) bool {
-	unique := make(map[string]bool, len(slice))
+	seen := make(map[string]bool, len(slice))
 	for _, elem := range slice {
-		if _, ok := unique[elem]; ok {
+		if seen[elem] {
 			return false
-		} else {
-			unique[elem] = true
 		}
+		seen[elem] = true
 	}
 	return true
 }
 
-func verifyRules(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
+func verifyRules(falcoConf *service.FalcoServiceConfig, resources []core.NamedResourceReference) error {
 	if falcoConf.Rules == nil {
 		return fmt.Errorf("rules property is not defined")
 	}
@@ -181,7 +217,7 @@ func verifyRules(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error
 	}
 
 	if falcoConf.Rules.CustomRules != nil {
-		if customRulesErr := verifyCustomRules(*falcoConf.Rules.CustomRules, shoot); customRulesErr != nil {
+		if customRulesErr := verifyCustomRules(*falcoConf.Rules.CustomRules, resources); customRulesErr != nil {
 			return customRulesErr
 		}
 	}
@@ -213,7 +249,7 @@ func verifyStandardRules(standardRules []string) error {
 	return nil
 }
 
-func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) error {
+func verifyCustomRules(customRules []service.CustomRule, resources []core.NamedResourceReference) error {
 	customRulesNames := make([]string, 0)
 	for _, rule := range customRules {
 		if rule.ResourceName != "" && rule.ShootConfigMap != "" {
@@ -236,7 +272,7 @@ func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) erro
 	// contact the shoot cluster to verify the rules.
 	for _, ruleName := range customRulesNames {
 		found := false
-		for _, r := range shoot.Spec.Resources {
+		for _, r := range resources {
 			if r.ResourceRef.Kind == "ConfigMap" && r.Name == ruleName {
 				found = true
 				break
@@ -250,6 +286,14 @@ func verifyCustomRules(customRules []service.CustomRule, shoot *core.Shoot) erro
 }
 
 func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
+	return verifyEventDestinationsCommon(falcoConf, shoot.Spec.Resources, constants.AllowedDestinations)
+}
+
+func verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfig, seed *core.Seed) error {
+	return verifyEventDestinationsCommon(falcoConf, seed.Spec.Resources, constants.AllowedDestinationsSeed)
+}
+
+func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resources []core.NamedResourceReference, allowedDestinations []string) error {
 	if falcoConf.Destinations == nil {
 		return fmt.Errorf("event destination property is not defined")
 	}
@@ -258,14 +302,14 @@ func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.
 		return fmt.Errorf("no event destination is set")
 	}
 
-	if len(*falcoConf.Destinations) > 2 {
-		return fmt.Errorf("more than two event destinations are not allowed")
+	if len(*falcoConf.Destinations) > maxEventDestinations {
+		return fmt.Errorf("more than %d event destinations are not allowed", maxEventDestinations)
 	}
 
-	eventDestinationNames := make([]string, 0)
+	eventDestinationNames := make([]string, 0, len(*falcoConf.Destinations))
 	for _, dest := range *falcoConf.Destinations {
-		if !slices.Contains(constants.AllowedDestinations, dest.Name) {
-			return fmt.Errorf("unknown event destination %s", dest.Name)
+		if !slices.Contains(allowedDestinations, dest.Name) {
+			return fmt.Errorf("unknown event destination: %s", dest.Name)
 		}
 		eventDestinationNames = append(eventDestinationNames, dest.Name)
 	}
@@ -284,20 +328,20 @@ func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.
 		return dest.Name == constants.FalcoEventDestinationCustom
 	})
 
-	if idxCustom != -1 { // custom event destination is set
-		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], shoot)
+	if idxCustom != -1 {
+		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], resources)
 	}
 
 	return nil
 }
 
-func verifyCustomDestination(customDest service.Destination, shoot *core.Shoot) error {
+func verifyCustomDestination(customDest service.Destination, resources []core.NamedResourceReference) error {
 	if customDest.ResourceSecretName == nil {
 		return fmt.Errorf("custom event destination is set but no custom config is defined")
 	}
 
 	found := false
-	for _, s := range shoot.Spec.Resources {
+	for _, s := range resources {
 		if s.ResourceRef.Kind == "Secret" && s.Name == *customDest.ResourceSecretName {
 			found = true
 			break
@@ -355,21 +399,36 @@ func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 }
 
 // findExtension returns shoot-falco-service extension.
-func (s *shoot) findExtension(shoot *core.Shoot) *core.Extension {
-	for i, ext := range shoot.Spec.Extensions {
-		if ext.Type == constants.ExtensionType {
-			return &shoot.Spec.Extensions[i]
+func (s *shoot) findExtension(obj client.Object) *core.Extension {
+	var extensions []core.Extension
+	switch o := obj.(type) {
+	case *core.Shoot:
+		if o == nil {
+			return nil
+		}
+		extensions = o.Spec.Extensions
+	case *core.Seed:
+		if o == nil {
+			return nil
+		}
+		extensions = o.Spec.Extensions
+	default:
+		return nil
+	}
+	for i := range extensions {
+		if extensions[i].Type == constants.ExtensionType {
+			return &extensions[i]
 		}
 	}
 	return nil
 }
 
-func (s *shoot) extractFalcoConfig(shoot *core.Shoot) (*service.FalcoServiceConfig, error) {
-	if shoot == nil {
-		return nil, fmt.Errorf("shoot pointer was nil")
+func (s *shoot) extractFalcoConfig(obj client.Object) (*service.FalcoServiceConfig, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource pointer was nil")
 	}
 
-	ext := s.findExtension(shoot)
+	ext := s.findExtension(obj)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}
 		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
