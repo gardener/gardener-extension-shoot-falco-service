@@ -238,7 +238,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	falcoChartValues := map[string]any{
 		"clusterId":         *reconcileCtx.ClusterIdentity,
 		"priorityClassName": priorityClassName,
-		"falcoVersion": *falcoVersion,
+		"falcoVersion":      *falcoVersion,
 		"driver": map[string]any{
 			"kind": "modern_ebpf",
 			"loader": map[string]bool{
