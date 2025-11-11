@@ -26,6 +26,9 @@ metadata:
     {{- if .Values.customRules }}
     checksum/customRules: {{ include (print $.Template.BasePath "/falco-custom-rules.yaml") . | sha256sum }}
     {{- end }}
+    {{- range $rulesConfigMap := $.Values.shoot_custom_rules }}
+    checksum/shoot-custom-rules-{{ $rulesConfigMap.name }}: {{ (lookup "v1" "ConfigMap" (include "falco.namespace" $) $rulesConfigMap.name).data | toJson | sha256sum }}
+    {{- end }}
     {{- if and .Values.certs (not .Values.certs.existingSecret) }}
     checksum/certs: {{ include (print $.Template.BasePath "/falco-certs-secret.yaml") . | sha256sum }}
     {{- end }}
