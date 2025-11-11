@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 
-	v1beta1gardener "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 )
 
@@ -15,11 +14,7 @@ import (
 var technicalIDPattern = regexp.MustCompile(fmt.Sprintf("^%s-?", v1beta1constants.TechnicalIDPrefix))
 
 // ComputeValiHost computes the host for vali ingress.
-func ComputeValiHost(shoot v1beta1gardener.Shoot, seed v1beta1gardener.Seed) string {
-	var seedIngressDomain string
-	shortID := technicalIDPattern.ReplaceAllString(shoot.Status.TechnicalID, "")
-	if seed.Spec.Ingress != nil {
-		seedIngressDomain = seed.Spec.Ingress.Domain
-	}
+func ComputeValiHost(shootTechnicalID string, seedIngressDomain string) string {
+	shortID := technicalIDPattern.ReplaceAllString(shootTechnicalID, "")
 	return fmt.Sprintf("v-%s.%s", shortID, seedIngressDomain)
 }

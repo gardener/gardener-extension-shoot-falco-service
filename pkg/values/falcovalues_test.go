@@ -37,6 +37,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
 )
 
 var (
@@ -135,6 +136,17 @@ var (
 		Destinations: &[]service.Destination{
 			{
 				Name: "logging",
+			},
+		},
+	}
+	seedExtenstionSimple = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name: "central",
 			},
 		},
 	}
@@ -254,6 +266,15 @@ var (
 				ClusterIdentity: stringValue("this-is-the-cluster-identify"),
 			},
 		},
+	}
+
+	shootReconcileCtx = &utils.ReconcileContext{
+		Namespace:         "shoot--test--foo",
+		IsShootDeployment: true,
+		ShootTechnicalId:  shootSpec.Shoot.Status.TechnicalID,
+		SeedIngressDomain: shootSpec.Seed.Spec.Ingress.Domain,
+		ClusterIdentity:   shootSpec.Shoot.Status.ClusterIdentity,
+		ResourceSection:   shootSpec.Shoot.Spec.Resources,
 	}
 
 	falcoServiceConfig = &service.FalcoServiceConfig{
@@ -560,15 +581,15 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("custom rules in shoot spec", func(ctx SpecContext) {
-
-		conf := falcoServiceConfig
-		res, err := configBuilder.extractCustomRules(shootSpec, conf)
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfig
+		res, err := configBuilder.extractCustomRules(shootReconcileCtx)
 		Expect(err).To(BeNil())
 		Expect(len(res)).To(Equal(2))
 		Expect(res[0].RefName).To(Equal("rules1"))
 		Expect(res[1].RefName).To(Equal("rules3"))
 
-		_, err = configBuilder.extractCustomRules(shootSpec, falcoServiceConfigBad)
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigBad
+		_, err = configBuilder.extractCustomRules(shootReconcileCtx)
 		Expect(err).NotTo(BeNil())
 	})
 
@@ -624,7 +645,8 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("Test loading many rules from configmap preserving order", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionManyCustomRules)
+		shootReconcileCtx.FalcoServiceConfig = shootExtensionManyCustomRules
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 		js, err := json.MarshalIndent((values), "", "    ")
 		Expect(err).To(BeNil())
@@ -664,13 +686,15 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("Test configmap with too many rule files", func(ctx SpecContext) {
-		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionTooManyCustomRuleFiles)
+		shootReconcileCtx.FalcoServiceConfig = shootExtensionTooManyCustomRuleFiles
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("too many custom rule files in configmap \"ref-too-many-rule-files\""))
 	})
 
 	It("Test shoot custom rules", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtenstionShootCustomRules)
+		shootReconcileCtx.FalcoServiceConfig = shootExtenstionShootCustomRules
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 		//		_, err := json.MarshalIndent((values), "", "    ")
 		//		Expect(err).To(BeNil())
@@ -717,10 +741,25 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		}
 		Expect(foundVolumeMount).NotTo(BeNil())
 		Expect(foundVolumeMount.MountPath).To(Equal("/etc/falco/shoot-custom-rules/my-shoot-configmap"))
+
+		// Check falcosidekick deployment
+		falcosidekickDeployment := getManifest(release, "falco/templates/falcosidekick-deployment.yaml")
+		Expect(falcosidekickDeployment).NotTo(BeNil())
+
+		deployment := appsv1.Deployment{}
+		err = yaml.Unmarshal([]byte(falcosidekickDeployment.Content), &deployment)
+		Expect(err).To(BeNil())
+
+		// Verify that networking labels are NOT set on the falcosidekick deployment for seed clusters
+		labels := deployment.Spec.Template.Labels
+		Expect(labels).To(HaveKey("networking.gardener.cloud/to-dns"))
+		Expect(labels).To(HaveKey("networking.gardener.cloud/to-public-networks"))
+		Expect(labels).To(HaveKey("networking.gardener.cloud/from-falco"))
 	})
 
 	It("Test custom webhook functionality with secret", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigCustomWebhookWithSecret
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 
 		js, err := json.MarshalIndent((values), "", "    ")
@@ -740,7 +779,15 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCluster)
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: falcoServiceConfigCluster,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		}
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).To(BeNil())
 
 		js, err := json.MarshalIndent((values), "", "    ")
@@ -769,7 +816,8 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("Test simple values generation", func(ctx SpecContext) {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtension)
+		shootReconcileCtx.FalcoServiceConfig = shootExtension
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 
 		js, err := json.MarshalIndent((values), "", "    ")
@@ -849,6 +897,13 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
 
+		// make sure networking labels are set correctly when running in
+		// gardener managed shoot (have been removed when running in seed
+		// context)
+		labels := ds.Spec.Template.Labels
+		Expect(labels).To(HaveKeyWithValue("networking.gardener.cloud/to-dns", "allowed"))
+		Expect(labels).To(HaveKeyWithValue("networking.gardener.cloud/to-falcosidekick", "allowed"))
+
 		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		Expect(config).To(HaveKey("loki"))
 		loggingConf := config["loki"].(map[string]interface{})
@@ -863,85 +918,6 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(loggingConf).To(HaveKey("format"))
 		Expect(loggingConf["format"].(string)).To(Equal("json"))
 	})
-
-	// 	It("Test values generation falcoctl", func(ctx SpecContext) {
-	// 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionFalcoctl)
-	// 		Expect(err).To(BeNil())
-	// 		js, err := json.MarshalIndent((values), "", "    ")
-	// 		Expect(err).To(BeNil())
-	// 		//fmt.Println(string(js))
-	// 		Expect(len(js)).To(BeNumerically(">", 100))
-	// 		Expect(values).NotTo(HaveKey("customRules"))
-	// 		Expect(values).NotTo(HaveKey("falcoRules"))
-	// 		Expect(values).NotTo(HaveKey("falcoIncubatingRules"))
-	// 		Expect(values).NotTo(HaveKey("falcoSandboxRules"))
-	// 		prioriyClass := values["priorityClassName"].(string)
-	// 		Expect(prioriyClass).To(Equal("falco-test-priority-dummy-classname"))
-
-	// 		// render chart and check if the values are set correctly
-	// 		//
-	// 		renderer, err := util.NewChartRendererForShoot("1.30.2")
-	// 		Expect(err).To(BeNil())
-	// 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
-	// 		Expect(err).To(BeNil())
-
-	// 		// check custom rules
-	// 		customRules := getManifest(release, "falco/templates/falco-custom-rules.yaml")
-	// 		Expect(customRules).To(BeNil())
-	// 		falcoConfigmap := getManifest((release), "falco/templates/falco-configmap.yaml")
-	// 		fc := corev1.ConfigMap{}
-	// 		err = yaml.Unmarshal([]byte(falcoConfigmap.Content), &fc)
-	// 		Expect(err).To(BeNil())
-	// 		falcoYaml := make(map[string]interface{})
-	// 		err = yaml.Unmarshal([]byte(fc.Data["falco.yaml"]), &falcoYaml)
-	// 		Expect(err).To(BeNil())
-	// 		rules := falcoYaml["rules_files"].([]interface{})
-	// 		Expect(len(rules)).To(Equal(3))
-	// 		Expect(rules[0]).To(Equal("/etc/falco/falco_rules.yaml"))
-	// 		Expect(rules[1]).To(Equal("/etc/falco/falco_rules.local.yaml"))
-	// 		Expect(rules[2]).To(Equal("/etc/falco/rules.d"))
-
-	// 		// check priority class in falco deamonset
-	// 		falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
-	// 		Expect(falcoDaemonset).NotTo(BeNil())
-	// 		ds := appsv1.DaemonSet{}
-	// 		fmt.Println(falcoDaemonset.Content)
-	// 		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
-	// 		Expect(err).To(BeNil())
-	// 		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("falcosecurity/falco:0.38.0"))
-	// 		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-	// 		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
-
-	// 		// default gardener webhook
-	// 		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
-	// 		Expect(config).To(HaveKey("webhook"))
-	// 		webhook := config["webhook"].(map[string]interface{})
-	// 		Expect(webhook).To(HaveKey("address"))
-	// 		Expect(webhook["address"].(string)).To(Equal("https://ingestor.example.com"))
-	// 		Expect(webhook).To(HaveKey("checkcert"))
-	// 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
-	// 		Expect(webhook).To(HaveKey("customheaders"))
-	// 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
-
-	// 		// check falcoctl configuration
-	// 		falcoCtlConfigmap := getManifest(release, "falco/templates/falcoctl-configmap.yaml")
-	// 		Expect(falcoCtlConfigmap).NotTo(BeNil())
-	// 		fctlcfg := corev1.ConfigMap{}
-	// 		err = yaml.Unmarshal([]byte(falcoCtlConfigmap.Content), &fctlcfg)
-	// 		Expect(err).To(BeNil())
-	// 		fctl, ok := fctlcfg.Data["falcoctl.yaml"]
-	// 		Expect(ok).To(BeTrue())
-	// 		fmt.Println("This is the configmap")
-	// 		fmt.Println(fctl)
-	// 		Expect(fctl).NotTo(BeNil())
-	// 		falcoCtlYaml := make(map[string]interface{})
-	// 		err = yaml.Unmarshal([]byte(fctl), &falcoCtlYaml)
-	// 		Expect(err).To(BeNil())
-	// 		install := falcoCtlYaml["install"].(map[string]interface{})
-	// 		resolveDeps := install["resolveDeps"].(bool)
-	// 		Expect(resolveDeps).To(BeTrue())
-	// 	})
-
 })
 
 var _ = Describe("It can handle central destination", Label("falcovalues"), func() {
@@ -970,8 +946,16 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 	})
 
 	It("Can handle missing central storage", func(ctx SpecContext) {
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: falcoServiceConfigCentralStdout,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		}
 		configBuilder.config.Falco.CentralStorage = nil
-		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("central storage is not configured"))
 
@@ -980,7 +964,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
 			URL:                   "",
 		}
-		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("central storage URL was not provided"))
 
@@ -989,15 +973,14 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 			TokenIssuerPrivateKey: "",
 			URL:                   "abcde",
 		}
-		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		_, err = configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("central storage token issuer private key was not provided"))
 	})
 
 	It("Test central and stdout functionality", func(ctx SpecContext) {
-
-		conf := falcoServiceConfigCentralStdout
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", conf)
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigCentralStdout
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 
 		js, err := json.MarshalIndent((values), "", "    ")
@@ -1011,7 +994,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		Expect(stdout).To(HaveKey("enabled"))
 		Expect(stdout["enabled"]).To(BeTrue())
 
-		customRules, err := configBuilder.extractCustomRules(shootSpec, conf)
+		customRules, err := configBuilder.extractCustomRules(shootReconcileCtx)
 		Expect(err).To(BeNil())
 		Expect(len(customRules)).To(Equal(2))
 		Expect(customRules[0].RefName).To(Equal("rules1"))
@@ -1035,7 +1018,8 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 	})
 
 	It("should build values with central and stdout destinations", func() {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCentralStdout)
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigCentralStdout
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 		Expect(values).NotTo(BeNil())
 
@@ -1070,11 +1054,27 @@ var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
 	})
 
 	It("can not load custom rules from empty namespace", func(ctx SpecContext) {
-		Expect(configBuilder.getCustomRules(context.TODO(), logger, shootSpec, "", falcoServiceConfig)).Error().ToNot(BeNil())
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: falcoServiceConfig,
+			Namespace:          "",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		}
+		Expect(configBuilder.getCustomRules(context.TODO(), logger, reconcileCtx)).Error().ToNot(BeNil())
 	})
 
 	It("can not load faulty custom rules references", func(ctx SpecContext) {
-		Expect(configBuilder.getCustomRules(context.TODO(), logger, shootSpec, "", falcoServiceConfigWrongCustomRules)).Error().ToNot(BeNil())
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: falcoServiceConfigWrongCustomRules,
+			Namespace:          "",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		}
+		Expect(configBuilder.getCustomRules(context.TODO(), logger, reconcileCtx)).Error().ToNot(BeNil())
 	})
 })
 
@@ -1271,7 +1271,8 @@ var _ = Describe("BuildFalcoValues", func() {
 	})
 
 	It("should build values successfully for a valid configuration", func() {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtension)
+		shootReconcileCtx.FalcoServiceConfig = shootExtension
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 		Expect(values).NotTo(BeNil())
 
@@ -1293,8 +1294,15 @@ var _ = Describe("BuildFalcoValues", func() {
 		invalidConfig := &service.FalcoServiceConfig{
 			FalcoVersion: stringValue("invalid-version"),
 		}
-
-		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", invalidConfig)
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: invalidConfig,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		}
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("no image found for falco version invalid-version"))
 	})
@@ -1306,20 +1314,29 @@ var _ = Describe("BuildFalcoValues", func() {
 				StandardRules: &[]string{"falco-rules"},
 			},
 		}
-
-		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", configWithoutDestinations)
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: configWithoutDestinations,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		}
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("no destinations configured"))
 	})
 
 	It("should return an error for too many custom rule files", func() {
-		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", shootExtensionTooManyCustomRuleFiles)
+		shootReconcileCtx.FalcoServiceConfig = shootExtensionTooManyCustomRuleFiles
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("too many custom rule files in configmap"))
 	})
 
 	It("should build values with custom webhook configuration", func() {
-		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootSpec, "shoot--test--foo", falcoServiceConfigCustomWebhookWithSecret)
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigCustomWebhookWithSecret
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
 		Expect(err).To(BeNil())
 		Expect(values).NotTo(BeNil())
 
@@ -1336,4 +1353,43 @@ var _ = Describe("BuildFalcoValues", func() {
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
 	})
 
+	It("Test falco on seed", func(ctx SpecContext) {
+		// Create a seed reconcile context (non-Gardener managed cluster)
+		seedReconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: seedExtenstionSimple,
+			Namespace:          "shoot--test--foo",
+			IsSeedDeployment:   true,
+			IsShootDeployment:  false,
+			ClusterIdentity:    stringValue("seed-cluster-identity"),
+			ClusterName:        "seed-cluster",
+		}
+		configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+			TokenLifetime:         &metav1.Duration{Duration: 0},
+			TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+			URL:                   "dummy",
+		}
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, seedReconcileCtx)
+		Expect(err).To(BeNil())
+		Expect(values).NotTo(BeNil())
+
+		// Render chart and check if the values are set correctly
+		renderer, err := util.NewChartRendererForShoot("1.30.2")
+		Expect(err).To(BeNil())
+		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
+		Expect(err).To(BeNil())
+
+		// Check falcosidekick deployment
+		falcosidekickDeployment := getManifest(release, "falco/templates/falcosidekick-deployment.yaml")
+		Expect(falcosidekickDeployment).NotTo(BeNil())
+
+		deployment := appsv1.Deployment{}
+		err = yaml.Unmarshal([]byte(falcosidekickDeployment.Content), &deployment)
+		Expect(err).To(BeNil())
+
+		// Verify that networking labels are NOT set on the falcosidekick deployment for seed clusters
+		labels := deployment.Spec.Template.Labels
+		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-dns"))
+		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-public-networks"))
+		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/from-falco"))
+	})
 })

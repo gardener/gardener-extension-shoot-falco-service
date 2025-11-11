@@ -198,6 +198,18 @@ extension-up: export EXTENSION_GARDENER_HACK_DIR = $(GARDENER_HACK_DIR)
 extension-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
 	$(SKAFFOLD) run --cache-artifacts=true
 
+extension-debug-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
+	$(info   VAR is $(LD_FLAGS))
+	#env | grep LDF
+	#$(SKAFFOLD) debug -v trace --cache-artifacts=true
+	$(SKAFFOLD) debug --cache-artifacts=true
+
+extension-dev-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
+	$(info   VAR is $(LD_FLAGS))
+	#env | grep LDF
+	#$(SKAFFOLD) debug -v trace --cache-artifacts=true
+	$(SKAFFOLD) dev --cache-artifacts=true
+
 .PHONY: extension-down
 extension-down:
 	$(SKAFFOLD) delete

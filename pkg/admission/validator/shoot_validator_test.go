@@ -95,6 +95,34 @@ var (
 		},
 	}
 
+	genericSeed = &core.Seed{
+		Spec: core.SeedSpec{
+			Extensions: []core.Extension{
+				{
+					Type:           "shoot-falco-service",
+					Disabled:       boolValue(false),
+					ProviderConfig: &runtime.RawExtension{},
+				},
+			},
+			Resources: []core.NamedResourceReference{
+				{
+					Name: "dummy-custom-rules-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+				},
+				{
+					Name: "my-custom-webhook-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "Secret",
+					},
+				},
+			},
+		},
+	}
+
 	falcoExtension1 = `
 	{
 	    "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
@@ -434,6 +462,31 @@ var (
 		 }
 		]
 	}`
+
+	// "looging" destination is not allowed for seed
+	falcoExtensionForSeedIllegal = `
+	{
+		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
+      	"kind": "FalcoServiceConfig",
+		"autoUpdate":true,
+		"falcoVersion":"1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			],
+			"custom": [
+			{
+				"resourceName": "dummy-custom-rules-ref",
+				"shootConfigMap": "dummy-config-map"
+			}
+			]
+		},
+		"destinations": [
+		 {
+		 	"name": "logging"
+		 }
+		]
+	}`
 )
 
 func init() {
@@ -683,41 +736,41 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 	It("can verify rules", func(ctx SpecContext) {
 		var err error
 		conf := &service.FalcoServiceConfig{}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Standard and custom rules are nil but not detected as such")
 
 		conf.Rules = &service.Rules{}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Empty rules config is not detected as such")
 
 		conf.Rules = &service.Rules{
 			StandardRules: &[]string{},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Empty standard rules are not detected as such")
 
 		conf.Rules = &service.Rules{
 			CustomRules: &[]service.CustomRule{},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Empty custom rules are not detected as such")
 
 		conf.Rules = &service.Rules{
 			StandardRules: &[]string{"rulecfg1", "rulecfg2"},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Non existing standard rules are not detected as such")
 
 		conf.Rules = &service.Rules{
 			StandardRules: &[]string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[1]},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).To(BeNil(), "Faulty rejected standard rules")
 
 		conf.Rules = &service.Rules{
 			StandardRules: &[]string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[0]},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Accepted standard dublicate rules")
 
 		conf.Rules = &service.Rules{
@@ -727,7 +780,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				},
 			},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Empty custom rules are not detected as such")
 
 		conf.Rules = &service.Rules{
@@ -737,7 +790,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				},
 			},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Non existing custom rules are not detected as such")
 
 		conf.Rules = &service.Rules{
@@ -747,7 +800,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				},
 			},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).To(BeNil(), "Existing custom rules reference was rejected")
 
 		conf.Rules = &service.Rules{
@@ -760,7 +813,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				},
 			},
 		}
-		err = verifyRules(conf, genericShoot)
+		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Dublicate custom rules are not detected as such")
 	})
 
@@ -911,5 +964,40 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		}
 		enabled = isCentralLoggingEnabled(falcoConf)
 		Expect(enabled).To(BeTrue(), "Central logging should be enabled when one of the destinations is central")
+	})
+
+	It("check seed objects with Falco installation", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericSeed.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			err = s.Validate(context.TODO(), genericSeed, nil)
+			return err
+		}
+		err = f(falcoExtension2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionCustomWebhook)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionCustomWebookCustomRules)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionwithShootRules1)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionwithShootRules2)
+		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionForSeedIllegal)
+		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
+		Expect(err.Error()).To(ContainSubstring("unknown event destination: logging"))
+		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"))
 	})
 })

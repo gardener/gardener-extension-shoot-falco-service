@@ -41,19 +41,24 @@ func NewShoot(mgr manager.Manager) *Shoot {
 
 // shoot mutates shoots
 type Shoot struct {
-	decoder runtime.Decoder
-	scheme  *runtime.Scheme
-	lock    sync.Mutex
-	encoder runtime.Encoder
+	decoder    runtime.Decoder
+	scheme     *runtime.Scheme
+	once       sync.Once
+	encoder    runtime.Encoder
+	encoderErr error
 }
 
 // Mutate implements extensionswebhook.Mutator.Mutate
-func (s *Shoot) Mutate(ctx context.Context, new, _ client.Object) error {
-	shoot, ok := new.(*gardencorev1beta1.Shoot)
-	if !ok {
-		return fmt.Errorf("wrong object type %T", new)
+func (s *Shoot) Mutate(ctx context.Context, newObj, _ client.Object) error {
+
+	switch obj := newObj.(type) {
+	case *gardencorev1beta1.Shoot:
+		return s.mutateShoot(ctx, obj)
+	case *gardencorev1beta1.Seed:
+		return s.mutateSeed(ctx, obj)
+	default:
+		return fmt.Errorf("unsupported object type %T", newObj)
 	}
-	return s.mutateShoot(ctx, shoot)
 }
 
 func setAutoUpdate(falcoConf *service.FalcoServiceConfig) {
@@ -191,7 +196,6 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if s.isDisabled(new) {
 		return nil
 	}
-
 	falcoConf, err := s.ExtractFalcoConfig(new)
 	if err != nil {
 		return err
@@ -200,9 +204,36 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if falcoConf == nil {
 		falcoConf = &service.FalcoServiceConfig{}
 	}
-
-	if err = setFalcoVersion(falcoConf); err != nil {
+	newConfig, err := s.mutate(falcoConf)
+	if err != nil {
 		return err
+	}
+	return s.UpdateFalcoConfigShoot(new, newConfig)
+}
+
+func (s *Shoot) mutateSeed(_ context.Context, new *gardencorev1beta1.Seed) error {
+	falcoConf, err := s.ExtractFalcoConfig(new)
+	if err != nil {
+		return err
+	}
+	if falcoConf == nil {
+		falcoConf = &service.FalcoServiceConfig{}
+	}
+	newConfig, err := s.mutate(falcoConf)
+	if err != nil {
+		return err
+	}
+	return s.UpdateFalcoConfigSeed(new, newConfig)
+}
+
+func (s *Shoot) mutate(falcoConf *service.FalcoServiceConfig) (*service.FalcoServiceConfig, error) {
+
+	if falcoConf == nil {
+		falcoConf = &service.FalcoServiceConfig{}
+	}
+
+	if err := setFalcoVersion(falcoConf); err != nil {
+		return nil, err
 	}
 
 	setAutoUpdate(falcoConf)
@@ -211,7 +242,7 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 
 	setDestinations(falcoConf)
 
-	return s.UpdateFalcoConfig(new, falcoConf)
+	return falcoConf, nil
 }
 
 func setRules(falcoConf *service.FalcoServiceConfig) {
@@ -251,18 +282,26 @@ func (s *Shoot) isDisabled(shoot *gardencorev1beta1.Shoot) bool {
 	return false
 }
 
-// findExtension returns shoot-falco-service extension.
-func (s *Shoot) findExtension(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.Extension {
-	for i, ext := range shoot.Spec.Extensions {
+func (s *Shoot) findExtension(obj client.Object) *gardencorev1beta1.Extension {
+	var extensions []gardencorev1beta1.Extension
+	switch o := obj.(type) {
+	case *gardencorev1beta1.Shoot:
+		extensions = o.Spec.Extensions
+	case *gardencorev1beta1.Seed:
+		extensions = o.Spec.Extensions
+	default:
+		return nil
+	}
+	for _, ext := range extensions {
 		if ext.Type == constants.ExtensionType {
-			return &shoot.Spec.Extensions[i]
+			return &ext
 		}
 	}
 	return nil
 }
 
-func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.FalcoServiceConfig, error) {
-	ext := s.findExtension(shoot)
+func (s *Shoot) ExtractFalcoConfig(obj client.Object) (*service.FalcoServiceConfig, error) {
+	ext := s.findExtension(obj)
 	if ext != nil && ext.ProviderConfig != nil {
 		falcoConfig := &service.FalcoServiceConfig{}
 		if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
@@ -273,13 +312,13 @@ func (s *Shoot) ExtractFalcoConfig(shoot *gardencorev1beta1.Shoot) (*service.Fal
 	return nil, nil
 }
 
-func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
+func (s *Shoot) UpdateFalcoConfigShoot(shoot *gardencorev1beta1.Shoot, config *service.FalcoServiceConfig) error {
 	raw, err := s.toRaw(config)
 	if err != nil {
 		return err
 	}
 
-	extensionType := "shoot-falco-service"
+	extensionType := constants.ExtensionType
 	index := -1
 	for i, ext := range shoot.Spec.Extensions {
 		if ext.Type == extensionType {
@@ -298,6 +337,31 @@ func (s *Shoot) UpdateFalcoConfig(shoot *gardencorev1beta1.Shoot, config *servic
 	return nil
 }
 
+func (s *Shoot) UpdateFalcoConfigSeed(seed *gardencorev1beta1.Seed, config *service.FalcoServiceConfig) error {
+	raw, err := s.toRaw(config)
+	if err != nil {
+		return err
+	}
+
+	extensionType := constants.ExtensionType
+	index := -1
+	for i, ext := range seed.Spec.Extensions {
+		if ext.Type == extensionType {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		index = len(seed.Spec.Extensions)
+		seed.Spec.Extensions = append(seed.Spec.Extensions, gardencorev1beta1.Extension{
+			Type: extensionType,
+		})
+	}
+	seed.Spec.Extensions[index].ProviderConfig = &runtime.RawExtension{Raw: raw}
+	return nil
+}
+
 func (s *Shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 	encoder, err := s.getEncoder()
 	if err != nil {
@@ -312,18 +376,18 @@ func (s *Shoot) toRaw(config *service.FalcoServiceConfig) ([]byte, error) {
 }
 
 func (s *Shoot) getEncoder() (runtime.Encoder, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.once.Do(func() {
+		codec := serializer.NewCodecFactory(s.scheme)
+		si, ok := runtime.SerializerInfoForMediaType(codec.SupportedMediaTypes(), runtime.ContentTypeJSON)
+		if !ok {
+			s.encoderErr = fmt.Errorf("could not find encoder for media type %q", runtime.ContentTypeJSON)
+			return
+		}
+		s.encoder = codec.EncoderForVersion(si.Serializer, servicev1alpha1.SchemeGroupVersion)
+	})
 
-	if s.encoder != nil {
-		return s.encoder, nil
+	if s.encoderErr != nil {
+		return nil, s.encoderErr
 	}
-
-	codec := serializer.NewCodecFactory(s.scheme)
-	si, ok := runtime.SerializerInfoForMediaType(codec.SupportedMediaTypes(), runtime.ContentTypeJSON)
-	if !ok {
-		return nil, fmt.Errorf("could not find encoder for media type %q", runtime.ContentTypeJSON)
-	}
-	s.encoder = codec.EncoderForVersion(si.Serializer, servicev1alpha1.SchemeGroupVersion)
 	return s.encoder, nil
 }

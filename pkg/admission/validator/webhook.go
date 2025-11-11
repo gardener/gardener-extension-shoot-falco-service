@@ -10,6 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
 const (
@@ -26,11 +28,14 @@ func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	loggerInstance.Info("Setting up webhook", "name", ValidatorName)
 
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider: "shoot-falco-service",
+		Provider: constants.ExtensionType,
 		Name:     ValidatorName,
 		Path:     ValidatorPath,
 		Validators: map[extensionswebhook.Validator][]extensionswebhook.Type{
-			NewShootValidator(mgr): {{Obj: &core.Shoot{}}},
+			NewShootValidator(mgr): {
+				{Obj: &core.Shoot{}},
+				{Obj: &core.Seed{}},
+			},
 		},
 		Target: extensionswebhook.TargetSeed,
 		ObjectSelector: &metav1.LabelSelector{

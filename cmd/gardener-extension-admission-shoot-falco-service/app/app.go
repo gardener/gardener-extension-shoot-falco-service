@@ -130,7 +130,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
-			falcoOptions.Completed().Apply(&validator.DefautltFalcoWebhookOptions)
+			falcoOptions.Completed().Apply(&validator.DefaultFalcoWebhookOptions)
 			mgr, err := manager.New(restOpts.Completed().Config, managerOptions)
 			if err != nil {
 				runtimelog.Log.Error(err, "Could not instantiate manager")
