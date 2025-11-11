@@ -377,7 +377,7 @@
   tags: [maturity_incubating, host, container, filesystem, mitre_collection, T1005]
 
 - macro: calico_node
-  condition: (container.image.repository endswith calico/node and proc.name=calico-node)
+  condition: (proc.name=calico-node)
 
 - macro: postgres_running_wal_e
   condition: (proc.pname=postgres and (proc.cmdline startswith "sh -c envdir /etc/wal-e.d/env /usr/local/bin/wal-e" or proc.cmdline startswith "sh -c envdir \"/run/etc/wal-e.d/env\" wal-g wal-push"))
@@ -770,8 +770,10 @@
 #
 # In this file, it just takes one of the condition in the base macro
 # and repeats it.
+# Add this macro to define a known benign setuid activity for falcosidekick
+# Exclude benign activities for heartbeat event
 - macro: user_known_non_sudo_setuid_conditions
-  condition: (user.name=root)
+  condition: (user.name=root or (user.name="falcosidekick" and proc.name in (sleep, sed, date, echo)))
 
 # sshd, mail programs attempt to setuid to root even when running as non-root. Excluding here to avoid meaningless FPs
 - rule: Non sudo setuid
@@ -1154,8 +1156,9 @@
 
 # Users should overwrite this macro to specify conditions under which a
 # Custom condition for use of ingress remote file copy tool in container
+# Needs to be added for custom heartbeat event
 - macro: user_known_ingress_remote_file_copy_activities
-  condition: (never_true)
+  condition: (proc.name="wget" and proc.cmdline="wget -qO- http://127.0.0.1:8765/versions")
 
 - macro: curl_download
   condition: (proc.name = curl and
@@ -1285,7 +1288,7 @@
   tags: [maturity_incubating, host, container, mitre_initial_access, T1556]
 
 - list: bpf_profiled_binaries
-  items: [falco, bpftool, systemd]
+  items: [falco, bpftool, systemd, runc]
 
 - macro: bpf_profiled_procs
   condition: (proc.name in (bpf_profiled_binaries))
