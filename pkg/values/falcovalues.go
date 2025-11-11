@@ -235,10 +235,10 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	}
 
 	destination := c.getDestination(falcoOutputConfigs)
-
 	falcoChartValues := map[string]any{
 		"clusterId":         *reconcileCtx.ClusterIdentity,
 		"priorityClassName": priorityClassName,
+		"falcoVersion": *falcoVersion,
 		"driver": map[string]any{
 			"kind": "modern_ebpf",
 			"loader": map[string]bool{
@@ -332,7 +332,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	if err := c.enableContainerPlugin(falcoChartValues, falcoVersion); err != nil {
 		return nil, err
 	}
-
 	return falcoChartValues, nil
 }
 
@@ -438,11 +437,11 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 		"init_config": map[string]interface{}{
 			"engines": map[string]interface{}{
 				"docker": map[string]interface{}{
-					"enabled": true,
+					"enabled": false,
 					"sockets": []string{"/var/run/docker.sock"},
 				},
 				"cri": map[string]interface{}{
-					"enabled": true,
+					"enabled": false,
 					"sockets": []string{
 						"/run/containerd/containerd.sock",
 						"/run/crio/crio.sock",
@@ -454,7 +453,7 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 					"sockets": []string{"/run/containerd/containerd.sock"},
 				},
 				"podman": map[string]interface{}{
-					"enabled": true,
+					"enabled": false,
 					"sockets": []string{
 						"/run/podman/podman.sock",
 						"/run/user/1000/podman/podman.sock",
