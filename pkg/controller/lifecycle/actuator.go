@@ -81,10 +81,6 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 	if err != nil {
 		return nil, err
 	}
-	seed, err := getSeed(context.TODO(), dynamicGardenCluster, os.Getenv("SEED_NAME"))
-	if err != nil {
-		return nil, fmt.Errorf("cannot get seed: %v", err)
-	}
 
 	return &actuator{
 		client:                 mgr.GetClient(),
@@ -96,7 +92,6 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 		falcoProfileManger:     profile.FalcoProfileManagerInstance,
 		gardenClient:           dynamicGardenCluster,
 		localClusterK8sVersion: localClusterK8sVersion,
-		seed:                   seed,
 	}, nil
 }
 
@@ -137,7 +132,6 @@ type actuator struct {
 	falcoProfileManger     *profile.FalcoProfileManager
 	gardenClient           *dynamic.DynamicClient
 	localClusterK8sVersion string
-	seed                   *gardenerv1beta1.Seed
 }
 
 // Reconcile the Extension resource.
@@ -169,14 +163,21 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		if shootCluster.Seed.Spec.Ingress != nil {
 			reconcileCtx.SeedIngressDomain = shootCluster.Seed.Spec.Ingress.Domain
 		}
+		log.Info("creating Falco resources for shoot " + shootCluster.Shoot.ObjectMeta.Namespace + "/" + shootCluster.Shoot.ObjectMeta.Name)
 	case extensionsv1alpha1.ExtensionClassSeed:
+		seed, err := getSeed(ctx, a.gardenClient, os.Getenv("SEED_NAME"))
+		if err != nil {
+			return fmt.Errorf("cannot get seed %s: %v", os.Getenv("SEED_NAME"), err)
+		}
 		// Falco will be deployed on the local cluster, we have the version
 		reconcileCtx = &utils.ReconcileContext{
 			TargetClusterK8sVersion: a.localClusterK8sVersion,
-			ResourceSection:         a.getClusterResourcesForSeed(),
-			ClusterIdentity:         a.seed.Status.ClusterIdentity,
-			ClusterName:             a.seed.Name,
+			ResourceSection:         seed.Spec.Resources,
+			ClusterIdentity:         seed.Status.ClusterIdentity,
+			ClusterName:             seed.Name,
+			Seed:                    seed,
 		}
+		log.Info("creating Falco resources for seed " + seed.Name)
 	case extensionsv1alpha1.ExtensionClassGarden:
 		// TODO
 		reconcileCtx = &utils.ReconcileContext{
@@ -205,7 +206,6 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) error {
 
-	log.Info("creating Falco resources for shoot " + reconcileCtx.Namespace)
 	renderer, err := util.NewChartRendererForShoot(reconcileCtx.TargetClusterK8sVersion)
 	if err != nil {
 		return fmt.Errorf("could not create chart renderer for rendering manged resource chart for shoot: %w", err)
@@ -397,10 +397,6 @@ func getLocalClusterK8sVersion(cfg *rest.Config) (string, error) {
 
 func (a *actuator) getClusterResourcesForShoot(cluster *extensions.Cluster) []gardenerv1beta1.NamedResourceReference {
 	return cluster.Shoot.Spec.Resources
-}
-
-func (a *actuator) getClusterResourcesForSeed() []gardenerv1beta1.NamedResourceReference {
-	return a.seed.Spec.Resources
 }
 
 func getSeed(ctx context.Context, client *dynamic.DynamicClient, seedName string) (*gardenerv1beta1.Seed, error) {

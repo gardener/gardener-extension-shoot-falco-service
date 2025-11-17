@@ -23,4 +23,5 @@ type ReconcileContext struct {
 	IsSeedDeployment        bool
 	IsShootDeployment       bool
 	IsGardenDeployment      bool
+	Seed                    *gardenerv1beta1.Seed
 }
