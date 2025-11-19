@@ -1,4 +1,4 @@
-{{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
+{{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -8,7 +8,11 @@ metadata:
   name: extensions.gardener.cloud:shoot-falco-service:falcosidekick
 rules:
 - nonResourceURLs:
+  {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
   - /vali/api/v1/push
+  {{- else if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp" }}
+  - /opentelemetry.proto.collector.logs.v1.LogsService/Export
+  {{- end }}
   verbs:
   - create
 ---
