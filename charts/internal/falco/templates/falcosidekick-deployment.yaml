@@ -39,7 +39,7 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
+      {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
       serviceAccountName: gardener-falcosidekick
       {{ else }}
       automountServiceAccountToken: false
@@ -51,15 +51,21 @@ spec:
       securityContext:
       {{- toYaml .Values.falcosidekick.podSecurityContext | nindent 8}}
       {{- end }}
-      {{- if .Values.falcosidekick.config.loki.hostport }}
+      {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
       initContainers:
         - name: configure
           image: {{ .Values.falcosidekick.image.image }}
           command:
             - sh
           args:
+          {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
             - -c
             - awk 'BEGIN{getline l < "/etc/falcosidekick-token/token"}/TOK/{gsub("LOKI_TOKEN",l)}1' /etc/falcosidekick-config-template/config.yaml > /etc/falcosidekick/config.yaml
+          {{- else if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp" }}
+            - -c
+            - awk 'BEGIN{getline l < "/etc/falcosidekick-token/token"}/OTLP_TOKEN/{gsub("OTLP_TOKEN",l)}1' /etc/falcosidekick-config-template/config.yaml > /etc/falcosidekick/config.yaml
+          {{- end }}
+          resources:
           volumeMounts:
             - mountPath: /etc/falcosidekick-config-template
               name: falcosidekick-secrets
@@ -124,7 +130,7 @@ spec:
             {{- toYaml .Values.falcosidekick.resources | nindent 12 }}
           volumeMounts:
             - mountPath: /etc/falcosidekick
-              {{- if .Values.falcosidekick.config.loki.hostport }}
+              {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
               name: secrets-init-volume
               {{- else }}
               name: falcosidekick-secrets
@@ -170,7 +176,7 @@ spec:
             secretName: falcosidekick-certs
             {{- end }}
     {{- end }}
-    {{- if .Values.falcosidekick.config.loki.hostport }}
+    {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
         - name: loki-token
           secret:
             secretName: gardener-falcosidekick
