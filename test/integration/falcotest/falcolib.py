@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timezone
 import logging
 import semver
+from semver.version import Version
 from cryptography.hazmat.primitives import serialization
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
@@ -15,6 +16,25 @@ logging.basicConfig(level=logging.INFO)
 falco_pod_label_selector = "app.kubernetes.io/name=falco"
 falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
+minimum_usable_falco_version = Version.parse("0.39.2")
+
+
+def retry_api_call(func, *args, **kwargs):
+    counter = 0
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except client.ApiException as e:
+            if e.status == 503:
+                counter += 1
+                if counter > 10:
+                    # give up
+                    raise e
+                logger.info("Kubernetes API is not available, retrying...")
+                time.sleep(5)
+                continue
+            else:
+                raise e
 
 
 def pod_logs(shoot_api_client, namespace: str, pod_name: str, container_name: str = "") -> str:
@@ -284,7 +304,7 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
                 })
             res_patch.reverse()
             patch.extend(res_patch)
-        logger.info(f"Removing falco extension from shoot {shoot_name}, patch {patch}")
+        logger.debug(f"Removing falco extension from shoot {shoot_name}, patch {patch}")
         header_params = {
             "Accept": "application/json, */*",
             "Content-Type": "application/json-patch+json"
@@ -328,10 +348,9 @@ def delete_configmaps(garden_api_client, namespace):
         v1 = client.CoreV1Api(garden_api_client)
         try:
             v1.delete_namespaced_config_map(namespace=namespace, name=n)
-            logger.info(f"ConfigMap {n} deleted")
-        except ApiException:
-            # ignore
-            pass
+            logger.debug(f"ConfigMap {n} deleted")
+        except ApiException as e:
+            logger.debug(f"ConfigMap {n} deletion failed: {e}")
 
 
 def shoot_reconciled_and_healthy(garden_api_client, project_namespace: str, shoot_name: str):
@@ -435,7 +454,7 @@ def add_falco_to_shoot(
                     }
                 )
     pretty_config = json.dumps(extension_config, indent=4)
-    logger.info(f"Adding falco extension to shoot:\n{pretty_config}")
+    logger.debug(f"Adding falco extension to shoot:\n{pretty_config}")
     patch = {
         "spec": {
             "extensions": [extension_config]
@@ -477,7 +496,6 @@ def add_falco_to_shoot(
 
 
 def annotate_shoot(garden_api_client, project_namespace: str, shoot_name: str, annotation):
-
     a = annotation.split("=")
     patch = {
                 "metadata": {
@@ -545,20 +563,19 @@ def all_containers_running(shoot_api_client, expect_sidekick: bool, expected_fal
 
     if len(pods.items) >= min_expected_pods:
         for pod in pods.items:
-            # logger.info(f"Pod {pod.status}")
             if pod.status.phase != "Running":
-                logging.info(f"Pod {pod.metadata.name} is not running yet")
+                logging.debug(f"Pod {pod.metadata.name} is not running yet")
                 return False
     else:
         # no pods, not acceptable
-        logging.info(f"Only {len(pods.items)} pods found, expected at least {min_expected_pods}")
+        logging.debug(f"Only {len(pods.items)} pods found, expected at least {min_expected_pods}")
         return False
 
     # check that all containers are running
     for pod in pods.items:
         for container in pod.status.container_statuses:
             if container.state.running is None:
-                logging.info(f"Container {container.name} in pod " "{pod.metadata.name} is not running yet")
+                logging.debug(f"Container {container.name} in pod " "{pod.metadata.name} is not running yet")
                 return False
     return True
 
@@ -578,7 +595,6 @@ def pod_running(shoot_api_client, namespace: str, pod_name: str) -> bool:
             and type(pod.metadata) is client.V1ObjectMeta \
             and type(pod.metadata.name) is str \
             and type(pod.status.container_statuses) is list
-        logger.info(f"------------------ pod type {type(pod.status)}")
         if pod.status.phase != "Running":
             logging.info(f"Pod {pod.metadata.name} is not running yet")
             continue
@@ -609,7 +625,7 @@ def wait_for_extension_deployed(shoot_api_client, expect_sidekick: bool = True, 
             break
         else:
             counter += 1
-            logging.info("Not all expected falco pods are running or deployed")
+            logging.info(f"Not all expected {number_falco_pods} falco pods are running or deployed")
             time.sleep(5)
 
     if not all_running:
@@ -627,17 +643,8 @@ def wait_for_extension_deployed(shoot_api_client, expect_sidekick: bool = True, 
         raise Exception("Falco pods are not running or deployed")
 
     for pod in pods.items:
-        logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
-
+        logging.debug(f"Pod {pod.metadata.name}:  {pod.status.phase}")
     return
-
-
-def get_falco_sidekick_pods(shoot_api_client):
-    logger.info("Getting falco sidekick pods")
-    cv1 = client.CoreV1Api(shoot_api_client)
-    ls = falcosidekick_pod_label_selector
-    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
-    return pods.items
 
 
 def get_falco_profile(garden_api_client, profile_name):
@@ -656,19 +663,34 @@ def get_falco_profile(garden_api_client, profile_name):
 
 
 def get_deprecated_falco_version(falco_profile):
-    for version in falco_profile["spec"]["versions"]["falco"]:       
-        if "expirationDate" in version and\
-                    version["classification"] == "deprecated":
+    # get falco version that is not the latest supported version
+    for version in falco_profile["spec"]["versions"]["falco"]:
+        logger.info(f"Version: {version['version']}, ")
+        v = Version.parse(version["version"])
+        if v < minimum_usable_falco_version:
+            continue
+        if ("expirationDate" in version and
+                version["classification"] == "deprecated"):
             expiration_date = datetime.fromisoformat(version["expirationDate"])
             if expiration_date > datetime.now(timezone.utc):
                 return version["version"]
         elif version["classification"] == "deprecated":
             return version["version"]
+
+    # try to find an older "supported" version
+    latest_supported = Version.parse(get_latest_supported_falco_version(falco_profile))
+    for version in falco_profile["spec"]["versions"]["falco"]:
+        v = Version.parse(version["version"])
+        if v < minimum_usable_falco_version:
+            continue
+        if version["classification"] == "supported" and v < latest_supported:
+            return version["version"]
+
     return None
 
 
-def get_latest_supported_falco_version(falco_profile):
-    latest_supported = None
+def get_latest_supported_falco_version(falco_profile) -> str:
+    latest_supported = ""
     for version in falco_profile["spec"]["versions"]["falco"]:
         if version["classification"] == "supported":
             if latest_supported is None:
@@ -693,12 +715,13 @@ def get_falco_profile2(garden_api_client, profile_name):
 
 
 def delete_event_generator_pod(shoot_api_client):
+    logger.debug("Deleting event generator pod 'sample-events'")
     try:
         cv1 = client.CoreV1Api(shoot_api_client)
         cv1.delete_namespaced_pod(namespace="default", name="sample-events")
         logger.info("Pod 'sample-events' deleted")
-    except ApiException:
-        logger.info("error deleting pod 'sample-events', ignoring")
+    except ApiException as e:
+        logger.debug(f"error deleting pod 'sample-events', ignoring: {e}")
 
 
 def run_falco_event_generator(shoot_api_client) -> str:
@@ -733,18 +756,26 @@ def run_falco_event_generator(shoot_api_client) -> str:
     logs = ""
     start = datetime.now()
     while logs.count("\n") < 50 and (datetime.now() - start).seconds < 60:
-        logs += pod_logs(shoot_api_client, "default", "sample-events")
+        logs += retry_api_call(pod_logs, shoot_api_client, "default", "sample-events")
         time.sleep(1)
 
-    logger.info(f"Logs:\n {logs}")
+    logger.debug(f"Logs:\n {logs}")
 
     delete_event_generator_pod(shoot_api_client)
     return logs
 
 
 def get_falco_pods(shoot_api_client):
-    logger.info("Getting falco pods")
+    logger.debug("Getting falco pods")
     cv1 = client.CoreV1Api(shoot_api_client)
     ls = falco_pod_label_selector
+    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
+    return pods.items
+
+
+def get_falco_sidekick_pods(shoot_api_client):
+    logger.info("Getting falco sidekick pods")
+    cv1 = client.CoreV1Api(shoot_api_client)
+    ls = falcosidekick_pod_label_selector
     pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
     return pods.items

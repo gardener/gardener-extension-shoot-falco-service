@@ -7,19 +7,18 @@ import base64
 import yaml
 import jwt
 from datetime import datetime, timezone
-from kubernetes import client
 
 import pytest
 
 from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extension, \
             annotate_shoot, get_latest_supported_falco_version, \
             get_deprecated_falco_version, run_falco_event_generator, \
-            falcosidekick_pod_label_selector, \
+            falcosidekick_pod_label_selector, pod_logs_from_label_selector, \
             add_falco_to_shoot, wait_for_extension_deployed, \
-            pod_logs_from_label_selector, \
-            falco_pod_label_selector, get_falco_sidekick_pods, get_secret, \
+            falco_pod_label_selector, get_secret, label_node, \
             get_token_lifetime, get_token_public_key, delete_configmaps, \
-            delete_event_generator_pod, get_nodes, get_falco_pods, label_node
+            delete_event_generator_pod, get_nodes, get_falco_pods, \
+            get_falco_sidekick_pods
 
 
 logger = logging.getLogger(__name__)
@@ -31,12 +30,12 @@ def run_around_tests(garden_api_client, shoot_api_client, project_namespace, sho
     logger.info(f"Making sure Falco extension is not deployed in shoot {shoot_name}")
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name) 
     delete_configmaps(garden_api_client, project_namespace)
-    delete_event_generator_pod(garden_api_client)
+    delete_event_generator_pod(shoot_api_client)
     yield
     logger.info("Undepoying falco extension")
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
     delete_configmaps(garden_api_client, project_namespace)
-    delete_event_generator_pod(garden_api_client)
+    delete_event_generator_pod(shoot_api_client)
 
 
 def test_falco_deployment(
