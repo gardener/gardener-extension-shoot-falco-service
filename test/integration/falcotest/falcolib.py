@@ -5,9 +5,10 @@ import time
 from datetime import datetime, timezone
 import logging
 import semver
+from semver.version import Version
 from cryptography.hazmat.primitives import serialization
 from kubernetes import client, config
-
+from kubernetes.client.exceptions import ApiException
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -15,11 +16,30 @@ logging.basicConfig(level=logging.INFO)
 falco_pod_label_selector = "app.kubernetes.io/name=falco"
 falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
+minimum_usable_falco_version = Version.parse("0.39.2")
 
 
-def pod_logs(shoot_api_client, namespace: str, pod_name: str, container_name: str|None = None):
+def retry_api_call(func, *args, **kwargs):
+    counter = 0
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except client.ApiException as e:
+            if e.status == 503:
+                counter += 1
+                if counter > 10:
+                    # give up
+                    raise e
+                logger.info("Kubernetes API is not available, retrying...")
+                time.sleep(5)
+                continue
+            else:
+                raise e
+
+
+def pod_logs(shoot_api_client, namespace: str, pod_name: str, container_name: str = "") -> str:
     try:
-        if container_name is None:
+        if not container_name:
             ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
                 namespace=namespace,
                 name=pod_name,
@@ -27,24 +47,23 @@ def pod_logs(shoot_api_client, namespace: str, pod_name: str, container_name: st
                 since_seconds=10000,
                 _preload_content=True,
             )
-            return ret
-
-        ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
-            namespace=namespace,
-            name=pod_name,
-            limit_bytes=90000000,
-            since_seconds=10000,
-            _preload_content=True,
-            container=container_name,
-        )
+        else:
+            ret = client.CoreV1Api(shoot_api_client).read_namespaced_pod_log(
+                namespace=namespace,
+                name=pod_name,
+                limit_bytes=90000000,
+                since_seconds=10000,
+                _preload_content=True,
+                container=container_name,
+            )
         return ret
 
-    except client.exceptions.ApiException as e:
+    except ApiException as e:
         logger.error(f"Could not get pod logs, API call failed: {e}")
-        return None
+        return ""
 
 
-def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector, container_name=None | str):
+def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector, container_name: str = ""):
     v1 = client.CoreV1Api(shoot_api_client)
     ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     logs = {}
@@ -52,16 +71,12 @@ def pod_logs_from_label_selector(shoot_api_client, namespace, label_selector, co
     for pod in ret.items:
         time.sleep(1)
         logger.info(f"Pod {pod.metadata.name}: {pod.status.phase}")
-        if container_name is None:
-            logs[pod.metadata.name] = pod_logs(
-                shoot_api_client,
-                namespace,
-                pod.metadata.name,
-            )
-        else:
-            logs[pod.metadata.name] = pod_logs(
-                shoot_api_client, namespace, pod.metadata.name, container_name=container_name
-            )
+        logs[pod.metadata.name] = pod_logs(
+            shoot_api_client,
+            namespace,
+            pod.metadata.name,
+            container_name=container_name
+        )
     return logs
 
 
@@ -105,20 +120,21 @@ def get_token_public_key(garden_api_client):
     )
     return public_key
 
+
 def get_nodes(shoot_api_client) -> list:
     v1 = client.CoreV1Api(shoot_api_client)
     ret = v1.list_node()
     nodes = []
     for node in ret.items:
         nodes.append(node)
-    return nodes 
+    return nodes
+
 
 def label_node(
                 shoot_api_client,
                 node_name: str,
-                labels: dict|None):
+                labels: dict | None):
     v1 = client.CoreV1Api(shoot_api_client)
-
     if labels is None:
         body = {}
     else:
@@ -128,13 +144,9 @@ def label_node(
             }
         }
 
-    try:
-        v1.patch_node(name=node_name, body=body)
-        logger.info(f"Node {node_name} labeled with {labels}")
-    except client.exceptions.ApiException as e:
-        logger.error(f"Error labeling node {node_name}: {e}")
-        return e
-    return None
+    v1.patch_node(name=node_name, body=body)
+    logger.info(f"Node {node_name} labeled with {labels}")
+
 
 def get_configmap(shoot_api_client, namespace, configmap_name):
     v1 = client.CoreV1Api(shoot_api_client)
@@ -142,9 +154,10 @@ def get_configmap(shoot_api_client, namespace, configmap_name):
     return ret
 
 
-def get_secret(shoot_api_client, namespace, secret_name):
+def get_secret(shoot_api_client, namespace, secret_name) -> client.V1Secret:
     v1 = client.CoreV1Api(shoot_api_client)
-    ret = v1.read_namespaced_secret(namespace=namespace, name=secret_name)
+    (ret) = v1.read_namespaced_secret(namespace=namespace, name=secret_name)
+    assert ret is not None and type(ret) is client.V1Secret
     return ret
 
 
@@ -226,12 +239,20 @@ def ensure_extension_not_deployed(
                         shoot_name)
     if extension is not None:
         logger.info("Falco extension is deployed, undeploying")
+        wait_for_shoot_reconciled_and_healthy(
+                    garden_api_client,
+                    project_namespace,
+                    shoot_name)
         remove_falco_from_shoot(
                             garden_api_client,
                             project_namespace,
                             shoot_name,
                             rule_resources)
         wait_for_extension_undeployed(shoot_api_client)
+        wait_for_shoot_reconciled_and_healthy(
+                    garden_api_client,
+                    project_namespace,
+                    shoot_name)
 
 
 def falco_extension_deployed(garden_api_client, shoot_namespace: str, shoot_name: str):
@@ -248,7 +269,8 @@ def get_shoot_kubeconfig(garden_api_client, project_namespace: str, shoot_name: 
     header_params = {
          "Accept": "application/json, */*"
     }
-    resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}/adminkubeconfig"
+    resource_path = \
+        f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}/adminkubeconfig"
     data, status, headers = garden_api_client.call_api(
         resource_path=resource_path,
         method="POST",
@@ -262,7 +284,7 @@ def get_shoot_kubeconfig(garden_api_client, project_namespace: str, shoot_name: 
 
 def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_name: str, rule_resources=None):
     shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
-    idx= 0
+    idx = 0
     found = False
     for extension in shoot["spec"]["extensions"]:
         if extension["type"] == "shoot-falco-service":
@@ -282,7 +304,7 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
                 })
             res_patch.reverse()
             patch.extend(res_patch)
-        logger.info(f"Removing falco extension from shoot {shoot_name}, patch {patch}")
+        logger.debug(f"Removing falco extension from shoot {shoot_name}, patch {patch}")
         header_params = {
             "Accept": "application/json, */*",
             "Content-Type": "application/json-patch+json"
@@ -326,10 +348,36 @@ def delete_configmaps(garden_api_client, namespace):
         v1 = client.CoreV1Api(garden_api_client)
         try:
             v1.delete_namespaced_config_map(namespace=namespace, name=n)
-            logger.info(f"ConfigMap {n} deleted")
-        except client.exceptions.ApiException:
-            # ignore
-            pass
+            logger.debug(f"ConfigMap {n} deleted")
+        except ApiException as e:
+            logger.debug(f"ConfigMap {n} deletion failed: {e}")
+
+
+def shoot_reconciled_and_healthy(garden_api_client, project_namespace: str, shoot_name: str):
+    shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
+    if shoot["status"]["lastOperation"]["state"] != "Succeeded":
+        return False
+    if shoot["status"]["lastOperation"]["progress"] != 100:
+        return False
+    return True
+
+
+def wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace: str, shoot_name: str):
+    logger.info("Waiting for shoot to be reconciled and healthy")
+    counter = 0
+    max_iterations = 60
+    while True and counter <= max_iterations:
+        if shoot_reconciled_and_healthy(
+                            garden_api_client,
+                            project_namespace,
+                            shoot_name):
+            logger.info("Shoot is reconciled and healthy")
+            return
+        else:
+            counter += 1
+            logger.info("Shoot is not yet reconciled and healthy")
+            time.sleep(50)
+    raise Exception("Shoot is not reconciled and healthy after timeout")
 
 
 def add_falco_to_shoot(
@@ -338,7 +386,7 @@ def add_falco_to_shoot(
                 shoot_name: str,
                 falco_version=None,
                 extension_config=None,
-                custom_rules=None):
+                custom_rules=None) -> Exception | None:
     shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
     if _falco_extension_deployed(shoot):
         raise Exception("Falco extension already deployed") 
@@ -364,15 +412,19 @@ def add_falco_to_shoot(
     custom_rule_configmaps = []
     if custom_rules is not None:
         if type(custom_rules) is str:
-            extension_config["providerConfig"]["gardener"]["customRules"] = ["custom-rules"]
-            custom_rule_resources = {
+            extension_config["providerConfig"]["rules"]["custom"] = [
+                {
+                    "resourceName": "custom-rules"
+                }
+            ]
+            custom_rule_resources = [{
                 "name": "custom-rules",
                 "resourceRef": {
                     "apiVersion": "v1",
                     "kind": "ConfigMap",
                     "name": "custom-rules-configmap"
                 }
-            }
+            }]
             custom_rule_configmaps.append({
                 "name": "custom-rules-configmap",
                 "value": {
@@ -380,10 +432,13 @@ def add_falco_to_shoot(
                 }
             })
         elif type(custom_rules) is dict:
-            extension_config["providerConfig"]["gardener"]["customRules"] = []
+            extension_config["providerConfig"]["rules"]["custom"] = []
             custom_rule_resources = []
             for k, v in custom_rules.items():
-                extension_config["providerConfig"]["gardener"]["customRules"].append(k)
+                extension_config["providerConfig"]["rules"]["custom"].append({
+                    "resourceName": k
+                    }
+                )
                 custom_rule_resources.append({
                     "name": k,
                     "resourceRef": {
@@ -399,7 +454,7 @@ def add_falco_to_shoot(
                     }
                 )
     pretty_config = json.dumps(extension_config, indent=4)
-    logger.info(f"Adding falco extension to shoot:\n{pretty_config}")
+    logger.debug(f"Adding falco extension to shoot:\n{pretty_config}")
     patch = {
         "spec": {
             "extensions": [extension_config]
@@ -414,12 +469,15 @@ def add_falco_to_shoot(
                             project_namespace,
                             cfgmap["name"],
                             cfgmap["value"])
-            except client.exceptions.ApiException as e:
+            except ApiException as e:
                 return e
 
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
-    logger.info(f"Adding falco extension to shoot {shoot_name}, resource {resource_path}, patch {patch}")
     try:
+        wait_for_shoot_reconciled_and_healthy(
+                            garden_api_client,
+                            project_namespace,
+                            shoot_name)
         auth_settings = ['BearerToken']
         data, status, headers = garden_api_client.call_api(
             resource_path=resource_path,
@@ -429,20 +487,19 @@ def add_falco_to_shoot(
             query_params=query_params,
             body=patch,
             response_type=object)
-        
-    except client.exceptions.ApiException as e:
+
+    except ApiException as e:
         logger.error(f"Error adding falco extension to shoot {shoot_name}: {e}")
         return e
-    
+
     return None
 
 
 def annotate_shoot(garden_api_client, project_namespace: str, shoot_name: str, annotation):
-
     a = annotation.split("=")
     patch = {
-                "metadata":{
-                    "annotations":{
+                "metadata": {
+                    "annotations": {
                        a[0]: a[1]
                     }
                 }
@@ -494,39 +551,64 @@ def all_containers_running(shoot_api_client, expect_sidekick: bool, expected_fal
 
     if expect_sidekick:
         falco_component_selector = all_falco_pod_label_selector
-        min_expected_pods += 2 # assume two falcosidekick pods
+        min_expected_pods += 2  # assume two falcosidekick pods
     else:
         falco_component_selector = falco_pod_label_selector
 
-    logger.info("Checking if all pods and containers are running")
     cv1 = client.CoreV1Api(shoot_api_client)
     try:
         pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=falco_component_selector)
-    except client.exceptions.ApiException:
+    except ApiException:
         return False
 
     if len(pods.items) >= min_expected_pods:
         for pod in pods.items:
-            logger.info(f"Pod {pod.status}")
             if pod.status.phase != "Running":
-                logging.info(f"Pod {pod.metadata.name} is not running yet")
+                logging.debug(f"Pod {pod.metadata.name} is not running yet")
                 return False
     else:
         # no pods, not acceptable
-        logging.info(f"Only {len(pods.items)} pods found, expected at least {min_expected_pods}")
+        logging.debug(f"Only {len(pods.items)} pods found, expected at least {min_expected_pods}")
         return False
 
     # check that all containers are running
     for pod in pods.items:
         for container in pod.status.container_statuses:
             if container.state.running is None:
-                logging.info(f"Container {container.name} in pod " "{pod.metadata.name} is not running yet")
+                logging.debug(f"Container {container.name} in pod " "{pod.metadata.name} is not running yet")
                 return False
     return True
 
 
-def wait_for_extension_deployed(shoot_api_client, expect_sidekick:bool=True, number_falco_pods:int=None):
-    if number_falco_pods is None:
+def pod_running(shoot_api_client, namespace: str, pod_name: str) -> bool:
+    cv1 = client.CoreV1Api(shoot_api_client)
+    attempts = 0
+    while attempts < 20:
+        attempts += 1
+        time.sleep(5)
+        try:
+            pod = cv1.read_namespaced_pod(namespace=namespace, name=pod_name)
+        except ApiException:
+            continue
+        assert pod is not None and hasattr(pod, "status") and type(pod) is client.V1Pod \
+            and type(pod.status) is client.V1PodStatus \
+            and type(pod.metadata) is client.V1ObjectMeta \
+            and type(pod.metadata.name) is str \
+            and type(pod.status.container_statuses) is list
+        if pod.status.phase != "Running":
+            logging.info(f"Pod {pod.metadata.name} is not running yet")
+            continue
+        for container in pod.status.container_statuses:
+            if container.state.running is None:
+                logging.info(f"Container {container.name} in pod " "{pod.metadata.name} is not running yet")
+                continue
+        return True
+    logger.error(f"Pod {pod_name} in namespace {namespace} is not running after timeout")
+    return False
+
+
+def wait_for_extension_deployed(shoot_api_client, expect_sidekick: bool = True, number_falco_pods: int = -1):
+    if number_falco_pods == -1:
         number_falco_pods = get_node_count(shoot_api_client)
 
     logger.info(f"Waiting for falco extension to be deployed to {number_falco_pods} nodes")
@@ -536,20 +618,21 @@ def wait_for_extension_deployed(shoot_api_client, expect_sidekick:bool=True, num
     max_iteratins = 200
     all_running = False
 
+    logger.info("Checking if all pods and containers are running")
     while True and counter <= max_iteratins:
         all_running = all_containers_running(shoot_api_client, expect_sidekick, number_falco_pods)
         if all_running:
             break
         else:
             counter += 1
-            logging.info("Not all expected falco pods are running or deployed")
+            logging.info(f"Not all expected {number_falco_pods} falco pods are running or deployed")
             time.sleep(5)
 
     if not all_running:
         raise Exception("Not all expected falco pods are running or deployed")
 
-    logging.info("All falco pods are running, waiting a bit longer " "to re-check")
-    time.sleep(20)
+    logging.info("All falco pods are running, waiting a bit longer to re-check")
+    time.sleep(10)
 
     if expect_sidekick:
         pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=all_falco_pod_label_selector)
@@ -560,17 +643,8 @@ def wait_for_extension_deployed(shoot_api_client, expect_sidekick:bool=True, num
         raise Exception("Falco pods are not running or deployed")
 
     for pod in pods.items:
-        logging.info(f"Pod {pod.metadata.name}:  {pod.status.phase}")
-
+        logging.debug(f"Pod {pod.metadata.name}:  {pod.status.phase}")
     return
-
-
-def get_falco_sidekick_pods(shoot_api_client):
-    logger.info("Getting falco sidekick pods")
-    cv1 = client.CoreV1Api(shoot_api_client)
-    ls = falcosidekick_pod_label_selector
-    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
-    return pods.items
 
 
 def get_falco_profile(garden_api_client, profile_name):
@@ -589,19 +663,34 @@ def get_falco_profile(garden_api_client, profile_name):
 
 
 def get_deprecated_falco_version(falco_profile):
-    for version in falco_profile["spec"]["versions"]["falco"]:       
-        if "expirationDate" in version and\
-                    version["classification"] == "deprecated":
+    # get falco version that is not the latest supported version
+    for version in falco_profile["spec"]["versions"]["falco"]:
+        logger.info(f"Version: {version['version']}, ")
+        v = Version.parse(version["version"])
+        if v < minimum_usable_falco_version:
+            continue
+        if ("expirationDate" in version and
+                version["classification"] == "deprecated"):
             expiration_date = datetime.fromisoformat(version["expirationDate"])
             if expiration_date > datetime.now(timezone.utc):
                 return version["version"]
         elif version["classification"] == "deprecated":
             return version["version"]
+
+    # try to find an older "supported" version
+    latest_supported = Version.parse(get_latest_supported_falco_version(falco_profile))
+    for version in falco_profile["spec"]["versions"]["falco"]:
+        v = Version.parse(version["version"])
+        if v < minimum_usable_falco_version:
+            continue
+        if version["classification"] == "supported" and v < latest_supported:
+            return version["version"]
+
     return None
 
 
-def get_latest_supported_falco_version(falco_profile):
-    latest_supported = None
+def get_latest_supported_falco_version(falco_profile) -> str:
+    latest_supported = ""
     for version in falco_profile["spec"]["versions"]["falco"]:
         if version["classification"] == "supported":
             if latest_supported is None:
@@ -626,18 +715,18 @@ def get_falco_profile2(garden_api_client, profile_name):
 
 
 def delete_event_generator_pod(shoot_api_client):
+    logger.debug("Deleting event generator pod 'sample-events'")
     try:
         cv1 = client.CoreV1Api(shoot_api_client)
         cv1.delete_namespaced_pod(namespace="default", name="sample-events")
         logger.info("Pod 'sample-events' deleted")
-    except client.exceptions.ApiException as e:
-        logger.info(f"Pod 'sample-events' not found, ignoring: {e}")
-        pass
+    except ApiException as e:
+        logger.debug(f"error deleting pod 'sample-events', ignoring: {e}")
 
 
 def run_falco_event_generator(shoot_api_client) -> str:
     cv1 = client.CoreV1Api(shoot_api_client)
-    pod = {
+    pod_spec = {
         "kind": "Pod",
         "apiVersion": "v1",
         "metadata": {
@@ -650,7 +739,7 @@ def run_falco_event_generator(shoot_api_client) -> str:
             "containers": [{
                 "name": "sample-events",
                 "image": "falcosecurity/event-generator",
-                "args": ["run", "syscall", "--all"],
+                "args": ["run", "--loop", "syscall.Ptrace"],
                 "resources": {},
             }],
             "restartPolicy": "Always",
@@ -658,23 +747,35 @@ def run_falco_event_generator(shoot_api_client) -> str:
         },
     }
     # Create a pod
-    pod = cv1.create_namespaced_pod("default", pod)
+    (pod) = cv1.create_namespaced_pod("default", pod_spec)
+    assert pod is not None and type(pod) is client.V1Pod \
+        and type(pod.status) is client.V1PodStatus
     logger.info(f"Pod 'sample-events' created. Pod status: {pod.status.phase}")
-    time.sleep(10)
+    if not pod_running(shoot_api_client, "default", "sample-events"):
+        raise Exception("Event generator pod is not running")
     logs = ""
     start = datetime.now()
     while logs.count("\n") < 50 and (datetime.now() - start).seconds < 60:
-        logs += pod_logs(shoot_api_client, "default", "sample-events")
+        logs += retry_api_call(pod_logs, shoot_api_client, "default", "sample-events")
         time.sleep(1)
 
-    logger.info(f"Logs:\n {logs}")
+    logger.debug(f"Logs:\n {logs}")
 
     delete_event_generator_pod(shoot_api_client)
     return logs
 
+
 def get_falco_pods(shoot_api_client):
-    logger.info("Getting falco pods")
+    logger.debug("Getting falco pods")
     cv1 = client.CoreV1Api(shoot_api_client)
     ls = falco_pod_label_selector
+    pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
+    return pods.items
+
+
+def get_falco_sidekick_pods(shoot_api_client):
+    logger.info("Getting falco sidekick pods")
+    cv1 = client.CoreV1Api(shoot_api_client)
+    ls = falcosidekick_pod_label_selector
     pods = cv1.list_namespaced_pod(namespace="kube-system", label_selector=ls)
     return pods.items

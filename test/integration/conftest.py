@@ -3,10 +3,9 @@ import pytest
 import base64
 import yaml
 import os
-from datetime import datetime, timezone
 import logging
 
-from kubernetes import client, config, client
+from kubernetes import config
 from kubernetes.client.exceptions import ApiException
 
 
@@ -106,7 +105,7 @@ def shoot(garden_api_client, project_namespace: str, shoot_name: str):
 
 @pytest.fixture(scope="session")
 def falco_profile(garden_api_client):
-    resource_path = f"/apis/falco.gardener.cloud/v1alpha1/falcoprofiles/falco"
+    resource_path = "/apis/falco.gardener.cloud/v1alpha1/falcoprofiles/falco"
     header_params = {
         "Accept": "application/json, */*"
     }
