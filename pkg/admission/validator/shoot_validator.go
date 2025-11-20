@@ -254,7 +254,8 @@ func verifyCustomRules(customRules []service.CustomRule, resources []core.NamedR
 	for _, rule := range customRules {
 		if rule.ResourceName != "" && rule.ShootConfigMap != "" {
 			return fmt.Errorf("found custom rule with both resource name and shoot config map defined")
-		} else if rule.ResourceName == "" && rule.ShootConfigMap == "" {
+		}
+		if rule.ResourceName == "" && rule.ShootConfigMap == "" {
 			return fmt.Errorf("found custom rule with neither resource name nor shoot config map defined")
 		}
 		if rule.ResourceName != "" {
