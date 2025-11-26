@@ -9,9 +9,11 @@ import (
 	"fmt"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	"github.com/gardener/gardener/pkg/controllerutils"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -50,6 +52,9 @@ func (r *Reconciler) AddToManager(mgr manager.Manager) error {
 	return builder.
 		ControllerManagedBy(mgr).
 		Named(CONTROLLERNAME).
+		WithOptions(controller.Options{
+			ReconciliationTimeout: controllerutils.DefaultReconciliationTimeout,
+		}).
 		For(&gardencorev1beta1.Shoot{}, builder.WithPredicates(r.ShootPredicate())).
 		Complete(r)
 }
