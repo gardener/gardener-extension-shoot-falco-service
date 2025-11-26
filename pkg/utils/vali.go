@@ -18,3 +18,8 @@ func ComputeValiHost(shootTechnicalID string, seedIngressDomain string) string {
 	shortID := technicalIDPattern.ReplaceAllString(shootTechnicalID, "")
 	return fmt.Sprintf("v-%s.%s", shortID, seedIngressDomain)
 }
+
+func ComputeOTLPHost(shootTechnicalID string, seedIngressDomain string) string {
+	shortID := technicalIDPattern.ReplaceAllString(shootTechnicalID, "")
+	return fmt.Sprintf("otc-%s.%s", shortID, seedIngressDomain)
+}

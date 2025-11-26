@@ -118,6 +118,26 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			}
 			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
+		case constants.FalcoEventDestinationOTLP:
+			otlpHost := utils.ComputeOTLPHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
+			otlp := map[string]any{
+				"logs": map[string]any{
+					"endpoint":  "https://" + otlpHost + "/opentelemetry.proto.collector.logs.v1.LogsService/Export",
+					"protocol":  "grpc",
+					"headers":   "Authorization=\"Bearer OTLP_TOKEN\"",
+					"checkcert": false,
+				},
+				// bug in falcosidekick
+				"traces": map[string]string{
+					"checkcert": "false",
+				},
+			}
+			outputConfig := falcoOutputConfig{
+				key:   "otlp",
+				value: otlp,
+			}
+			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
+
 		case constants.FalcoEventDestinationCustom:
 			webhook := map[string]any{}
 			secret, err := c.loadCustomWebhookSecret(ctx, log, reconcileCtx, *dest.ResourceSecretName)
@@ -332,13 +352,21 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	if err := c.enableContainerPlugin(falcoChartValues, falcoVersion); err != nil {
 		return nil, err
 	}
+	// print values as yaml
+	yamlValues, err := yaml.Marshal(falcoChartValues)
+	if err == nil {
+		fmt.Println(string(yamlValues))
+	}
 	return falcoChartValues, nil
 }
 
 func (*ConfigBuilder) getDestination(falcoOutputConfigs []falcoOutputConfig) string {
 	for _, outputConfig := range falcoOutputConfigs {
-		if outputConfig.key == "loki" {
+		switch outputConfig.key {
+		case "loki":
 			return constants.FalcoEventDestinationLogging
+		case "otlp":
+			return constants.FalcoEventDestinationOTLP
 		}
 	}
 
