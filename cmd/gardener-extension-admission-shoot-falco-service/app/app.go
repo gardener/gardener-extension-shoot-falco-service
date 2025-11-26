@@ -188,7 +188,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				ctx,
 				mgr,
 				sourceCluster,
-				generalOpts.Completed().AutonomousShootCluster); err != nil {
+				generalOpts.Completed().SelfHostedShootCluster); err != nil {
 				return err
 			}
 
