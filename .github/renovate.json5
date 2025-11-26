@@ -39,9 +39,6 @@
       "matchPackagePatterns": ["^github\\.com/gardener"],
       "groupName": null
     }
-  ],
-  "schedule": {
-    "schedule": ["before 5am on Monday"]
-  }
+  ]
 }
 
