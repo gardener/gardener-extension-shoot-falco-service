@@ -1,44 +1,69 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
   ],
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
-  "labels": ["kind/enhancement", "reviewed/ok-to-test"],
-  "postUpdateOptions": ["gomodTidy"],
-  "kubernetes": {
-    "fileMatch": ["\\.yaml$", "\\.yml$"]
+  dependencyDashboard: true,
+  dependencyDashboardTitle: 'Renovate Dependency Dashboard',
+  labels: [
+    'kind/enhancement',
+    'reviewed/ok-to-test',
+  ],
+  postUpdateOptions: [
+    'gomodTidy',
+  ],
+  kubernetes: {
+    managerFilePatterns: [
+      '/\\.yaml$/',
+      '/\\.yml$/',
+    ],
   },
-  "regexManagers": [
+  customManagers: [
     {
-      "fileMatch": ["^charts/.*\\.yaml$"],
-      "matchStrings": [
-        "pluginRef:\\s+\"(?<depName>[^:]+):(?<currentValue>[^\"]+)\""
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^charts/.*\\.yaml$/',
       ],
-      "datasourceTemplate": "docker"
-    }
+      matchStrings: [
+        'pluginRef:\\s+"(?<depName>[^:]+):(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: 'docker',
+    },
   ],
-  "packageRules": [
+  packageRules: [
     {
-      "description": "Group all Falco plugin updates together",
-      "matchDatasources": ["docker"],
-      "matchPackagePatterns": ["^ghcr\\.io/falcosecurity/plugins"],
-      "groupName": "falco-plugins"
+      description: 'Group all Falco plugin updates together',
+      matchDatasources: [
+        'docker',
+      ],
+      groupName: 'falco-plugins',
+      matchPackageNames: [
+        '/^ghcr\\.io/falcosecurity/plugins/',
+      ],
     },
     {
-      "description": "Group all non-Gardener Go dependencies together",
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "excludePackagePatterns": ["^github\\.com/gardener"],
-      "groupName": "non-gardener-go-dependencies"
+      description: 'Group all non-Gardener Go dependencies together',
+      matchManagers: [
+        'gomod',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      groupName: 'non-gardener-go-dependencies',
+      matchPackageNames: [
+        '!/^github\\.com/gardener/',
+      ],
     },
     {
-      "description": "Separate PRs for Gardener components",
-      "matchManagers": ["gomod"],
-      "matchPackagePatterns": ["^github\\.com/gardener"],
-      "groupName": null
-    }
-  ]
+      description: 'Separate PRs for Gardener components',
+      matchManagers: [
+        'gomod',
+      ],
+      groupName: null,
+      matchPackageNames: [
+        '/^github\\.com/gardener/',
+      ],
+    },
+  ],
 }
-
