@@ -1,0 +1,38 @@
+{{- if and (eq .Values.controller.kind "daemonset") .Values.vpa.enabled }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "falco.fullname" . }}
+  namespace: {{ include "falco.namespace" . }}
+  labels:
+    {{- include "falco.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.vpa.resourcePolicy }}
+  resourcePolicy:
+    containerPolicies:
+    {{- if .Values.vpa.resourcePolicy.containerPolicies }}
+    {{- toYaml .Values.vpa.resourcePolicy.containerPolicies | nindent 4 }}
+    {{- else }}
+    - containerName: '*'
+      {{- if .Values.vpa.resourcePolicy.controlledResources }}
+      controlledResources:
+        {{- toYaml .Values.vpa.resourcePolicy.controlledResources | nindent 8 }}
+      {{- end }}
+      {{- if .Values.vpa.resourcePolicy.minAllowed }}
+      minAllowed:
+        {{- toYaml .Values.vpa.resourcePolicy.minAllowed | nindent 8 }}
+      {{- end }}
+      {{- if .Values.vpa.resourcePolicy.maxAllowed }}
+      maxAllowed:
+        {{- toYaml .Values.vpa.resourcePolicy.maxAllowed | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  targetRef:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: {{ include "falco.fullname" . }}
+  updatePolicy:
+    updateMode: {{ .Values.vpa.updatePolicy.updateMode | default "Auto" }}
+{{- end }}
+
