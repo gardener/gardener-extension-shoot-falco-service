@@ -90,15 +90,11 @@ resources:
   # -- Although resources needed are subjective on the actual workload we provide
   # a sane defaults ones. If you have more questions or concerns, please refer
   # to #falco slack channel for more info about it.
+  # Note: Memory is managed by VPA, so we only set requests here.
+  # Limits are intentionally not set to avoid OOM kills and let VPA manage scaling.
   requests:
     cpu: 100m
     memory: 512Mi
-  # -- Maximum amount of resources that Falco container could get.
-  # If you are enabling more than one source in falco, than consider to increase
-  # the cpu limits.
-  limits:
-    # cpu: 1000m
-    memory: 1024Mi
 
 # -- VPA (VerticalPodAutoscaler) configuration for Falco DaemonSet
 vpa:
