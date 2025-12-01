@@ -61,13 +61,6 @@ func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.Names
 	return result, err
 }
 
-func (hc *customFalcoHealthCheck) DeepCopy() healthcheck.HealthCheck {
-	return &customFalcoHealthCheck{
-		daemonSetCheck: hc.daemonSetCheck.DeepCopy(),
-		shootClient:    hc.shootClient,
-	}
-}
-
 func (hc *customFalcoHealthCheck) InjectSeedClient(seedClient client.Client) {
 	if itf, ok := hc.daemonSetCheck.(healthcheck.SeedClient); ok {
 		itf.InjectSeedClient(seedClient)
