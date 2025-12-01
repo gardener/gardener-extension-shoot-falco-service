@@ -17,6 +17,7 @@ require (
 	golang.org/x/tools v0.39.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.19.1
+	helm.sh/helm/v4 v4.0.1
 	k8s.io/api v0.34.2
 	k8s.io/apimachinery v0.34.2
 	k8s.io/client-go v0.34.2
