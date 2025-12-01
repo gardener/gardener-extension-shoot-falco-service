@@ -22,7 +22,6 @@ import (
 	glogger "github.com/gardener/gardener/pkg/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1138,10 +1137,19 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 	})
 })
 
-func getManifest(release *chartrenderer.RenderedChart, name string) *releaseutil.Manifest {
+// testManifest is a simple struct to represent a Helm manifest without importing Helm
+type testManifest struct {
+	Name    string
+	Content string
+}
+
+func getManifest(release *chartrenderer.RenderedChart, name string) *testManifest {
 	for _, mf := range release.Manifests {
 		if mf.Name == name {
-			return &mf
+			return &testManifest{
+				Name:    mf.Name,
+				Content: mf.Content,
+			}
 		}
 	}
 	return nil
