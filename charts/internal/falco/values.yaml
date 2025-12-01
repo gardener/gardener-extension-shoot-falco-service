@@ -111,7 +111,7 @@ vpa:
       memory: 128Mi
     # -- Maximum allowed resources for Falco container
     maxAllowed:
-      memory: 2048Mi
+      memory: 1024Mi
     # -- Specify which resources VPA should control (only memory, not CPU)
     controlledResources:
       - memory
