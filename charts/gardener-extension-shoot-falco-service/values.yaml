@@ -11,19 +11,9 @@ ignoreResources: false
 # PriorityClass to use for Falco extension deployment
 extensionPriorityClassName: gardener-system-900
 
-image: 
+image:
   repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/shoot-falco-service
-  tag: 0.2.0
   pullPolicy: IfNotPresent
-
-controllers:
-  lifecycle:
-    concurrentSyncs: 5
-  healthcheck:
-    concurrentSyncs: 5
-  heartbeat: 
-    renewIntervalSeconds: 30 
-  ignoreOperationAnnotation: false
 
 metrics:
   enableScraping: true
