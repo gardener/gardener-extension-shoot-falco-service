@@ -124,7 +124,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				"logs": map[string]any{
 					"endpoint":  "https://" + otlpHost + "/opentelemetry.proto.collector.logs.v1.LogsService/Export",
 					"protocol":  "grpc",
-					"headers":   "Authorization=\"Bearer OTLP_TOKEN\"",
+					"headers":   "Authorization=Bearer OTLP_TOKEN",
 					"checkcert": false,
 				},
 				// bug in falcosidekick
