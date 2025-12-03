@@ -46,6 +46,7 @@ const (
 	FalcoEventDestinationLogging = "logging"
 	FalcoEventDestinationCentral = "central"
 	FalcoEventDestinationCustom  = "custom"
+	FalcoEventDestinationOTLP    = "otlp"
 
 	DefaultCALifetime   = time.Hour * 24 * 365 * 2
 	DefaultCARenewAfter = DefaultCALifetime - 60
@@ -76,7 +77,7 @@ const (
 var (
 	AlwaysEnabledNamespaces         = []string{"garden"}
 	CentralLoggingAllowedNamespaces = []string{"garden"}
-	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
+	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOTLP}
 	AllowedDestinationsSeed         = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
 
 	// Default Event logger if not specified in controller configuration
