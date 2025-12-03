@@ -438,10 +438,9 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 			"engines": map[string]interface{}{
 				"docker": map[string]interface{}{
 					"enabled": false,
-					"sockets": []string{"/var/run/docker.sock"},
 				},
 				"cri": map[string]interface{}{
-					"enabled": false,
+					"enabled": true,
 					"sockets": []string{
 						"/run/containerd/containerd.sock",
 						"/run/crio/crio.sock",
@@ -449,15 +448,10 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 					},
 				},
 				"containerd": map[string]interface{}{
-					"enabled": true,
-					"sockets": []string{"/run/containerd/containerd.sock"},
+					"enabled": false,
 				},
 				"podman": map[string]interface{}{
 					"enabled": false,
-					"sockets": []string{
-						"/run/podman/podman.sock",
-						"/run/user/1000/podman/podman.sock",
-					},
 				},
 				"lxc": map[string]any{
 					"enabled": false,
