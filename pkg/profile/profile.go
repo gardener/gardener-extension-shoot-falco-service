@@ -12,6 +12,7 @@ import (
 
 	"github.com/gardener/gardener/pkg/logger"
 	"github.com/go-logr/logr"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -126,8 +127,37 @@ func (p *FalcoProfileManager) watch() error {
 				p.deleteEvent(fe.Name)
 			}
 		}
+		// dump current state as yaml, also the images and versions maps as YAML
+		// if yamlData, err := p.dumpStateAsYAML(); err != nil {
+		// 	p.logger.Error(err, "failed to dump state as YAML")
+		// } else {
+		// 	p.logger.Error(fmt.Errorf("no error"), "current state as YAML", "yaml", yamlData)
+		// }
 	}
 	return nil
+}
+
+// dumpStateAsYAML marshals all FalcoProfile data (profiles, images, and versions) to YAML format
+func (p *FalcoProfileManager) dumpStateAsYAML() (string, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	state := map[string]interface{}{
+		"falcoProfiles":         p.falcoProfiles,
+		"falcoImages":           p.falcoImages,
+		"falcosidekickImages":   p.falcosidekickImages,
+		"falcoctlImages":        p.falcoctlImages,
+		"falcoVersions":         p.falcoVersions,
+		"falcosidekickVersions": p.falcosidekickVersions,
+		"falcoctlVersions":      p.falcoctlVersions,
+	}
+
+	yamlBytes, err := yaml.Marshal(state)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal state to YAML: %w", err)
+	}
+
+	return string(yamlBytes), nil
 }
 
 func (p *FalcoProfileManager) rebuild() {
@@ -135,6 +165,9 @@ func (p *FalcoProfileManager) rebuild() {
 	clear(p.falcoImages)
 	clear(p.falcosidekickImages)
 	clear(p.falcoctlImages)
+	clear(p.falcoVersions)
+	clear(p.falcosidekickVersions)
+	clear(p.falcoctlVersions)
 	for _, profile := range p.falcoProfiles {
 		for _, q := range profile.Spec.Images.Falco {
 			im := Image{
