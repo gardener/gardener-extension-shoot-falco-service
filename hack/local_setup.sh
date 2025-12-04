@@ -15,7 +15,7 @@ gardener_dir=${repo_root}/../gardener
 
 # gardener_version=$(go list -m -f '{{.Version}}' github.com/gardener/gardener)
 
-cd ${gardener_dir}
+cd "${gardener_dir}"
 echo ">>>>>>>>>>>>>>>>>>>> kind-single-node-up"
 make kind-single-node-up
 trap '{
@@ -34,12 +34,16 @@ echo ">>>>>>>>>>>>>>>>>>>> operator-seed-up"
 make operator-seed-up
 echo "<<<<<<<<<<<<<<<<<<<< operator-seed-up done"
 
-cd $repo_root
+export KUBECONFIG=$repo_root/gardener-wo-prov/gardener/dev-setup/kubeconfigs/virtual-garden/kubeconfig
+
+cd "$repo_root"
 
 k apply -f crds/clusterrole-falcoprofiles.yaml
 k apply -f crds/clusterrolebinding-falcoprofiles.yaml
 k apply -f crds/crd-falco-profile.yaml
 k apply -f falco/falco-profile.yaml
+
+export KUBECONFIG=$repo_root/gardener/dev-setup/gardenlet/components/kubeconfigs/seed-local/kubeconfig
 
 echo ">>>>>>>>>>>>>>>>>>>> extension-up"
 make extension-up
