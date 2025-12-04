@@ -126,38 +126,9 @@ func (p *FalcoProfileManager) watch() error {
 				p.deleteEvent(fe.Name)
 			}
 		}
-		// dump current state as yaml, also the images and versions maps as YAML
-		// if yamlData, err := p.dumpStateAsYAML(); err != nil {
-		// 	p.logger.Error(err, "failed to dump state as YAML")
-		// } else {
-		// 	p.logger.Error(fmt.Errorf("no error"), "current state as YAML", "yaml", yamlData)
-		// }
 	}
 	return nil
 }
-
-// dumpStateAsYAML marshals all FalcoProfile data (profiles, images, and versions) to YAML format
-// func (p *FalcoProfileManager) dumpStateAsYAML() (string, error) {
-// 	p.mutex.Lock()
-// 	defer p.mutex.Unlock()
-
-// 	state := map[string]interface{}{
-// 		"falcoProfiles":         p.falcoProfiles,
-// 		"falcoImages":           p.falcoImages,
-// 		"falcosidekickImages":   p.falcosidekickImages,
-// 		"falcoctlImages":        p.falcoctlImages,
-// 		"falcoVersions":         p.falcoVersions,
-// 		"falcosidekickVersions": p.falcosidekickVersions,
-// 		"falcoctlVersions":      p.falcoctlVersions,
-// 	}
-
-// 	yamlBytes, err := yaml.Marshal(state)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to marshal state to YAML: %w", err)
-// 	}
-
-// 	return string(yamlBytes), nil
-// }
 
 func (p *FalcoProfileManager) rebuild() {
 	p.logger.Info("rebuilding FalcoProfile data structures")
