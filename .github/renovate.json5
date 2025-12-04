@@ -9,6 +9,8 @@
     'kind/enhancement',
     'reviewed/ok-to-test',
   ],
+  minimumReleaseAge: '3 days',
+  schedule: ['before 5am on Monday'],
   postUpdateOptions: [
     'gomodTidy',
   ],
