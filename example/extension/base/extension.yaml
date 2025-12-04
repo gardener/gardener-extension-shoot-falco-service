@@ -8,15 +8,15 @@ spec:
       runtimeCluster:
         helm:
           ociRepository:
-            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-runtime:v0.85.0
+            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-runtime:v0.86.0
       virtualCluster:
         helm:
           ociRepository:
-            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-application:v0.85.0
+            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-application:v0.86.0
     extension:
       helm:
         ociRepository:
-          ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/shoot-falco-service:v0.85.0
+          ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/shoot-falco-service:v0.86.0
   resources:
   - kind: Extension
     type: shoot-falco-service
