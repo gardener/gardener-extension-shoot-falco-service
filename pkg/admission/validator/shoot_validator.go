@@ -41,8 +41,8 @@ type FalcoWebhookOptions struct {
 	// to use the Gardener manged centralized logging solution
 	RestrictedCentralizedLogging bool
 
-	// if set to true the otlp logging destination is available. This is a temporary 
-	// switch for development purposes. When finished, logging will be switched to 
+	// if set to true the otlp logging destination is available. This is a temporary
+	// switch for development purposes. When finished, logging will be switched to
 	// use OTLP to log to vali
 	OtlpLogging bool
 }
