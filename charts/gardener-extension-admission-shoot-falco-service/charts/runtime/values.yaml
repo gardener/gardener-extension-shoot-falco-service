@@ -5,6 +5,10 @@ restrictedUsage: false
 # enable if NO centralized storage is deployed
 restrictedCentralizedLogging: true
 
+# make destinatin "otlp" onl availabe in dev envrionments. Eventually, 
+# this will be the default "logging" destination
+otlpLogging: false
+
 image:
   repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/admission-shoot-falco-service
   pullPolicy: IfNotPresent

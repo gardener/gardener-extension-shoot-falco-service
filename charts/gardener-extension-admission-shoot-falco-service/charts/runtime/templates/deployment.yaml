@@ -61,6 +61,9 @@ spec:
         {{- end }}
         - --health-bind-address=:{{ .Values.healthPort }}
         - --leader-election-id={{ include "leaderelectionid" . }}
+        {{- if .Values.otlpLogging }}
+        - --otlp-logging
+        {{- end }}
         {{- if or .Values.gardener.virtualCluster.enabled .Values.restrictedUsage }}
         env:
         {{- if .Values.gardener.virtualCluster.enabled }}

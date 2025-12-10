@@ -40,6 +40,11 @@ type FalcoWebhookOptions struct {
 	// if set to true, project namespace must be annotated with falco.gardener.cloud/centralized-logging=true
 	// to use the Gardener manged centralized logging solution
 	RestrictedCentralizedLogging bool
+
+	// if set to true the otlp logging destination is available. This is a temporary
+	// switch for development purposes. When finished, logging will be switched to
+	// use OTLP to log to vali
+	OtlpLogging bool
 }
 
 var DefaultFalcoWebhookOptions = FalcoWebhookOptions{}
@@ -58,12 +63,14 @@ func (c *FalcoWebhookOptions) Completed() *FalcoWebhookOptions {
 func (c *FalcoWebhookOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&c.RestrictedUsage, "restricted-usage", false, "if set to true, project namespaces must be annotated with falco.gardener.cloud/enabled=true to deploy Falco in their shoot clusters")
 	fs.BoolVar(&c.RestrictedCentralizedLogging, "restricted-centralized-logging", false, "if set to true, project namespaces must be annotated with falco.gardener.cloud/centralized-logging=true to use the Gardener manged centralized logging solution")
+	fs.BoolVar(&c.OtlpLogging, "otlp-logging", false, "if set to true the OTLP destination \"otlp\" is available")
 }
 
 // Apply sets the values of this Config in the given config.ControllerConfiguration.
 func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
 	config.RestrictedCentralizedLogging = c.RestrictedCentralizedLogging
 	config.RestrictedUsage = c.RestrictedUsage
+	config.OtlpLogging = c.OtlpLogging
 }
 
 // NewShootValidator returns a new instance of a shoot validator.
@@ -84,6 +91,7 @@ func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptio
 		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		restrictedUsage:          restrictedUsage,
 		restrictedCentralLogging: options.RestrictedCentralizedLogging,
+		otlpLoggingDestination:   options.OtlpLogging,
 	}
 }
 
@@ -92,6 +100,7 @@ type shoot struct {
 	decoder                  runtime.Decoder
 	restrictedUsage          bool
 	restrictedCentralLogging bool
+	otlpLoggingDestination   bool
 }
 
 // Validate implements extensionswebhook.Validator.Validate
@@ -143,6 +152,13 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 				constants.FalcoEventDestinationLogging,
 				constants.FalcoEventDestinationCustom,
 			)
+		}
+	}
+
+	// restricted OTLP logging
+	for _, dest := range *falcoConf.Destinations {
+		if dest.Name == "otlp" && !s.otlpLoggingDestination {
+			return fmt.Errorf("destination \"otlp\" is not configured")
 		}
 	}
 
