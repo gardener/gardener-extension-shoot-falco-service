@@ -17,7 +17,7 @@ require (
 	golang.org/x/tools v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.3
-	k8s.io/apimachinery v0.34.3
+	k8s.io/apimachinery v0.35.0
 	k8s.io/client-go v0.34.3
 	k8s.io/code-generator v0.34.3
 	k8s.io/component-base v0.34.3
@@ -181,7 +181,7 @@ require (
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-aggregator v0.34.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20250814151709-d7b6acb124c3 // indirect
+	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/kubelet v0.34.3 // indirect
 	k8s.io/metrics v0.34.3 // indirect
 	sigs.k8s.io/controller-tools v0.19.0 // indirect
