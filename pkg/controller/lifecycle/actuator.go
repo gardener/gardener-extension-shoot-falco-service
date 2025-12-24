@@ -165,6 +165,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 			ClusterIdentity:         shootCluster.Shoot.Status.ClusterIdentity,
 			ShootTechnicalId:        shootCluster.Shoot.Status.TechnicalID,
 			ClusterName:             shootCluster.Shoot.Name,
+			Shoot:                   shootCluster.Shoot,
+			Seed:                    shootCluster.Seed,
 		}
 		if shootCluster.Seed.Spec.Ingress != nil {
 			reconcileCtx.SeedIngressDomain = shootCluster.Seed.Spec.Ingress.Domain

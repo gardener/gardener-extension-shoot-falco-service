@@ -274,6 +274,8 @@ var (
 		SeedIngressDomain: shootSpec.Seed.Spec.Ingress.Domain,
 		ClusterIdentity:   shootSpec.Shoot.Status.ClusterIdentity,
 		ResourceSection:   shootSpec.Shoot.Spec.Resources,
+		Shoot:             shootSpec.Shoot,
+		Seed:              shootSpec.Seed,
 	}
 
 	falcoServiceConfig = &service.FalcoServiceConfig{
@@ -916,6 +918,111 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(loggingConf["customheaders"].(map[string]string)["Authorization"]).To(ContainSubstring("Bearer"))
 		Expect(loggingConf).To(HaveKey("format"))
 		Expect(loggingConf["format"].(string)).To(Equal("json"))
+	})
+
+	It("Test IPv4 webserver configuration", func(ctx SpecContext) {
+		ipv4Shoot := shootSpec.Shoot.DeepCopy()
+		ipv4Shoot.Spec.Networking = &gardencorev1beta1.Networking{
+			IPFamilies: []gardencorev1beta1.IPFamily{"IPv4"},
+		}
+
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: shootExtension,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			ResourceSection:    shootSpec.Shoot.Spec.Resources,
+			Shoot:              ipv4Shoot,
+		}
+
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+
+		falcoConfig := values["falco"].(map[string]any)
+		Expect(falcoConfig).To(HaveKey("webserver"))
+
+		webserver := falcoConfig["webserver"].(map[string]any)
+		Expect(webserver).To(HaveKey("enabled"))
+		Expect(webserver["enabled"].(bool)).To(BeTrue())
+		Expect(webserver).To(HaveKey("listen_address"))
+		Expect(webserver["listen_address"].(string)).To(Equal("0.0.0.0"))
+	})
+
+	It("Test IPv6 webserver configuration", func(ctx SpecContext) {
+		ipv6Shoot := shootSpec.Shoot.DeepCopy()
+		ipv6Shoot.Spec.Networking = &gardencorev1beta1.Networking{
+			IPFamilies: []gardencorev1beta1.IPFamily{"IPv6"},
+		}
+
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: shootExtension,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			ResourceSection:    shootSpec.Shoot.Spec.Resources,
+			Shoot:              ipv6Shoot,
+		}
+
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+
+		falcoConfig := values["falco"].(map[string]any)
+		Expect(falcoConfig).To(HaveKey("webserver"))
+
+		webserver := falcoConfig["webserver"].(map[string]any)
+		Expect(webserver).To(HaveKey("enabled"))
+		Expect(webserver["enabled"].(bool)).To(BeTrue())
+		Expect(webserver).To(HaveKey("listen_address"))
+		Expect(webserver["listen_address"].(string)).To(Equal("::"))
+	})
+
+	It("Test dual-stack IPv6 first webserver configuration", func(ctx SpecContext) {
+		dualStackShoot := shootSpec.Shoot.DeepCopy()
+		dualStackShoot.Spec.Networking = &gardencorev1beta1.Networking{
+			IPFamilies: []gardencorev1beta1.IPFamily{"IPv6", "IPv4"},
+		}
+
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: shootExtension,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			ResourceSection:    shootSpec.Shoot.Spec.Resources,
+			Shoot:              dualStackShoot,
+		}
+
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+
+		falcoConfig := values["falco"].(map[string]any)
+		webserver := falcoConfig["webserver"].(map[string]any)
+		Expect(webserver["listen_address"].(string)).To(Equal("::"))
+	})
+
+	It("Test default webserver configuration when no IP family specified", func(ctx SpecContext) {
+		reconcileCtx := &utils.ReconcileContext{
+			FalcoServiceConfig: shootExtension,
+			Namespace:          "shoot--test--foo",
+			IsShootDeployment:  true,
+			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			ResourceSection:    shootSpec.Shoot.Spec.Resources,
+			Shoot:              nil, // No shoot spec
+		}
+
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+
+		falcoConfig := values["falco"].(map[string]any)
+		webserver := falcoConfig["webserver"].(map[string]any)
+		Expect(webserver["listen_address"].(string)).To(Equal("0.0.0.0"))
 	})
 })
 
