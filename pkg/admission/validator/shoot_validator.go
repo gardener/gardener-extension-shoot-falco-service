@@ -336,8 +336,11 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 	}
 
 	if len(eventDestinationNames) > 1 {
-		if !slices.Contains(eventDestinationNames, constants.FalcoEventDestinationStdout) {
-			return fmt.Errorf("output destinations can only be paired with stdout")
+		hasLogging := slices.Contains(eventDestinationNames, constants.FalcoEventDestinationLogging)
+		hasCustom := slices.Contains(eventDestinationNames, constants.FalcoEventDestinationCustom)
+
+		if hasLogging && hasCustom {
+			return fmt.Errorf("logging and custom destinations cannot be used together")
 		}
 	}
 

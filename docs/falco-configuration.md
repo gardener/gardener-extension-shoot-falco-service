@@ -175,6 +175,7 @@ Falco can post events to several internal and external storage providers:
 - `stdout`: Write events to the pod log only
 - `central`: Post events to a central storage, if offered by the infrastructure provider
 - `logging`: Post events to the local cluster logging stack
+- `opensearch`: Post events to an OpenSearch cluster for centralized analysis
 - `custom`: Post events to a custom web server
 
 More details for each destination are described below.
@@ -269,6 +270,151 @@ Note: Events may be retained for a short period and could be overwritten if the 
 ## Custom Destination (`custom` Option)
 
 This option forwards Falco events to user-configurable destinations, such as a SIEM system. It requires a destination configuration in a secret referenced by `resourceSecretName`. The secret's contents configure the Falcosidekick [webhook output](https://github.com/falcosecurity/falcosidekick/blob/master/docs/outputs/webhook.md).
+
+## OpenSearch Destination (`opensearch` Option)
+
+This option forwards Falco events to an OpenSearch cluster for centralized security event analysis and long-term storage
+
+### Configuration
+
+The `opensearch` destination requires additional configuration:
+
+```yaml
+      destinations:
+      - name: opensearch
+        resourceSecretName: opensearch-config
+```
+
+The `resourceSecretName` references a secret defined in the `resources` section of the shoot manifest:
+
+```yaml
+  resources:
+  - name: opensearch-config
+    resourceRef:
+      apiVersion: v1
+      kind: Secret
+      name: my-opensearch-config
+```
+
+The secret contains the following values:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-opensearch-config
+  namespace: <project namespace in garden cluster>
+stringData:
+  # Required: OpenSearch endpoint URL
+  hostport: "https://opensearch.example.com:9200"
+
+  # Optional: Index name (default: "falco")
+  index: "falco"
+
+  # Optional: Index suffix for rotation (default: "daily")
+  # Options: "none", "daily", "monthly", "annually"
+  suffix: "daily"
+
+  # Optional: OpenSearch username for authentication
+  username: "falco-user"
+
+  # Optional: OpenSearch password for authentication
+  password: "secure-password"
+
+  # Optional: Verify SSL certificates (default: false)
+  checkcert: "false"
+
+  # Optional: Minimum priority level (default: "debug")
+  # Options: "emergency", "alert", "critical", "error", "warning", "notice", "informational", "debug"
+  minimumpriority: "debug"
+
+  # Optional: Number of index shards (default: OpenSearch default)
+  numberofshards: "1"
+
+  # Optional: Number of index replicas (default: OpenSearch default)
+  numberofreplicas: "1"
+
+  # Optional: Flatten nested fields for easier querying (default: false)
+  flattenfields: "false"
+
+  # Optional: Custom HTTP headers
+  customheaders: |
+    X-Custom-Header: value
+```
+
+### Features
+
+- **Index Rotation**: Automatic daily, monthly, or annual index rotation for easier data management
+- **Authentication**: Support for username/password authentication
+- **TLS/SSL**: Configurable certificate verification for secure connections
+- **Priority Filtering**: Filter events by minimum severity level
+- **Custom Fields**: Enrich events with cluster metadata (cluster_id automatically added)
+- **Index Configuration**: Configure shards and replicas for optimal performance
+
+### Implementation Details
+
+Falcosidekick uses the Elasticsearch output for OpenSearch integration, as OpenSearch maintains API compatibility with Elasticsearch. Events are sent using the OpenSearch [Bulk API](https://opensearch.org/docs/latest/api-reference/document-apis/bulk/) for efficient ingestion.
+
+Index naming pattern: `{index}-{suffix}` (e.g., `falco-2024.12.15` for daily rotation)
+
+### Example: Complete Configuration
+
+```yaml
+apiVersion: core.gardener.cloud/v1beta1
+kind: Shoot
+metadata:
+  name: my-cluster
+  namespace: garden-my-project
+spec:
+  extensions:
+    - type: shoot-falco-service
+      providerConfig:
+        apiVersion: falco.extensions.gardener.cloud/v1alpha1
+        kind: FalcoServiceConfig
+        destinations:
+          - name: opensearch
+            resourceSecretName: opensearch-config
+          - name: stdout
+  resources:
+    - name: opensearch-config
+      resourceRef:
+        apiVersion: v1
+        kind: Secret
+        name: my-opensearch-config
+```
+
+### Querying Events in OpenSearch
+
+Once configured, Falco events can be queried in OpenSearch Dashboards:
+
+1. Create an index pattern: `falco-*`
+2. Use the Discover tab to explore events
+3. Example query to find high-priority events:
+   ```json
+   {
+     "query": {
+       "bool": {
+         "must": [
+           { "term": { "priority": "Critical" } }
+         ]
+       }
+     }
+   }
+   ```
+
+### Monitoring
+
+Check Falcosidekick logs to verify OpenSearch connectivity:
+
+```bash
+kubectl logs -n kube-system -l app.kubernetes.io/name=falcosidekick -f
+```
+
+Verify events are being indexed in OpenSearch:
+
+```bash
+curl -u username:password "https://opensearch.example.com:9200/falco-*/_count"
+```
 
 ## Store Events Centrally (`central` Option)
 

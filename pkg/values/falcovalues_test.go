@@ -259,6 +259,14 @@ var (
 							APIVersion: "v1",
 						},
 					},
+					{
+						Name: "opensearch-config",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "Secret",
+							Name:       "opensearch-config-secret",
+							APIVersion: "v1",
+						},
+					},
 				},
 			},
 			Status: gardencorev1beta1.ShootStatus{
@@ -382,6 +390,19 @@ var (
 		},
 	}
 
+	falcoServiceConfigOpenSearch = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			StandardRules: &[]string{"falco-rules"},
+		},
+		Destinations: &[]service.Destination{
+			{
+				Name:               "opensearch",
+				ResourceSecretName: stringValue("opensearch-config"),
+			},
+		},
+	}
+
 	webhookSecrets = &corev1.SecretList{
 		Items: []corev1.Secret{
 			{
@@ -394,6 +415,26 @@ var (
 					"checkcert": []byte("true"),
 					"customheaders": []byte(`
 Authorization: Bearer my-token`),
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-opensearch-config-secret",
+				},
+				Data: map[string][]byte{
+					"hostport":         []byte("https://opensearch.example.com:9200"),
+					"index":            []byte("falco"),
+					"suffix":           []byte("daily"),
+					"username":         []byte("falco-user"),
+					"password":         []byte("test-password"),
+					"checkcert":        []byte("false"),
+					"minimumpriority":  []byte("debug"),
+					"numberofshards":   []byte("1"),
+					"numberofreplicas": []byte("1"),
+					"flattenfields":    []byte("false"),
+					"customheaders": []byte(`
+X-Custom-Header: test-value`),
 				},
 			},
 		},
@@ -775,6 +816,43 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(webhook["checkcert"].(bool)).To(BeTrue())
 		Expect(webhook).To(HaveKey("customheaders"))
 		Expect(webhook["customheaders"].(map[string]string)["Authorization"]).To(Equal("Bearer my-token"))
+	})
+
+	It("Test OpenSearch functionality with secret", func(ctx SpecContext) {
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigOpenSearch
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
+		Expect(err).To(BeNil())
+
+		js, err := json.MarshalIndent((values), "", "    ")
+		Expect(err).To(BeNil())
+		Expect(len(js)).To(BeNumerically(">", 100))
+
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		Expect(config).To(HaveKey("elasticsearch"))
+
+		opensearch := config["elasticsearch"].(map[string]interface{})
+		Expect(opensearch).To(HaveKey("hostport"))
+		Expect(opensearch["hostport"].(string)).To(Equal("https://opensearch.example.com:9200"))
+		Expect(opensearch).To(HaveKey("index"))
+		Expect(opensearch["index"].(string)).To(Equal("falco"))
+		Expect(opensearch).To(HaveKey("suffix"))
+		Expect(opensearch["suffix"].(string)).To(Equal("daily"))
+		Expect(opensearch).To(HaveKey("username"))
+		Expect(opensearch["username"].(string)).To(Equal("falco-user"))
+		Expect(opensearch).To(HaveKey("password"))
+		Expect(opensearch["password"].(string)).To(Equal("test-password"))
+		Expect(opensearch).To(HaveKey("checkcert"))
+		Expect(opensearch["checkcert"].(bool)).To(BeFalse())
+		Expect(opensearch).To(HaveKey("minimumpriority"))
+		Expect(opensearch["minimumpriority"].(string)).To(Equal("debug"))
+		Expect(opensearch).To(HaveKey("numberofshards"))
+		Expect(opensearch["numberofshards"].(int)).To(Equal(1))
+		Expect(opensearch).To(HaveKey("numberofreplicas"))
+		Expect(opensearch["numberofreplicas"].(int)).To(Equal(1))
+		Expect(opensearch).To(HaveKey("flattenfields"))
+		Expect(opensearch["flattenfields"].(bool)).To(BeFalse())
+		Expect(opensearch).To(HaveKey("customheaders"))
+		Expect(opensearch["customheaders"].(map[string]string)["X-Custom-Header"]).To(Equal("test-value"))
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {

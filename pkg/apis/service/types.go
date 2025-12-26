@@ -104,6 +104,20 @@ type Webhook struct {
 	SecretRef     *string
 }
 
+type OpenSearch struct {
+	HostPort         *string
+	Index            *string
+	Suffix           *string
+	Username         *string
+	Password         *string
+	Checkcert        *bool
+	MinimumPriority  *string
+	CustomHeaders    *map[string]string
+	NumberOfShards   *int
+	NumberOfReplicas *int
+	FlattenFields    *bool
+}
+
 type Output struct {
 	// Log Falco events to the pod log where it can be scraped by the
 	// log collector. Defaults to true. Logs are automatically collected
