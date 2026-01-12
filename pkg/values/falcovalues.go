@@ -71,6 +71,24 @@ func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, co
 	}
 }
 
+// getWebserverConfig returns the Falco webserver configuration based on the shoot's networking settings
+// IPv6 default :: is set if the shoot is configured with IPv6 as primary IP family.
+func (c *ConfigBuilder) getFalcoWebserverConfig(reconcileCtx *utils.ReconcileContext) map[string]any {
+	listenAddress := "0.0.0.0"
+
+	if reconcileCtx.Shoot != nil && reconcileCtx.Shoot.Spec.Networking != nil && len(reconcileCtx.Shoot.Spec.Networking.IPFamilies) > 0 {
+		primaryIPFamily := reconcileCtx.Shoot.Spec.Networking.IPFamilies[0]
+		if primaryIPFamily == "IPv6" {
+			listenAddress = "::"
+		}
+	}
+
+	return map[string]any{
+		"enabled":        true,
+		"listen_address": listenAddress,
+	}
+}
+
 func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) (map[string]any, error) {
 
 	// images
@@ -381,6 +399,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"stdout_output": map[string]bool{
 				"enabled": falcoStdoutLog,
 			},
+			"webserver": c.getFalcoWebserverConfig(reconcileCtx),
 		},
 		"scc": map[string]bool{
 			"create": false,
