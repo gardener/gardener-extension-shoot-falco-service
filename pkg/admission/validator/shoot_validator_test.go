@@ -299,7 +299,7 @@ var (
 		},
 		"destinations": [
 		 {
-			"name": "central"
+			"name": "logging"
 		 },
 		 {
 		 	"name": "custom",
@@ -690,20 +690,14 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).NotTo(BeNil(), "Three destinations were accepted")
 
 		falcoConf.Destinations = &[]service.Destination{
-			{
-				Name: constants.FalcoEventDestinationCentral,
-			},
-			{
-				Name: constants.FalcoEventDestinationLogging,
-			},
+			{Name: constants.FalcoEventDestinationLogging},
+			{Name: constants.FalcoEventDestinationCustom},
 		}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
-		Expect(err).NotTo(BeNil(), "Two destinations w/o stdout were accepted")
+		Expect(err).NotTo(BeNil(), "logging+custom destinations were accepted")
 
 		falcoConf.Destinations = &[]service.Destination{
-			{
-				Name: constants.FalcoEventDestinationCustom,
-			},
+			{Name: constants.FalcoEventDestinationCustom},
 		}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Custom destinations w/o ref was accepted")
@@ -901,7 +895,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtensionIllegalDoubleDestination)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
-		Expect(err.Error()).To(ContainSubstring("output destinations can only be paired with stdout"), "Illegal extension is not detected as such ")
+		Expect(err.Error()).To(ContainSubstring("logging and custom destinations cannot be used together"), "Illegal extension is not detected as such ")
 
 		err = f(falcoExtensionIllegalNoRules)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")

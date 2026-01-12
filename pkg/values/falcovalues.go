@@ -176,6 +176,85 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			}
 			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
+		case constants.FalcoEventDestinationOpenSearch:
+			opensearch := map[string]any{}
+			secret, err := c.loadCustomWebhookSecret(ctx, log, reconcileCtx, *dest.ResourceSecretName)
+			if err != nil {
+				return nil, err
+			}
+			if hostport, ok := secret.Data["hostport"]; ok {
+				opensearch["hostport"] = string(hostport)
+			} else {
+				return nil, fmt.Errorf("opensearch hostport is missing")
+			}
+			if index, ok := secret.Data["index"]; ok {
+				opensearch["index"] = string(index)
+			} else {
+				opensearch["index"] = "falco"
+			}
+			if suffix, ok := secret.Data["suffix"]; ok {
+				opensearch["suffix"] = string(suffix)
+			} else {
+				opensearch["suffix"] = "daily"
+			}
+			if username, ok := secret.Data["username"]; ok {
+				opensearch["username"] = string(username)
+			}
+			if password, ok := secret.Data["password"]; ok {
+				opensearch["password"] = string(password)
+			}
+			if checkcert, ok := secret.Data["checkcert"]; ok {
+				checkcertBool, err := strconv.ParseBool(string(checkcert))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse checkcert value: %w", err)
+				}
+				opensearch["checkcert"] = checkcertBool
+			} else {
+				opensearch["checkcert"] = false
+			}
+			if minimumpriority, ok := secret.Data["minimumpriority"]; ok {
+				opensearch["minimumpriority"] = string(minimumpriority)
+			} else {
+				opensearch["minimumpriority"] = "debug"
+			}
+			if customHeaders, ok := secret.Data["customheaders"]; ok {
+				customHeadersMap := map[string]string{}
+				if err := yaml.Unmarshal(customHeaders, &customHeadersMap); err != nil {
+					return nil, fmt.Errorf("failed to parse custom headers: %w", err)
+				}
+				opensearch["customheaders"] = customHeadersMap
+			}
+			// Optional: number of shards
+			if numberOfShards, ok := secret.Data["numberofshards"]; ok {
+				shards, err := strconv.Atoi(string(numberOfShards))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse numberofshards value: %w", err)
+				}
+				opensearch["numberofshards"] = shards
+			}
+			// Optional: number of replicas
+			if numberOfReplicas, ok := secret.Data["numberofreplicas"]; ok {
+				replicas, err := strconv.Atoi(string(numberOfReplicas))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse numberofreplicas value: %w", err)
+				}
+				opensearch["numberofreplicas"] = replicas
+			}
+			// Optional: flatten fields
+			if flattenFields, ok := secret.Data["flattenfields"]; ok {
+				flatten, err := strconv.ParseBool(string(flattenFields))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse flattenfields value: %w", err)
+				}
+				opensearch["flattenfields"] = flatten
+			}
+			// Falcosidekick uses 'elasticsearch' config key
+			outputConfig := falcoOutputConfig{
+				key:   "elasticsearch",
+				value: opensearch,
+			}
+			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
+
 		case constants.FalcoEventDestinationCentral:
 
 			if c.config.Falco.CentralStorage == nil {

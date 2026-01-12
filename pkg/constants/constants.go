@@ -42,11 +42,12 @@ const (
 	FalcoClientKey  = "client.key"
 	FalcoClientCert = "client.crt"
 
-	FalcoEventDestinationStdout  = "stdout"
-	FalcoEventDestinationLogging = "logging"
-	FalcoEventDestinationCentral = "central"
-	FalcoEventDestinationCustom  = "custom"
-	FalcoEventDestinationOTLP    = "otlp"
+	FalcoEventDestinationStdout     = "stdout"
+	FalcoEventDestinationLogging    = "logging"
+	FalcoEventDestinationCentral    = "central"
+	FalcoEventDestinationCustom     = "custom"
+	FalcoEventDestinationOTLP       = "otlp"
+	FalcoEventDestinationOpenSearch = "opensearch"
 
 	DefaultCALifetime   = time.Hour * 24 * 365 * 2
 	DefaultCARenewAfter = DefaultCALifetime - 60
@@ -77,8 +78,8 @@ const (
 var (
 	AlwaysEnabledNamespaces         = []string{"garden"}
 	CentralLoggingAllowedNamespaces = []string{"garden"}
-	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOTLP}
-	AllowedDestinationsSeed         = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom}
+	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOTLP, FalcoEventDestinationOpenSearch}
+	AllowedDestinationsSeed         = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOpenSearch}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventDestination)
