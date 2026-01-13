@@ -41,8 +41,8 @@ For a full shoot extension section configuration, refer to the [configuration do
 
 ## How to start using or developing this extension controller locally
 
-You can run the controller locally on your machine by executing `make start`. Please make sure to reference the kubeconfig to the seed you want to connect to via the `KUBECONFIG` variable and the respective gardener via the `GARDEN_KUBECONFIG` variable.
-Static code checks and tests can be executed by running `make verify`. We are using Go modules for Golang package dependency management and [Ginkgo](https://github.com/onsi/ginkgo)/[Gomega](https://github.com/onsi/gomega) for testing.
+You can run the controller locally on your machine by executing `make start`. Please make sure to reference the kubeconfig for the seed you want to connect to via the `KUBECONFIG` variable and the respective gardener via the `GARDEN_KUBECONFIG` variable.
+Static code checks and tests can be executed by running `make verify`. We use Go modules for package dependency management and [Ginkgo](https://github.com/onsi/ginkgo)/[Gomega](https://github.com/onsi/gomega) for testing.
 
 ## Feedback and Support
 
