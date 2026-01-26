@@ -7,7 +7,7 @@
   dependencyDashboardTitle: 'Renovate Dependency Dashboard',
   labels: [
     'kind/enhancement',
-    'reviewed/ok-to-test',
+    'ok-to-test',
   ],
   minimumReleaseAge: '3 days',
   schedule: ['before 5am on Monday'],
