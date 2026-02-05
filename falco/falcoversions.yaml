@@ -1,10 +1,15 @@
   falcoVersions:
   - version: 0.40.0
-    classification: supported
+    classification: deprecated
     rulesVersion: 3.2.0
+    expirationDate: '2026-07-31T23:59:59Z'
   - version: 0.41.3
-    classification: supported
+    classification: deprecated
     rulesVersion: 4.0.0
+    expirationDate: '2026-07-31T23:59:59Z'
   - version: 0.42.1
-    classification: preview
+    classification: supported
     rulesVersion: 0.42.1
+  - version: 0.43.0
+    classification: preview
+    rulesVersion: 0.43.0
