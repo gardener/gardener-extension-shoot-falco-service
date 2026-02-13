@@ -16,6 +16,10 @@ import (
 type FalcoServiceConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// additional Falco configuration
+	// +optional
+	FalcoConfig *FalcoConfig `json:"falcoConfig,omitempty"`
+
 	// Falco version to use
 	// +optional
 	FalcoVersion *string `json:"falcoVersion,omitempty"`
@@ -110,4 +114,23 @@ type Output struct {
 	LogFalcoEvents *bool    `json:"logFalcoEvents,omitempty"`
 	EventCollector *string  `json:"eventCollector,omitempty"`
 	CustomWebhook  *Webhook `json:"customWebhook,omitempty"`
+}
+
+type FalcoConfig struct {
+	// Falco container resource settings
+	// +optional
+	Resources *FalcoResources `json:"resources,omitempty"`
+}
+
+type FalcoResources struct {
+	// limits
+	Limits *ResourceValues `json:"limits,omitempty"`
+
+	// requests
+	Requests *ResourceValues `json:"requests,omitempty"`
+}
+
+type ResourceValues struct {
+	Cpu    *string `json:"cpu,omitempty"`
+	Memory *string `json:"memory,omitempty"`
 }
