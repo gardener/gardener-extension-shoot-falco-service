@@ -1,0 +1,41 @@
+POST _ingest/pipeline/_simulate
+{
+  "pipeline": {
+    "description": "Extract project, cluster, landscape from cluster_id using grok",
+    "processors": [
+      {
+        "grok": {
+          "field": "output_fields.cluster_id",
+          "patterns": [
+            "^shoot--(?<project>[\\w-]+)--(?<cluster>[\\w-]+)-[a-fA-F\\d]{8}-[a-fA-F\\d]{4}-[a-fA-F\\d]{4}-[a-fA-F\\d]{4}-[a-fA-F\\d]{12}-(?<landscape>[\\w-]+)$"
+          ],
+          "ignore_missing": true,
+          "ignore_failure": true
+        }
+      }
+    ]
+  },
+  "docs": [
+    {
+      "_source": {
+        "output_fields": {
+          "cluster_id": "shoot--prod--eu-west-1-a1b2c3d4-1234-5678-9abc-def012345678-gardener-prod"
+        }
+      }
+    },
+    {
+      "_source": {
+        "output_fields": {
+          "cluster_id": "shoot--staging--us-east-2-abcdef12-3456-7890-abcd-ef1234567890-shoot-staging"
+        }
+      }
+    },
+    {
+      "_source": {
+        "output_fields": {
+          "cluster_id": "shoot--dev--us-west-2-xyz789-wrong-format"
+        }
+      }
+    }
+  ]
+}
