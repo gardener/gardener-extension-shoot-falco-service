@@ -61,15 +61,15 @@ func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.Names
 	return result, err
 }
 
-func (hc *customFalcoHealthCheck) InjectSeedClient(seedClient client.Client) {
-	if itf, ok := hc.daemonSetCheck.(healthcheck.SeedClient); ok {
-		itf.InjectSeedClient(seedClient)
+func (hc *customFalcoHealthCheck) InjectSourceClient(sourceClient client.Client) {
+	if itf, ok := hc.daemonSetCheck.(healthcheck.SourceClient); ok {
+		itf.InjectSourceClient(sourceClient)
 	}
 }
 
-func (hc *customFalcoHealthCheck) InjectShootClient(shootClient client.Client) {
-	hc.shootClient = shootClient
-	hc.logger.V(2).Info("Shoot client injected into custom Falco health check")
+func (hc *customFalcoHealthCheck) InjectTargetClient(targetClient client.Client) {
+	hc.shootClient = targetClient
+	hc.logger.V(2).Info("Target client injected into custom Falco health check")
 
 	if config, err := rest.InClusterConfig(); err == nil {
 		if clientset, err := kubernetes.NewForConfig(config); err == nil {
@@ -83,9 +83,9 @@ func (hc *customFalcoHealthCheck) InjectShootClient(shootClient client.Client) {
 		hc.logger.V(1).Info("Failed to get in-cluster config", "error", err)
 	}
 
-	if itf, ok := hc.daemonSetCheck.(healthcheck.ShootClient); ok {
-		itf.InjectShootClient(shootClient)
-		hc.logger.V(2).Info("Shoot client also injected into underlying health check")
+	if itf, ok := hc.daemonSetCheck.(healthcheck.TargetClient); ok {
+		itf.InjectTargetClient(targetClient)
+		hc.logger.V(2).Info("Target client also injected into underlying health check")
 	}
 }
 
