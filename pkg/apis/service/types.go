@@ -15,6 +15,10 @@ import (
 type FalcoServiceConfig struct {
 	metav1.TypeMeta
 
+	// additional Falco configuration
+	// +optional
+	FalcoConfig *FalcoConfig
+
 	// Falco version to use
 	FalcoVersion *string
 
@@ -137,4 +141,23 @@ type Output struct {
 
 	// Configuration for custom webhook. Default is empty
 	CustomWebhook *Webhook
+}
+
+type FalcoConfig struct {
+	// Falco container resource settings
+	// +optional
+	Resources *FalcoResources
+}
+
+type FalcoResources struct {
+	// limits
+	Limits *ResourceValues
+
+	// requests
+	Requests *ResourceValues
+}
+
+type ResourceValues struct {
+	Cpu    *string
+	Memory *string
 }

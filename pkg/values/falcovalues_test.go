@@ -1585,4 +1585,297 @@ var _ = Describe("BuildFalcoValues", func() {
 		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/to-public-networks"))
 		Expect(labels).NotTo(HaveKey("networking.gardener.cloud/from-falco"))
 	})
+
+	Describe("#PodResources", func() {
+		BeforeEach(func() {
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).To(BeNil())
+			configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+			logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+		})
+
+		It("should set all resource limits and requests when fully configured", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Limits: &service.ResourceValues{
+							Cpu:    stringValue("500m"),
+							Memory: stringValue("512Mi"),
+						},
+						Requests: &service.ResourceValues{
+							Cpu:    stringValue("100m"),
+							Memory: stringValue("128Mi"),
+						},
+					},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check that resources are set in values
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).To(HaveKey("limits"))
+			Expect(resources).To(HaveKey("requests"))
+
+			limits := resources["limits"].(map[string]string)
+			Expect(limits["cpu"]).To(Equal("500m"))
+			Expect(limits["memory"]).To(Equal("512Mi"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal("100m"))
+			Expect(requests["memory"]).To(Equal("128Mi"))
+
+			// Render chart and verify resources are set in DaemonSet
+			renderer, err := util.NewChartRendererForShoot("1.30.2")
+			Expect(err).To(BeNil())
+			release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
+			Expect(err).To(BeNil())
+
+			falcoDaemonset := getManifest(release, "falco/templates/falco-daemonset.yaml")
+			Expect(falcoDaemonset).NotTo(BeNil())
+
+			ds := appsv1.DaemonSet{}
+			err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
+			Expect(err).To(BeNil())
+
+			// Verify resources are set on the falco container
+			falcoContainer := ds.Spec.Template.Spec.Containers[0]
+			Expect(falcoContainer.Resources.Limits).NotTo(BeNil())
+			Expect(falcoContainer.Resources.Limits.Cpu().String()).To(Equal("500m"))
+			Expect(falcoContainer.Resources.Limits.Memory().String()).To(Equal("512Mi"))
+			Expect(falcoContainer.Resources.Requests).NotTo(BeNil())
+			Expect(falcoContainer.Resources.Requests.Cpu().String()).To(Equal("100m"))
+			Expect(falcoContainer.Resources.Requests.Memory().String()).To(Equal("128Mi"))
+		})
+
+		It("should set only resource limits when only limits are configured", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Limits: &service.ResourceValues{
+							Cpu:    stringValue("500m"),
+							Memory: stringValue("512Mi"),
+						},
+					},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).To(HaveKey("limits"))
+			Expect(resources).NotTo(HaveKey("requests"))
+
+			limits := resources["limits"].(map[string]string)
+			Expect(limits["cpu"]).To(Equal("500m"))
+			Expect(limits["memory"]).To(Equal("512Mi"))
+		})
+
+		It("should set only resource requests when only requests are configured", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Requests: &service.ResourceValues{
+							Cpu:    stringValue("100m"),
+							Memory: stringValue("128Mi"),
+						},
+					},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).NotTo(HaveKey("limits"))
+			Expect(resources).To(HaveKey("requests"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal("100m"))
+			Expect(requests["memory"]).To(Equal("128Mi"))
+		})
+
+		It("should set only CPU resources when only CPU is configured", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Limits: &service.ResourceValues{
+							Cpu: stringValue("500m"),
+						},
+						Requests: &service.ResourceValues{
+							Cpu: stringValue("100m"),
+						},
+					},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).To(HaveKey("limits"))
+			Expect(resources).To(HaveKey("requests"))
+
+			limits := resources["limits"].(map[string]string)
+			Expect(limits["cpu"]).To(Equal("500m"))
+			Expect(limits).NotTo(HaveKey("memory"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal("100m"))
+			Expect(requests).NotTo(HaveKey("memory"))
+		})
+
+		It("should not set resources field when FalcoConfig is nil", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: nil,
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).NotTo(HaveKey("resources"))
+		})
+
+		It("should not set resources field when FalcoConfig.Resources is nil", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: &service.FalcoConfig{
+					Resources: nil,
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).NotTo(HaveKey("resources"))
+		})
+
+		It("should not set resources field when Resources has no values", func(ctx SpecContext) {
+			config := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: &[]string{"falco-rules"},
+				},
+				Destinations: &[]service.Destination{
+					{Name: "logging"},
+				},
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: config,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).NotTo(HaveKey("resources"))
+		})
+	})
 })
