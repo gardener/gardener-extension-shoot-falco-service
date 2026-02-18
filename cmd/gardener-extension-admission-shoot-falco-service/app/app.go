@@ -68,6 +68,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			AdmissionName,
 			"",
 			nil,
+			generalOpts,
 			webhookServerOptions,
 			webhookSwitches,
 		)
@@ -187,8 +188,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			if _, err := webhookOptions.Completed().AddToManager(
 				ctx,
 				mgr,
-				sourceCluster,
-				generalOpts.Completed().SelfHostedShootCluster); err != nil {
+				sourceCluster); err != nil {
 				return err
 			}
 
