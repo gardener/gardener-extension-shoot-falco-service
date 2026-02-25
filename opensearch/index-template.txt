@@ -4,6 +4,76 @@ PUT _index_template/falco-template
   "template": {
     "settings": {
       "index.default_pipeline": "falco-cluster-id"
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "time": { "type": "date" },
+        "project": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "cluster": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "landscape": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "hostname": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "rule": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "priority": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "source": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "output": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "tags": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "uuid": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+        "hash_input": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 64 } } },
+        "hash_value": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 64 } } },
+        "output_fields": {
+          "properties": {
+            "cluster_id": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+            "falco_version": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+            "container": {
+              "properties": {
+                "id": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "image": {
+                  "properties": {
+                    "repository": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                    "tag": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } }
+                  }
+                }
+              }
+            },
+            "k8s": {
+              "properties": {
+                "ns": { "properties": { "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } } } },
+                "pod": { "properties": { "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } } } }
+              }
+            },
+            "proc": {
+              "properties": {
+                "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "pname": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "cmdline": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "pcmdline": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "exepath": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "tty": { "type": "long" }
+              }
+            },
+            "user": {
+              "properties": {
+                "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "uid": { "type": "long" },
+                "loginuid": { "type": "long" }
+              }
+            },
+            "evt": {
+              "properties": {
+                "type": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                "time": { "type": "long" }
+              }
+            },
+            "fd": {
+              "properties": {
+                "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "priority": 0,
