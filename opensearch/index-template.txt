@@ -1,0 +1,9 @@
+PUT _index_template/falco-pipeline
+{
+  "index_patterns": ["falco-*"],
+  "template": {
+    "settings": {
+      "index.default_pipeline": "falco-cluster-id"
+    }
+  }
+}

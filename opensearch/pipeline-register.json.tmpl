@@ -1,0 +1,14 @@
+PUT _ingest/pipeline/falco-cluster-id
+{
+  "description": "Extract project, cluster, landscape from cluster_id using grok for Falco events",
+  "processors": [
+    {
+      "grok": {
+        "field": "output_fields.cluster_id",
+        "patterns": ["{{CLUSTER_ID_PATTERN}}"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    }
+  ]
+}
