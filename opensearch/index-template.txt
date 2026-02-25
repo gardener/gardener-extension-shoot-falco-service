@@ -1,9 +1,13 @@
-PUT _index_template/falco-pipeline
+PUT _index_template/falco-template
 {
   "index_patterns": ["falco-*"],
   "template": {
     "settings": {
       "index.default_pipeline": "falco-cluster-id"
     }
+  },
+  "priority": 0,
+  "_meta": {
+    "flow": "simple"
   }
 }
