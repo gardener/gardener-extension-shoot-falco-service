@@ -16,6 +16,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -173,6 +174,10 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	}
 
 	if err := verifyEventDestinations(falcoConf, shoot); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyFalcoConfigResources(falcoConf); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -416,6 +421,126 @@ func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 		return *ext.Disabled
 	}
 	return false
+}
+
+// verifyFalcoConfigResources validates the Resources field in FalcoServiceConfig
+func verifyFalcoConfigResources(falcoConf *service.FalcoServiceConfig) error {
+	if falcoConf == nil || falcoConf.FalcoConfig == nil || falcoConf.FalcoConfig.Resources == nil {
+		return nil
+	}
+
+	resources := falcoConf.FalcoConfig.Resources
+	var allErrs []error
+
+	// Validate Requests
+	if resources.Requests != nil {
+		if resources.Requests.Cpu != nil {
+			if err := validateCPUQuantity(*resources.Requests.Cpu); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.requests.cpu: %w", err))
+			}
+		}
+		if resources.Requests.Memory != nil {
+			if err := validateMemoryQuantity(*resources.Requests.Memory); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.requests.memory: %w", err))
+			}
+		}
+	}
+
+	// Validate Limits
+	if resources.Limits != nil {
+		if resources.Limits.Cpu != nil {
+			if err := validateCPUQuantity(*resources.Limits.Cpu); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.limits.cpu: %w", err))
+			}
+		}
+		if resources.Limits.Memory != nil {
+			if err := validateMemoryQuantity(*resources.Limits.Memory); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.limits.memory: %w", err))
+			}
+		}
+	}
+
+	// Validate that requests <= limits
+	if resources.Requests != nil && resources.Limits != nil {
+		if resources.Requests.Cpu != nil && resources.Limits.Cpu != nil {
+			if err := validateRequestNotGreaterThanLimit(*resources.Requests.Cpu, *resources.Limits.Cpu); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources: cpu request must be less than or equal to limit: %w", err))
+			}
+		}
+		if resources.Requests.Memory != nil && resources.Limits.Memory != nil {
+			if err := validateRequestNotGreaterThanLimit(*resources.Requests.Memory, *resources.Limits.Memory); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources: memory request must be less than or equal to limit: %w", err))
+			}
+		}
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
+	}
+
+	return nil
+}
+
+// validateCPUQuantity validates a CPU resource quantity string
+func validateCPUQuantity(quantityStr string) error {
+	quantity, err := resource.ParseQuantity(quantityStr)
+	if err != nil {
+		return fmt.Errorf("invalid CPU format: %w", err)
+	}
+
+	if quantity.Sign() <= 0 {
+		return fmt.Errorf("CPU must be a positive value, got: %s", quantityStr)
+	}
+
+	cpuMillis := quantity.MilliValue()
+	if cpuMillis > 1000000 {
+		return fmt.Errorf("CPU is unreasonably large (max 1000 cores), got: %s", quantityStr)
+	}
+
+	return nil
+}
+
+// validateMemoryQuantity validates a memory resource quantity string
+func validateMemoryQuantity(quantityStr string) error {
+	quantity, err := resource.ParseQuantity(quantityStr)
+	if err != nil {
+		return fmt.Errorf("invalid memory format: %w", err)
+	}
+
+	if quantity.Sign() <= 0 {
+		return fmt.Errorf("memory must be a positive value, got: %s", quantityStr)
+	}
+
+	memoryBytes := quantity.Value()
+	if memoryBytes < 1024*1024 {
+		return fmt.Errorf("memory is too small (minimum 1Mi), got: %s", quantityStr)
+	}
+
+	if memoryBytes > 1024*1024*1024*1024 {
+		return fmt.Errorf("memory is unreasonably large (max 1Ti), got: %s", quantityStr)
+	}
+
+	return nil
+}
+
+// validateRequestNotGreaterThanLimit validates that a resource request is not greater than its limit
+// This properly handles different units (e.g., MiB vs GiB, millicores vs cores)
+func validateRequestNotGreaterThanLimit(requestStr, limitStr string) error {
+	request, err := resource.ParseQuantity(requestStr)
+	if err != nil {
+		return fmt.Errorf("invalid request format: %w", err)
+	}
+
+	limit, err := resource.ParseQuantity(limitStr)
+	if err != nil {
+		return fmt.Errorf("invalid limit format: %w", err)
+	}
+
+	if request.Cmp(limit) > 0 {
+		return fmt.Errorf("request %s is greater than limit %s", requestStr, limitStr)
+	}
+
+	return nil
 }
 
 // findExtension returns shoot-falco-service extension.

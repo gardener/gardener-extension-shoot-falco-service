@@ -450,11 +450,8 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	if err := c.enableContainerPlugin(falcoChartValues, falcoVersion); err != nil {
 		return nil, err
 	}
-	// print values as yaml
-	yamlValues, err := yaml.Marshal(falcoChartValues)
-	if err == nil {
-		fmt.Println(string(yamlValues))
-	}
+	c.configureFalcoResources(falcoChartValues, falcoServiceConfig)
+
 	return falcoChartValues, nil
 }
 
@@ -947,6 +944,43 @@ func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string)
 		return "", err
 	} else {
 		return string(f[:]), nil
+	}
+}
+
+func (c *ConfigBuilder) configureFalcoResources(falcoChartValues map[string]any, falcoServiceConfig *apisservice.FalcoServiceConfig) {
+
+	limitMap := map[string]string{}
+	requestsMap := map[string]string{}
+	if falcoServiceConfig.FalcoConfig != nil && falcoServiceConfig.FalcoConfig.Resources != nil {
+		resources := falcoServiceConfig.FalcoConfig.Resources
+		if resources.Limits != nil {
+			limits := resources.Limits
+			if limits.Cpu != nil {
+				limitMap["cpu"] = *limits.Cpu
+			}
+			if limits.Memory != nil {
+				limitMap["memory"] = *limits.Memory
+			}
+		}
+		if resources.Requests != nil {
+			requests := resources.Requests
+			if requests.Cpu != nil {
+				requestsMap["cpu"] = *requests.Cpu
+			}
+			if requests.Memory != nil {
+				requestsMap["memory"] = *requests.Memory
+			}
+		}
+	}
+	if len(limitMap) != 0 || len(requestsMap) != 0 {
+		resources := map[string]any{}
+		if len(limitMap) != 0 {
+			resources["limits"] = limitMap
+		}
+		if len(requestsMap) != 0 {
+			resources["requests"] = requestsMap
+		}
+		falcoChartValues["resources"] = resources
 	}
 }
 
