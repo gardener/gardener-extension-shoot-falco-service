@@ -506,6 +506,7 @@ func (c *ConfigBuilder) generateSidekickDefaultValues(
 			"networking.gardener.cloud/to-dns":             "allowed",
 			"networking.gardener.cloud/to-public-networks": "allowed",
 			"networking.gardener.cloud/from-falco":         "allowed",
+			"networking.gardener.cloud/from-seed":          "allowed",
 		}
 	}
 	return sidekickValues

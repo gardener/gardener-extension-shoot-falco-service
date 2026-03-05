@@ -27,7 +27,7 @@ spec:
       insecureSkipVerify: true
   metricRelabelings:
   - action: keep
-    regex: ^(falcosidekick_inputs|falcosidekick_outputs|falco_events)$
+    regex: ^(falcosecurity_falcosidekick_inputs_total|falcosecurity_falcosidekick_outputs_total|falcosecurity_falcosidekick_falco_events_total)$
     sourceLabels:
     - __name__
   relabelings:
@@ -35,7 +35,7 @@ spec:
     replacement: shoot
     targetLabel: type
   - action: keep
-    regex: falcosidekick;http
+    regex: falcosidekick;http-notls
     sourceLabels:
     - __meta_kubernetes_service_name
     - __meta_kubernetes_endpoint_port_name
