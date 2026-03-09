@@ -25,11 +25,6 @@ spec:
       ca: {}
       cert: {}
       insecureSkipVerify: true
-  metricRelabelings:
-  - action: keep
-    regex: ^(falcosecurity_falcosidekick_inputs_total|falcosecurity_falcosidekick_outputs_total|falcosecurity_falcosidekick_falco_events_total)$
-    sourceLabels:
-    - __name__
   relabelings:
   - action: replace
     replacement: shoot
