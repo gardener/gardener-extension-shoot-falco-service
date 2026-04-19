@@ -46,7 +46,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager) error {
 		r.Clock = clock.RealClock{}
 	}
 	if r.Recorder == nil {
-		r.Recorder = mgr.GetEventRecorderFor(CONTROLLERNAME + "-controller")
+		r.Recorder = mgr.GetEventRecorder(CONTROLLERNAME + "-controller")
 	}
 
 	return builder.
