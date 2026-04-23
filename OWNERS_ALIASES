@@ -2,12 +2,10 @@
 
 aliases:
   gardener-extension-shoot-falco-service-reviewers:
-  - lsroe
   - marwinski
   - AleksandarSavchev
   - georgibaltiev
   gardener-extension-shoot-falco-service-approvers:
-  - lsroe
   - marwinski
   - AleksandarSavchev
   - georgibaltiev
