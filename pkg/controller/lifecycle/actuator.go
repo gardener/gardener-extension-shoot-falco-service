@@ -277,9 +277,6 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 		if err != nil {
 			return fmt.Errorf("failed to get cluster config for shoot for Falco exension delete operation: %w", err)
 		}
-		if controller.IsHibernated(cluster) {
-			return nil
-		}
 		log.Info("Deleting falco resources for shoot " + cluster.Shoot.Name)
 	}
 	err = a.deleteShootResources(ctx, log, namespace, ex)
