@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
 	github.com/gardener/gardener v1.138.0
-	github.com/gardener/gardener/pkg/apis v1.138.0
+	github.com/gardener/gardener/pkg/apis v1.140.2
 	github.com/go-logr/logr v1.4.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hashicorp/go-version v1.8.0
@@ -18,11 +18,11 @@ require (
 	golang.org/x/mod v0.33.0
 	golang.org/x/tools v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.35.2
-	k8s.io/apimachinery v0.35.2
-	k8s.io/client-go v0.35.2
-	k8s.io/code-generator v0.35.2
-	k8s.io/component-base v0.35.2
+	k8s.io/api v0.35.3
+	k8s.io/apimachinery v0.35.3
+	k8s.io/client-go v0.35.3
+	k8s.io/code-generator v0.35.3
+	k8s.io/component-base v0.35.3
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0
@@ -207,7 +207,7 @@ require (
 	helm.sh/helm/v3 v3.20.2 // indirect
 	istio.io/api v1.27.7 // indirect
 	istio.io/client-go v1.27.2 // indirect
-	k8s.io/apiextensions-apiserver v0.35.2 // indirect
+	k8s.io/apiextensions-apiserver v0.35.3 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.5.1 // indirect
 	k8s.io/gengo v0.0.0-20250130153323-76c5745d3511 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
