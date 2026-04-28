@@ -36,11 +36,11 @@ type FalcoServiceConfig struct {
 
 	// tolerations for Falco pods
 	// +optional
-	Tolerations *[]corev1.Toleration
+	Tolerations []corev1.Toleration
 
 	Rules *Rules
 
-	Destinations *[]Destination
+	Destinations []Destination
 }
 
 type Destination struct {
@@ -49,8 +49,8 @@ type Destination struct {
 }
 
 type Rules struct {
-	StandardRules *[]string
-	CustomRules   *[]CustomRule
+	StandardRules []string
+	CustomRules   []CustomRule
 }
 
 type CustomRule struct {

@@ -198,13 +198,9 @@ func (in *FalcoServiceConfig) DeepCopyInto(out *FalcoServiceConfig) {
 	}
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations
-		*out = new([]v1.Toleration)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]v1.Toleration, len(*in))
-			for i := range *in {
-				(*in)[i].DeepCopyInto(&(*out)[i])
-			}
+		*out = make([]v1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Rules != nil {
@@ -214,13 +210,9 @@ func (in *FalcoServiceConfig) DeepCopyInto(out *FalcoServiceConfig) {
 	}
 	if in.Destinations != nil {
 		in, out := &in.Destinations, &out.Destinations
-		*out = new([]Destination)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]Destination, len(*in))
-			for i := range *in {
-				(*in)[i].DeepCopyInto(&(*out)[i])
-			}
+		*out = make([]Destination, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	return
@@ -394,21 +386,13 @@ func (in *Rules) DeepCopyInto(out *Rules) {
 	*out = *in
 	if in.StandardRules != nil {
 		in, out := &in.StandardRules, &out.StandardRules
-		*out = new([]string)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]string, len(*in))
-			copy(*out, *in)
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.CustomRules != nil {
 		in, out := &in.CustomRules, &out.CustomRules
-		*out = new([]CustomRule)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]CustomRule, len(*in))
-			copy(*out, *in)
-		}
+		*out = make([]CustomRule, len(*in))
+		copy(*out, *in)
 	}
 	return
 }
