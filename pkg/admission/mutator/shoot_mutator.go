@@ -255,7 +255,7 @@ func setRules(falcoConf *service.FalcoServiceConfig) {
 }
 
 func setDestinations(falcoConf *service.FalcoServiceConfig) {
-	if falcoConf.Destinations == nil || len(falcoConf.Destinations) == 0 {
+	if len(falcoConf.Destinations) == 0 {
 		defaultDestination := []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationLogging,

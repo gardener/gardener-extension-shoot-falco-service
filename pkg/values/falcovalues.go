@@ -102,7 +102,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	falcoOutputConfigs := make([]falcoOutputConfig, 0)
 	falcoStdoutLog := false
 
-	if falcoServiceConfig.Destinations == nil || len(falcoServiceConfig.Destinations) == 0 {
+	if len(falcoServiceConfig.Destinations) == 0 {
 		return nil, fmt.Errorf("no destinations configured")
 	}
 
@@ -640,7 +640,7 @@ func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger
 
 func (c *ConfigBuilder) referenceShootCustomRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
-	if falcoServiceConfig.Rules.CustomRules == nil || len(falcoServiceConfig.Rules.CustomRules) == 0 {
+	if len(falcoServiceConfig.Rules.CustomRules) == 0 {
 		return nil
 	}
 	shoot_custom_rules := []map[string]string{}
@@ -785,7 +785,7 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 }
 
 func (c *ConfigBuilder) extractCustomRules(reconcileCtx *utils.ReconcileContext) ([]customRuleRef, error) {
-	if reconcileCtx.FalcoServiceConfig.Rules.CustomRules == nil || len(reconcileCtx.FalcoServiceConfig.Rules.CustomRules) == 0 {
+	if len(reconcileCtx.FalcoServiceConfig.Rules.CustomRules) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}

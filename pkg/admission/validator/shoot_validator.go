@@ -631,7 +631,7 @@ func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
 }
 
 func isCentralLoggingEnabled(falcoConf *service.FalcoServiceConfig) bool {
-	if falcoConf.Destinations != nil && len(falcoConf.Destinations) > 0 {
+	if len(falcoConf.Destinations) > 0 {
 		for _, dest := range falcoConf.Destinations {
 			if dest.Name == constants.FalcoEventDestinationCentral {
 				return true
