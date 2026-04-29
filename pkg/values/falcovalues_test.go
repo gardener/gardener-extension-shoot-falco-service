@@ -51,14 +51,14 @@ var (
 	shootExtension = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
-			CustomRules: &[]service.CustomRule{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rules1",
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -67,7 +67,7 @@ var (
 			"key1": "value1",
 			"key2": "value2",
 		},
-		Tolerations: &[]corev1.Toleration{
+		Tolerations: []corev1.Toleration{
 			{
 				Key:      "node.gardener.cloud/critical-components-not-ready",
 				Effect:   corev1.TaintEffectNoSchedule,
@@ -83,8 +83,8 @@ var (
 	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
-			CustomRules: &[]service.CustomRule{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rulesm2",
 				},
@@ -96,7 +96,7 @@ var (
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -106,14 +106,14 @@ var (
 	shootExtensionTooManyCustomRuleFiles = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
-			CustomRules: &[]service.CustomRule{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "too-many-rule-files",
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -123,7 +123,7 @@ var (
 	shootExtenstionShootCustomRules = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rules1",
 				},
@@ -132,7 +132,7 @@ var (
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -141,9 +141,9 @@ var (
 	seedExtenstionSimple = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
+			StandardRules: []string{"falco-rules"},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "central",
 			},
@@ -288,7 +288,7 @@ var (
 
 	falcoServiceConfig = &service.FalcoServiceConfig{
 		Rules: &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rules1",
 				},
@@ -297,7 +297,7 @@ var (
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -306,7 +306,7 @@ var (
 
 	falcoServiceConfigBad = &service.FalcoServiceConfig{
 		Rules: &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rules1",
 				},
@@ -315,7 +315,7 @@ var (
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -324,7 +324,7 @@ var (
 
 	falcoServiceConfigWrongCustomRules = &service.FalcoServiceConfig{
 		Rules: &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rules1",
 				},
@@ -333,7 +333,7 @@ var (
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -343,8 +343,8 @@ var (
 	falcoServiceConfigCentralStdout = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
-			CustomRules: &[]service.CustomRule{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "rules1",
 				},
@@ -353,7 +353,7 @@ var (
 				},
 			},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "central",
 			},
@@ -370,9 +370,9 @@ var (
 	falcoServiceConfigCustomWebhookWithSecret = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
+			StandardRules: []string{"falco-rules"},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name:               "custom",
 				ResourceSecretName: stringValue("custom-webhook-secret"),
@@ -383,9 +383,9 @@ var (
 	falcoServiceConfigCluster = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
+			StandardRules: []string{"falco-rules"},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name: "logging",
 			},
@@ -395,9 +395,9 @@ var (
 	falcoServiceConfigOpenSearch = &service.FalcoServiceConfig{
 		FalcoVersion: stringValue("0.38.0"),
 		Rules: &service.Rules{
-			StandardRules: &[]string{"falco-rules"},
+			StandardRules: []string{"falco-rules"},
 		},
-		Destinations: &[]service.Destination{
+		Destinations: []service.Destination{
 			{
 				Name:               "opensearch",
 				ResourceSecretName: stringValue("opensearch-config"),
@@ -1504,7 +1504,7 @@ var _ = Describe("BuildFalcoValues", func() {
 		configWithoutDestinations := &service.FalcoServiceConfig{
 			FalcoVersion: stringValue("0.38.0"),
 			Rules: &service.Rules{
-				StandardRules: &[]string{"falco-rules"},
+				StandardRules: []string{"falco-rules"},
 			},
 		}
 		reconcileCtx := &utils.ReconcileContext{
@@ -1599,9 +1599,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: &service.FalcoConfig{
@@ -1671,9 +1671,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: &service.FalcoConfig{
@@ -1712,9 +1712,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: &service.FalcoConfig{
@@ -1753,9 +1753,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: &service.FalcoConfig{
@@ -1800,9 +1800,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: nil,
@@ -1826,9 +1826,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: &service.FalcoConfig{
@@ -1854,9 +1854,9 @@ var _ = Describe("BuildFalcoValues", func() {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
-					StandardRules: &[]string{"falco-rules"},
+					StandardRules: []string{"falco-rules"},
 				},
-				Destinations: &[]service.Destination{
+				Destinations: []service.Destination{
 					{Name: "logging"},
 				},
 				FalcoConfig: &service.FalcoConfig{

@@ -157,7 +157,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 	}
 
 	// restricted OTLP logging
-	for _, dest := range *falcoConf.Destinations {
+	for _, dest := range falcoConf.Destinations {
 		if dest.Name == "otlp" && !s.otlpLoggingDestination {
 			return fmt.Errorf("destination \"otlp\" is not configured")
 		}
@@ -232,23 +232,23 @@ func verifyRules(falcoConf *service.FalcoServiceConfig, resources []core.NamedRe
 	}
 
 	if falcoConf.Rules.StandardRules != nil {
-		if standardRulesErr := verifyStandardRules(*falcoConf.Rules.StandardRules); standardRulesErr != nil {
+		if standardRulesErr := verifyStandardRules(falcoConf.Rules.StandardRules); standardRulesErr != nil {
 			return standardRulesErr
 		}
 	}
 
 	if falcoConf.Rules.CustomRules != nil {
-		if customRulesErr := verifyCustomRules(*falcoConf.Rules.CustomRules, resources); customRulesErr != nil {
+		if customRulesErr := verifyCustomRules(falcoConf.Rules.CustomRules, resources); customRulesErr != nil {
 			return customRulesErr
 		}
 	}
 
 	numRules := 0
 	if falcoConf.Rules.StandardRules != nil {
-		numRules += len(*falcoConf.Rules.StandardRules)
+		numRules += len(falcoConf.Rules.StandardRules)
 	}
 	if falcoConf.Rules.CustomRules != nil {
-		numRules += len(*falcoConf.Rules.CustomRules)
+		numRules += len(falcoConf.Rules.CustomRules)
 	}
 	if numRules == 0 {
 		return fmt.Errorf("falco deployment without any rules is not allowed")
@@ -320,16 +320,16 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 		return fmt.Errorf("event destination property is not defined")
 	}
 
-	if len(*falcoConf.Destinations) == 0 {
+	if len(falcoConf.Destinations) == 0 {
 		return fmt.Errorf("no event destination is set")
 	}
 
-	if len(*falcoConf.Destinations) > maxEventDestinations {
+	if len(falcoConf.Destinations) > maxEventDestinations {
 		return fmt.Errorf("more than %d event destinations are not allowed", maxEventDestinations)
 	}
 
-	eventDestinationNames := make([]string, 0, len(*falcoConf.Destinations))
-	for _, dest := range *falcoConf.Destinations {
+	eventDestinationNames := make([]string, 0, len(falcoConf.Destinations))
+	for _, dest := range falcoConf.Destinations {
 		if !slices.Contains(allowedDestinations, dest.Name) {
 			return fmt.Errorf("unknown event destination: %s", dest.Name)
 		}
@@ -349,12 +349,12 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 		}
 	}
 
-	idxCustom := slices.IndexFunc(*falcoConf.Destinations, func(dest service.Destination) bool {
+	idxCustom := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
 		return dest.Name == constants.FalcoEventDestinationCustom
 	})
 
 	if idxCustom != -1 {
-		return verifyCustomDestination((*falcoConf.Destinations)[idxCustom], resources)
+		return verifyCustomDestination(falcoConf.Destinations[idxCustom], resources)
 	}
 
 	return nil
@@ -631,8 +631,8 @@ func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
 }
 
 func isCentralLoggingEnabled(falcoConf *service.FalcoServiceConfig) bool {
-	if falcoConf.Destinations != nil && len(*falcoConf.Destinations) > 0 {
-		for _, dest := range *falcoConf.Destinations {
+	if len(falcoConf.Destinations) > 0 {
+		for _, dest := range falcoConf.Destinations {
 			if dest.Name == constants.FalcoEventDestinationCentral {
 				return true
 			}

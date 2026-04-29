@@ -636,11 +636,11 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err := verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Nil destinations not detected")
 
-		falcoConf.Destinations = &[]service.Destination{}
+		falcoConf.Destinations = []service.Destination{}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: "abcdgarbage",
 			},
@@ -648,11 +648,11 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Invalid destination was accepted")
 
-		falcoConf.Destinations = &[]service.Destination{}
+		falcoConf.Destinations = []service.Destination{}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationCentral,
 			},
@@ -660,11 +660,11 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Valid destination was not accepted")
 
-		falcoConf.Destinations = &[]service.Destination{}
+		falcoConf.Destinations = []service.Destination{}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationCentral,
 			},
@@ -675,7 +675,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Dublicate destination was accepted")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationCentral,
 			},
@@ -689,20 +689,20 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Three destinations were accepted")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{Name: constants.FalcoEventDestinationLogging},
 			{Name: constants.FalcoEventDestinationCustom},
 		}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "logging+custom destinations were accepted")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{Name: constants.FalcoEventDestinationCustom},
 		}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Custom destinations w/o ref was accepted")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name:               constants.FalcoEventDestinationCustom,
 				ResourceSecretName: stringValue("garbage-non-existing-rules-ref"),
@@ -714,7 +714,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "False custom destinations was accepted")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name:               constants.FalcoEventDestinationCustom,
 				ResourceSecretName: stringValue("my-custom-webhook-ref"),
@@ -738,37 +738,37 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).NotTo(BeNil(), "Empty rules config is not detected as such")
 
 		conf.Rules = &service.Rules{
-			StandardRules: &[]string{},
+			StandardRules: []string{},
 		}
 		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Empty standard rules are not detected as such")
 
 		conf.Rules = &service.Rules{
-			CustomRules: &[]service.CustomRule{},
+			CustomRules: []service.CustomRule{},
 		}
 		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Empty custom rules are not detected as such")
 
 		conf.Rules = &service.Rules{
-			StandardRules: &[]string{"rulecfg1", "rulecfg2"},
+			StandardRules: []string{"rulecfg1", "rulecfg2"},
 		}
 		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Non existing standard rules are not detected as such")
 
 		conf.Rules = &service.Rules{
-			StandardRules: &[]string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[1]},
+			StandardRules: []string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[1]},
 		}
 		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).To(BeNil(), "Faulty rejected standard rules")
 
 		conf.Rules = &service.Rules{
-			StandardRules: &[]string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[0]},
+			StandardRules: []string{constants.AllowedStandardRules[0], constants.AllowedStandardRules[0]},
 		}
 		err = verifyRules(conf, genericShoot.Spec.Resources)
 		Expect(err).NotTo(BeNil(), "Accepted standard dublicate rules")
 
 		conf.Rules = &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "",
 				},
@@ -778,7 +778,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).NotTo(BeNil(), "Empty custom rules are not detected as such")
 
 		conf.Rules = &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "non-existing",
 				},
@@ -788,7 +788,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).NotTo(BeNil(), "Non existing custom rules are not detected as such")
 
 		conf.Rules = &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "dummy-custom-rules-ref",
 				},
@@ -798,7 +798,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).To(BeNil(), "Existing custom rules reference was rejected")
 
 		conf.Rules = &service.Rules{
-			CustomRules: &[]service.CustomRule{
+			CustomRules: []service.CustomRule{
 				{
 					ResourceName: "dummy-custom-rules-ref",
 				},
@@ -932,7 +932,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 	It("checks if central logging is enabled", func(ctx SpecContext) {
 		falcoConf := &service.FalcoServiceConfig{}
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationCentral,
 			},
@@ -940,7 +940,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		enabled := isCentralLoggingEnabled(falcoConf)
 		Expect(enabled).To(BeTrue(), "Central logging should be enabled when the destination is set to central")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationStdout,
 			},
@@ -948,7 +948,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		enabled = isCentralLoggingEnabled(falcoConf)
 		Expect(enabled).To(BeFalse(), "Central logging should not be enabled when the destination is not central")
 
-		falcoConf.Destinations = &[]service.Destination{
+		falcoConf.Destinations = []service.Destination{
 			{
 				Name: constants.FalcoEventDestinationStdout,
 			},
