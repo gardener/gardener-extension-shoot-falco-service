@@ -266,6 +266,14 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				}
 				opensearch["flattenfields"] = flatten
 			}
+			// Optional: create index template
+			if createIndexTemplate, ok := secret.Data["createindextemplate"]; ok {
+				create, err := strconv.ParseBool(string(createIndexTemplate))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse createindextemplate value: %w", err)
+				}
+				opensearch["createindextemplate"] = create
+			}
 			// Falcosidekick uses 'elasticsearch' config key
 			outputConfig := falcoOutputConfig{
 				key:   "elasticsearch",
