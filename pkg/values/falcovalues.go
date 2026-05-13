@@ -102,7 +102,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	falcoOutputConfigs := make([]falcoOutputConfig, 0)
 	falcoStdoutLog := false
 
-	if falcoServiceConfig.Destinations == nil || len(*falcoServiceConfig.Destinations) == 0 {
+	if len(falcoServiceConfig.Destinations) == 0 {
 		return nil, fmt.Errorf("no destinations configured")
 	}
 
@@ -114,7 +114,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 		priorityClassName = "gardener-system-900"
 	}
 
-	for _, dest := range *falcoServiceConfig.Destinations {
+	for _, dest := range falcoServiceConfig.Destinations {
 		switch dest.Name {
 		case constants.FalcoEventDestinationStdout:
 			falcoStdoutLog = true
@@ -429,7 +429,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	}
 
 	if falcoServiceConfig.Tolerations != nil {
-		falcoChartValues["tolerations"] = *falcoServiceConfig.Tolerations
+		falcoChartValues["tolerations"] = falcoServiceConfig.Tolerations
 	}
 
 	if err := c.generatePreamble(falcoChartValues); err != nil {
@@ -602,7 +602,7 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 
 func (c *ConfigBuilder) generateStandardRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
 	if falcoServiceConfig.Rules.StandardRules != nil {
-		for _, rule := range *falcoServiceConfig.Rules.StandardRules {
+		for _, rule := range falcoServiceConfig.Rules.StandardRules {
 			switch rule {
 			case constants.ConfigFalcoRules:
 				r, err := c.getFalcoRulesFile(constants.FalcoRules, *falcoVersion)
@@ -640,12 +640,12 @@ func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger
 
 func (c *ConfigBuilder) referenceShootCustomRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
-	if falcoServiceConfig.Rules.CustomRules == nil || len(*falcoServiceConfig.Rules.CustomRules) == 0 {
+	if len(falcoServiceConfig.Rules.CustomRules) == 0 {
 		return nil
 	}
 	shoot_custom_rules := []map[string]string{}
 	rules_files := []string{}
-	for _, rule := range *falcoServiceConfig.Rules.CustomRules {
+	for _, rule := range falcoServiceConfig.Rules.CustomRules {
 		if rule.ShootConfigMap != "" {
 			ruleConfigMapDir := filepath.Join("/etc", "falco", "shoot-custom-rules", rule.ShootConfigMap)
 			rules_files = append(rules_files, ruleConfigMapDir)
@@ -785,7 +785,7 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 }
 
 func (c *ConfigBuilder) extractCustomRules(reconcileCtx *utils.ReconcileContext) ([]customRuleRef, error) {
-	if reconcileCtx.FalcoServiceConfig.Rules.CustomRules == nil || len(*reconcileCtx.FalcoServiceConfig.Rules.CustomRules) == 0 {
+	if len(reconcileCtx.FalcoServiceConfig.Rules.CustomRules) == 0 {
 		// no custom rules to apply
 		return nil, nil
 	}
@@ -796,7 +796,7 @@ func (c *ConfigBuilder) extractCustomRules(reconcileCtx *utils.ReconcileContext)
 		}
 	}
 	var selectedConfigMaps []customRuleRef
-	for _, customRule := range *reconcileCtx.FalcoServiceConfig.Rules.CustomRules {
+	for _, customRule := range reconcileCtx.FalcoServiceConfig.Rules.CustomRules {
 		if customRule.ResourceName == "" {
 			// ignore shoot configmap rules here
 			continue

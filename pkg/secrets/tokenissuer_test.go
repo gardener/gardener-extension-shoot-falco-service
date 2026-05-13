@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package secrets
+package secrets_test
 
 import (
 	"crypto/rand"
@@ -10,87 +10,77 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
-var (
-	validKey, validKeyPub = genValidKey()
-)
+var _ = Describe("TokenIssuer", func() {
+	var (
+		validKey    string
+		validKeyPub string
+	)
 
-func TestNewTokenIssuserFaultyKey(t *testing.T) {
-	key := "123"
-	validity := metav1.Duration{Duration: 2000 * time.Second}
-	_, err := NewTokenIssuer(key, &validity)
-	if err == nil {
-		t.Error("Did not catch wrong key format")
-	}
-}
-
-func TestNewTokenIssuserValidKey(t *testing.T) {
-	validity := metav1.Duration{Duration: 2000 * time.Second}
-	_, err := NewTokenIssuer(validKey, &validity)
-	if err != nil {
-		t.Error("Could not read correct key")
-	}
-}
-
-func TestTokenIssuer(t *testing.T) {
-	validity := metav1.Duration{Duration: 20 * time.Hour * 24}
-	issuer, err := NewTokenIssuer(validKey, &validity)
-	if err != nil {
-		t.Error("Could not read correct key")
-	}
-	tokenString, err := issuer.IssueToken("MyTestCluster")
-	if err != nil {
-		t.Errorf("Could not generate token")
-	}
-
-	pubKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(validKeyPub))
-	if err != nil {
-		t.Error("Could not parse public key")
-	}
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			t.Fatalf("Unexpected signing method: %v", token.Header["alg"])
-		}
-		return pubKey, nil
+	BeforeEach(func() {
+		validKey, validKeyPub = genValidKey()
 	})
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	It("should fail with a faulty key", func() {
+		key := "123"
+		validity := metav1.Duration{Duration: 2000 * time.Second}
+		_, err := secrets.NewTokenIssuer(key, &validity)
+		Expect(err).To(HaveOccurred())
+	})
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		t.Error("Could not read claims")
-	}
+	It("should succeed with a valid key", func() {
+		validity := metav1.Duration{Duration: 2000 * time.Second}
+		_, err := secrets.NewTokenIssuer(validKey, &validity)
+		Expect(err).NotTo(HaveOccurred())
+	})
 
-	var tm time.Time
-	switch iat := claims["exp"].(type) {
-	case float64:
-		tm = time.Unix(int64(iat), 0)
-	case json.Number:
-		v, _ := iat.Int64()
-		tm = time.Unix(v, 0)
-	}
+	It("should issue a valid token with correct expiration", func() {
+		validity := metav1.Duration{Duration: 20 * time.Hour * 24}
+		issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+		Expect(err).NotTo(HaveOccurred())
 
-	if !tm.Truncate(24 * time.Hour).Equal(time.Now().Add(validity.Duration).Truncate(24 * time.Hour)) {
-		t.Error("JWT expiration is wrong")
-	}
-}
+		tokenString, err := issuer.IssueToken("MyTestCluster")
+		Expect(err).NotTo(HaveOccurred())
+
+		pubKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(validKeyPub))
+		Expect(err).NotTo(HaveOccurred())
+
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			Expect(token.Method).To(BeAssignableToTypeOf(&jwt.SigningMethodRSA{}))
+			return pubKey, nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		Expect(ok).To(BeTrue())
+
+		var tm time.Time
+		switch iat := claims["exp"].(type) {
+		case float64:
+			tm = time.Unix(int64(iat), 0)
+		case json.Number:
+			v, _ := iat.Int64()
+			tm = time.Unix(v, 0)
+		}
+
+		Expect(tm.Truncate(24 * time.Hour)).To(Equal(time.Now().Add(validity.Duration).Truncate(24 * time.Hour)))
+	})
+})
 
 func genValidKey() (string, string) {
 	bitSize := 1028
 
 	key, err := rsa.GenerateKey(rand.Reader, bitSize)
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 
 	keyPEM := pem.EncodeToMemory(
 		&pem.Block{

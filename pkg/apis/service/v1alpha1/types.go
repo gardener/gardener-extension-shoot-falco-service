@@ -38,11 +38,11 @@ type FalcoServiceConfig struct {
 
 	// tolerations for Falco pods
 	// +optional
-	Tolerations *[]corev1.Toleration `json:"tolerations,omitempty"`
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
 	Rules *Rules `json:"rules,omitempty"`
 
-	Destinations *[]Destination `json:"destinations,omitempty"`
+	Destinations []Destination `json:"destinations,omitempty"`
 }
 
 type Destination struct {
@@ -51,8 +51,8 @@ type Destination struct {
 }
 
 type Rules struct {
-	StandardRules *[]string     `json:"standard,omitempty"`
-	CustomRules   *[]CustomRule `json:"custom,omitempty"`
+	StandardRules []string     `json:"standard,omitempty"`
+	CustomRules   []CustomRule `json:"custom,omitempty"`
 }
 
 type CustomRule struct {

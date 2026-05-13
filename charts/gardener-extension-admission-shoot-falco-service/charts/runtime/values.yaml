@@ -5,7 +5,7 @@ restrictedUsage: false
 # enable if NO centralized storage is deployed
 restrictedCentralizedLogging: true
 
-# make destinatin "otlp" onl availabe in dev envrionments. Eventually, 
+# make destination "otlp" only available in dev environments. Eventually, 
 # this will be the default "logging" destination
 otlpLogging: false
 

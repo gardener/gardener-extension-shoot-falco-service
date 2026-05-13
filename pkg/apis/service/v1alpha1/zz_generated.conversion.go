@@ -307,9 +307,9 @@ func autoConvert_v1alpha1_FalcoServiceConfig_To_service_FalcoServiceConfig(in *F
 	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
 	out.HeartbeatEvent = (*bool)(unsafe.Pointer(in.HeartbeatEvent))
 	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
-	out.Tolerations = (*[]v1.Toleration)(unsafe.Pointer(in.Tolerations))
+	out.Tolerations = *(*[]v1.Toleration)(unsafe.Pointer(&in.Tolerations))
 	out.Rules = (*service.Rules)(unsafe.Pointer(in.Rules))
-	out.Destinations = (*[]service.Destination)(unsafe.Pointer(in.Destinations))
+	out.Destinations = *(*[]service.Destination)(unsafe.Pointer(&in.Destinations))
 	return nil
 }
 
@@ -324,9 +324,9 @@ func autoConvert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *s
 	out.AutoUpdate = (*bool)(unsafe.Pointer(in.AutoUpdate))
 	out.HeartbeatEvent = (*bool)(unsafe.Pointer(in.HeartbeatEvent))
 	out.NodeSelector = (*map[string]string)(unsafe.Pointer(in.NodeSelector))
-	out.Tolerations = (*[]v1.Toleration)(unsafe.Pointer(in.Tolerations))
+	out.Tolerations = *(*[]v1.Toleration)(unsafe.Pointer(&in.Tolerations))
 	out.Rules = (*Rules)(unsafe.Pointer(in.Rules))
-	out.Destinations = (*[]Destination)(unsafe.Pointer(in.Destinations))
+	out.Destinations = *(*[]Destination)(unsafe.Pointer(&in.Destinations))
 	return nil
 }
 
@@ -452,8 +452,8 @@ func Convert_service_ResourceValues_To_v1alpha1_ResourceValues(in *service.Resou
 }
 
 func autoConvert_v1alpha1_Rules_To_service_Rules(in *Rules, out *service.Rules, s conversion.Scope) error {
-	out.StandardRules = (*[]string)(unsafe.Pointer(in.StandardRules))
-	out.CustomRules = (*[]service.CustomRule)(unsafe.Pointer(in.CustomRules))
+	out.StandardRules = *(*[]string)(unsafe.Pointer(&in.StandardRules))
+	out.CustomRules = *(*[]service.CustomRule)(unsafe.Pointer(&in.CustomRules))
 	return nil
 }
 
@@ -463,8 +463,8 @@ func Convert_v1alpha1_Rules_To_service_Rules(in *Rules, out *service.Rules, s co
 }
 
 func autoConvert_service_Rules_To_v1alpha1_Rules(in *service.Rules, out *Rules, s conversion.Scope) error {
-	out.StandardRules = (*[]string)(unsafe.Pointer(in.StandardRules))
-	out.CustomRules = (*[]CustomRule)(unsafe.Pointer(in.CustomRules))
+	out.StandardRules = *(*[]string)(unsafe.Pointer(&in.StandardRules))
+	out.CustomRules = *(*[]CustomRule)(unsafe.Pointer(&in.CustomRules))
 	return nil
 }
 

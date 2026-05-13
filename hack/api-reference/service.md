@@ -108,7 +108,9 @@ map[string]string
 <td>
 <code>tolerations</code></br>
 <em>
-[]k8s.io/api/core/v1.Toleration
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#toleration-v1-core">
+[]Kubernetes core/v1.Toleration
+</a>
 </em>
 </td>
 <td>
@@ -132,8 +134,8 @@ Rules
 <td>
 <code>destinations</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..Destination">
-[]..Destination
+<a href="#falco.extensions.gardener.cloud/v1alpha1.Destination">
+[]Destination
 </a>
 </em>
 </td>
@@ -144,6 +146,10 @@ Rules
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.CustomRule">CustomRule
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.Rules">Rules</a>)
+</p>
 <p>
 </p>
 <table>
@@ -178,6 +184,10 @@ string
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.Destination">Destination
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
+</p>
 <p>
 </p>
 <table>
@@ -636,8 +646,8 @@ string
 <td>
 <code>custom</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.[]..CustomRule">
-[]..CustomRule
+<a href="#falco.extensions.gardener.cloud/v1alpha1.CustomRule">
+[]CustomRule
 </a>
 </em>
 </td>
