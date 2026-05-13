@@ -6,6 +6,7 @@ package config
 
 import (
 	healthcheckconfigv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
+	gardencorev1 "github.com/gardener/gardener/pkg/apis/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -44,6 +45,9 @@ type Falco struct {
 
 	// Global default destinations applied to all shoots unless opted out
 	GlobalDefaultDestinations []GlobalDefaultDestination
+
+	// Additional resources to deploy on the seed
+	Additional *AdditionalConfig
 }
 
 // GlobalDefaultDestination defines an operator-provided Falcosidekick output destination
@@ -75,4 +79,21 @@ type CentralStorageConfig struct {
 
 	// Enabled ?
 	Enabled bool
+}
+
+// AdditionalConfig holds configuration for additional seed-level resources.
+type AdditionalConfig struct {
+	SeedManagedResources []AdditionalSeedManagedResource
+}
+
+// AdditionalSeedManagedResource describes a Helm chart to deploy as a ManagedResource on the seed.
+type AdditionalSeedManagedResource struct {
+	Name string
+	Helm HelmConfig
+}
+
+// HelmConfig specifies a Helm chart to pull from an OCI repository and render with values.
+type HelmConfig struct {
+	OCIRepository gardencorev1.OCIRepository
+	Values        *runtime.RawExtension
 }
