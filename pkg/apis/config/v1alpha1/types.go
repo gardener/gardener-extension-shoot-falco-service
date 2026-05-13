@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	healthcheckconfigv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
+	gardencorev1 "github.com/gardener/gardener/pkg/apis/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,6 +44,10 @@ type Falco struct {
 	// Default event logger
 	// possible values are: "none", "central", "cluster", "webhook"
 	DefaultEventDestination *string `json:"defaultEventDestination,omitempty"`
+
+	// Additional resources to deploy on the seed
+	// +optional
+	Additional *AdditionalConfig `json:"additional,omitempty"`
 }
 
 // Central storage configuration
@@ -62,4 +67,34 @@ type CentralStorageConfig struct {
 	// Central storage configuration enabled
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+// AdditionalConfig holds configuration for additional seed-level resources.
+type AdditionalConfig struct {
+	// SeedManagedResources is a list of Helm charts to deploy as ManagedResources on the seed.
+	// +optional
+	SeedManagedResources []AdditionalSeedManagedResource `json:"seedManagedResources,omitempty"`
+}
+
+// AdditionalSeedManagedResource describes a Helm chart to deploy as a ManagedResource on the seed.
+type AdditionalSeedManagedResource struct {
+	// Name is the name of the ManagedResource.
+	Name string `json:"name"`
+
+	// Namespace is the target namespace for the ManagedResource. Defaults to "falco-splunk-ingestor".
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Helm specifies the chart to pull and render.
+	Helm HelmConfig `json:"helm"`
+}
+
+// HelmConfig specifies a Helm chart to pull from an OCI repository and render with values.
+type HelmConfig struct {
+	// OCIRepository defines where to pull the chart from.
+	OCIRepository gardencorev1.OCIRepository `json:"ociRepository"`
+
+	// Values are the Helm values to use when rendering the chart.
+	// +optional
+	Values map[string]interface{} `json:"values,omitempty"`
 }

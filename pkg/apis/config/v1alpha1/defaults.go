@@ -14,5 +14,11 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 
 // SetDefaults_Configuration sets default values for Configuration objects.
 func SetDefaults_Configuration(obj *Configuration) {
-
+	if obj.Falco != nil && obj.Falco.Additional != nil {
+		for i := range obj.Falco.Additional.SeedManagedResources {
+			if obj.Falco.Additional.SeedManagedResources[i].Namespace == "" {
+				obj.Falco.Additional.SeedManagedResources[i].Namespace = "falco-splunk-ingestor"
+			}
+		}
+	}
 }

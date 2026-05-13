@@ -148,6 +148,16 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)
 			}
 
+			if lifecycle.DefaultAddOptions.ServiceConfig.Falco != nil && lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional != nil {
+				additional := lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional
+				if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+					log.Info("Deploying additional seed managed resources after leader election")
+					return lifecycle.DeployAdditionalSeedResources(ctx, log, mgr.GetClient(), restOpts.Completed().Config, additional)
+				})); err != nil {
+					return fmt.Errorf("could not add additional seed resource deployer: %w", err)
+				}
+			}
+
 			if err := healthcheck.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add health check controller to manager: %w", err)
 			}
