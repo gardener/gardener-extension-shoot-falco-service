@@ -17,10 +17,16 @@ spec:
     - repository: falcosecurity/falco
       tag: 0.43.0
       version: 0.43.0
+    - repository: falcosecurity/falco
+      tag: 0.44.0
+      version: 0.44.0
     falcosidekick:
     - repository: falcosecurity/falcosidekick
       tag: 2.32.0
       version: 2.32.0
+    - repository: falcosecurity/falcosidekick
+      tag: 2.34.0
+      version: 2.34.0
   versions:
     falco:
     - classification: deprecated
@@ -37,7 +43,12 @@ spec:
     - classification: preview
       rulesVersion: 0.43.0
       version: 0.43.0
+    - classification: preview
+      rulesVersion: 0.44.0
+      version: 0.44.0
     falcosidekick:
     - classification: supported
       version: 2.32.0
+    - classification: supported
+      version: 2.34.0
 
