@@ -81,7 +81,7 @@ Below is the full configuration, explained in detail:
         custom:
         - resourceName: rules1
       destinations:
-        # Possible values: stdout, logging, webhook
+        # Possible values: stdout, logging, custom, opensearch, splunk
         - name: custom
           # Options, may be required to configure destination
           resourceSecretName: secret
@@ -184,6 +184,7 @@ Falco can post events to several internal and external storage providers:
 - `central`: Post events to a central storage, if offered by the infrastructure provider
 - `logging`: Post events to the local cluster logging stack
 - `opensearch`: Post events to an OpenSearch cluster for centralized analysis
+- `splunk`: Post events to a Splunk instance via the HTTP Event Collector (HEC)
 - `custom`: Post events to a custom web server
 
 More details for each destination are described below.
@@ -448,6 +449,66 @@ Falco events are forwarded to central storage via the Falcosidekick [webhook out
 The [Falco event ingestor](https://github.com/gardener/falco-event-ingestor) provides a REST API to receive Falco events, validates event integrity, stores events in an SQL database, and implements configurable rate limiting per cluster to prevent overload.
 
 The [Falco event provider](https://github.com/gardener/falco-event-provider) offers a REST API to access the database. Cluster users must present a valid token (with Viewer access for the Gardener project namespace) to retrieve Falco events for their cluster.
+
+## Splunk Destination (`splunk` Option)
+
+This option forwards Falco events to a Splunk instance via the [HTTP Event Collector (HEC)](https://docs.splunk.com/Documentation/Splunk/latest/Data/UsetheHTTPEventCollector). It uses the Falcosidekick [Splunk output](https://github.com/falcosecurity/falcosidekick/blob/master/docs/outputs/splunk.md).
+
+### Configuration
+
+The `splunk` destination requires additional configuration:
+
+```yaml
+      destinations:
+      - name: splunk
+        resourceSecretName: splunk-config
+```
+
+The `resourceSecretName` references a secret defined in the `resources` section of the shoot manifest:
+
+```yaml
+  resources:
+  - name: splunk-config
+    resourceRef:
+      apiVersion: v1
+      kind: Secret
+      name: my-splunk-config
+```
+
+The secret contains the following values:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-splunk-config
+  namespace: <project namespace in garden cluster>
+stringData:
+  # Required: Splunk HEC endpoint URL
+  host: "https://splunk-hec.example.com/services/collector/event"
+
+  # Required: Splunk HEC token
+  token: "your-hec-token"
+
+  # Optional: Verify SSL certificates (default: true)
+  checkcert: "true"
+
+  # Optional: Minimum priority level
+  # Options: "emergency", "alert", "critical", "error", "warning", "notice", "informational", "debug"
+  minimumpriority: "notice"
+
+  # Optional: Custom HTTP headers (YAML map format)
+  customheaders: |
+    X-Custom-Header: value
+```
+
+### Prerequisites
+
+Before configuring the Splunk destination, ensure that:
+
+1. The Splunk HEC is enabled on your Splunk instance
+2. A HEC token has been created with appropriate permissions
+3. The HEC endpoint is reachable from the shoot cluster (the `host` field must include the full URL path)
 
 ## Known Issues
 
