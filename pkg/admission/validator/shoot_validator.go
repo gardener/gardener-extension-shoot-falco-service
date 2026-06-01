@@ -29,7 +29,7 @@ import (
 
 const (
 	// maxEventDestinations defines the maximum number of event destinations allowed
-	maxEventDestinations = 2
+	maxEventDestinations = 3
 )
 
 // extra Falco options
@@ -354,7 +354,19 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 	})
 
 	if idxCustom != -1 {
-		return verifyCustomDestination(falcoConf.Destinations[idxCustom], resources)
+		if err := verifyCustomDestination(falcoConf.Destinations[idxCustom], resources); err != nil {
+			return err
+		}
+	}
+
+	idxSplunk := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
+		return dest.Name == constants.FalcoEventDestinationSplunk
+	})
+
+	if idxSplunk != -1 {
+		if err := verifySplunkDestination(falcoConf.Destinations[idxSplunk], resources); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -375,6 +387,25 @@ func verifyCustomDestination(customDest service.Destination, resources []core.Na
 
 	if !found {
 		return fmt.Errorf("custom event destination config %s not found in resources", *customDest.ResourceSecretName)
+	}
+	return nil
+}
+
+func verifySplunkDestination(splunkDest service.Destination, resources []core.NamedResourceReference) error {
+	if splunkDest.ResourceSecretName == nil {
+		return fmt.Errorf("splunk event destination is set but no secret config is defined")
+	}
+
+	found := false
+	for _, s := range resources {
+		if s.ResourceRef.Kind == "Secret" && s.Name == *splunkDest.ResourceSecretName {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("splunk event destination config %s not found in resources", *splunkDest.ResourceSecretName)
 	}
 	return nil
 }

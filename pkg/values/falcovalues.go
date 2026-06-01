@@ -273,6 +273,48 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			}
 			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
+		case constants.FalcoEventDestinationSplunk:
+			splunk := map[string]any{}
+			secret, err := c.loadCustomWebhookSecret(ctx, log, reconcileCtx, *dest.ResourceSecretName)
+			if err != nil {
+				return nil, err
+			}
+
+			if host, ok := secret.Data["host"]; ok {
+				splunk["host"] = string(host)
+			} else {
+				return nil, fmt.Errorf("splunk host is missing")
+			}
+			if token, ok := secret.Data["token"]; ok {
+				splunk["token"] = string(token)
+			} else {
+				return nil, fmt.Errorf("splunk token is missing")
+			}
+			if checkcert, ok := secret.Data["checkcert"]; ok {
+				checkcertBool, err := strconv.ParseBool(string(checkcert))
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse checkcert value: %w", err)
+				}
+				splunk["checkcert"] = checkcertBool
+			} else {
+				splunk["checkcert"] = true
+			}
+			if minimumpriority, ok := secret.Data["minimumpriority"]; ok {
+				splunk["minimumpriority"] = string(minimumpriority)
+			}
+			if customHeaders, ok := secret.Data["customheaders"]; ok {
+				customHeadersMap := map[string]string{}
+				if err := yaml.Unmarshal(customHeaders, &customHeadersMap); err != nil {
+					return nil, fmt.Errorf("failed to parse custom headers: %w", err)
+				}
+				splunk["customheaders"] = customHeadersMap
+			}
+			outputConfig := falcoOutputConfig{
+				key:   "splunk",
+				value: splunk,
+			}
+			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
+
 		case constants.FalcoEventDestinationCentral:
 
 			if c.config.Falco.CentralStorage == nil {
