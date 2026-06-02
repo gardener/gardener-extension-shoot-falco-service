@@ -487,6 +487,41 @@ var (
 		 }
 		]
 	}`
+
+	falcoExtensionSplunk = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
+		},
+		"destinations": [
+		 {
+			"name": "splunk",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
+	}`
+
+	falcoExtensionSplunkNoSecret = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
+		},
+		"destinations": [
+		 {
+			"name": "splunk"
+		 }
+		]
+	}`
 )
 
 func init() {
@@ -687,7 +722,24 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 			},
 		}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
-		Expect(err).NotTo(BeNil(), "Three destinations were accepted")
+		Expect(err).To(BeNil(), "Three destinations were not accepted")
+
+		falcoConf.Destinations = []service.Destination{
+			{
+				Name: constants.FalcoEventDestinationCentral,
+			},
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+			{
+				Name: constants.FalcoEventDestinationLogging,
+			},
+			{
+				Name: constants.FalcoEventDestinationOTLP,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Four destinations were accepted")
 
 		falcoConf.Destinations = []service.Destination{
 			{Name: constants.FalcoEventDestinationLogging},
@@ -725,6 +777,48 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		}
 		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Correct custom destinations was not accepted")
+
+		// Splunk destination tests
+		falcoConf.Destinations = []service.Destination{
+			{
+				Name: constants.FalcoEventDestinationSplunk,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Splunk destination without secret ref was accepted")
+
+		falcoConf.Destinations = []service.Destination{
+			{
+				Name:               constants.FalcoEventDestinationSplunk,
+				ResourceSecretName: stringValue("non-existing-splunk-secret"),
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).NotTo(BeNil(), "Splunk destination with non-existent secret was accepted")
+
+		falcoConf.Destinations = []service.Destination{
+			{
+				Name:               constants.FalcoEventDestinationSplunk,
+				ResourceSecretName: stringValue("my-custom-webhook-ref"),
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).To(BeNil(), "Splunk destination with valid secret was not accepted")
+
+		falcoConf.Destinations = []service.Destination{
+			{
+				Name:               constants.FalcoEventDestinationSplunk,
+				ResourceSecretName: stringValue("my-custom-webhook-ref"),
+			},
+			{
+				Name: constants.FalcoEventDestinationStdout,
+			},
+			{
+				Name: constants.FalcoEventDestinationLogging,
+			},
+		}
+		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).To(BeNil(), "Splunk with two other destinations was not accepted")
 	})
 
 	It("can verify rules", func(ctx SpecContext) {
@@ -872,6 +966,9 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 
 		err = f(falcoExtensionwithShootRules2)
 		Expect(err).To(BeNil(), "Legal extension is not detected as such")
+
+		err = f(falcoExtensionSplunk)
+		Expect(err).To(BeNil(), "Legal splunk extension is not detected as such")
 	})
 
 	It("verify illegal extensions", func(ctx SpecContext) {
@@ -927,6 +1024,10 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		err = f(falcoExtensionIllegalWrongCustomRule2)
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"), "Illegal extension is not detected as such ")
+
+		err = f(falcoExtensionSplunkNoSecret)
+		Expect(err).To(Not(BeNil()), "Splunk without secret ref is not detected as illegal")
+		Expect(err.Error()).To(ContainSubstring("splunk event destination is set but no secret config is defined"), "Splunk without secret ref error message mismatch")
 	})
 
 	It("checks if central logging is enabled", func(ctx SpecContext) {

@@ -267,6 +267,14 @@ var (
 							APIVersion: "v1",
 						},
 					},
+					{
+						Name: "splunk-config",
+						ResourceRef: autoscalingv1.CrossVersionObjectReference{
+							Kind:       "Secret",
+							Name:       "splunk-config-secret",
+							APIVersion: "v1",
+						},
+					},
 				},
 			},
 			Status: gardencorev1beta1.ShootStatus{
@@ -405,6 +413,19 @@ var (
 		},
 	}
 
+	falcoServiceConfigSplunk = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue("0.38.0"),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{
+			{
+				Name:               "splunk",
+				ResourceSecretName: stringValue("splunk-config"),
+			},
+		},
+	}
+
 	webhookSecrets = &corev1.SecretList{
 		Items: []corev1.Secret{
 			{
@@ -437,6 +458,18 @@ Authorization: Bearer my-token`),
 					"flattenfields":    []byte("false"),
 					"customheaders": []byte(`
 X-Custom-Header: test-value`),
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "shoot--test--foo",
+					Name:      "ref-splunk-config-secret",
+				},
+				Data: map[string][]byte{
+					"host":            []byte("https://splunk-hec.example.com:8088"),
+					"token":           []byte("my-hec-token"),
+					"checkcert":       []byte("true"),
+					"minimumpriority": []byte("warning"),
 				},
 			},
 		},
@@ -855,6 +888,29 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(opensearch["flattenfields"].(bool)).To(BeFalse())
 		Expect(opensearch).To(HaveKey("customheaders"))
 		Expect(opensearch["customheaders"].(map[string]string)["X-Custom-Header"]).To(Equal("test-value"))
+	})
+
+	It("Test Splunk functionality with secret", func(ctx SpecContext) {
+		shootReconcileCtx.FalcoServiceConfig = falcoServiceConfigSplunk
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, shootReconcileCtx)
+		Expect(err).To(BeNil())
+
+		js, err := json.MarshalIndent((values), "", "    ")
+		Expect(err).To(BeNil())
+		Expect(len(js)).To(BeNumerically(">", 100))
+
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		Expect(config).To(HaveKey("splunk"))
+
+		splunk := config["splunk"].(map[string]interface{})
+		Expect(splunk).To(HaveKey("host"))
+		Expect(splunk["host"].(string)).To(Equal("https://splunk-hec.example.com:8088"))
+		Expect(splunk).To(HaveKey("token"))
+		Expect(splunk["token"].(string)).To(Equal("my-hec-token"))
+		Expect(splunk).To(HaveKey("checkcert"))
+		Expect(splunk["checkcert"].(bool)).To(BeTrue())
+		Expect(splunk).To(HaveKey("minimumpriority"))
+		Expect(splunk["minimumpriority"].(string)).To(Equal("warning"))
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {
