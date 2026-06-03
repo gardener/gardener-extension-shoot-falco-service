@@ -1680,7 +1680,7 @@ falcosidekick:
     otlp:
       logs:
         endpoint: ""
-        headers: {}
+        headers: ""
         checkcert: false
         protocol: "grpc"
 
