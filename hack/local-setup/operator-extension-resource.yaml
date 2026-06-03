@@ -36,6 +36,8 @@ spec:
           priorityClassName: gardener-shoot-system-900
         image:
           repository: local-skaffold/gardener-extension-shoot-falco-service
+        podLabels:
+          networking.gardener.cloud/to-private-networks: allowed
         imageVectorOverwrite: |
           images:
           - name: falcosidekick
@@ -74,6 +76,8 @@ spec:
           priorityClassName: gardener-shoot-system-900
         image:
           repository: local-skaffold/gardener-extension-shoot-falco-service
+        podLabels:
+          networking.gardener.cloud/to-private-networks: allowed
         imageVectorOverwrite: |
           images:
           - name: falcosidekick
