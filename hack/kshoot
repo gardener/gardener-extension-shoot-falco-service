@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Quick kubectl wrapper for the local falco-test shoot.
+# Caches the kubeconfig for 2 hours, re-fetches when stale.
+#
+# Usage: kshoot get pods -A
+#        kshoot -n kube-system logs -l app.kubernetes.io/name=falco
+
+GARDENER_DIR="${GARDENER_DIR:-$HOME/go/src/github.com/gardener/gardener}"
+KUBECONFIG_VIRTUAL="${GARDENER_DIR}/dev-setup/kubeconfigs/virtual-garden/kubeconfig"
+SHOOT_NAME="${SHOOT_NAME:-falco-test}"
+SHOOT_NAMESPACE="${SHOOT_NAMESPACE:-garden-local}"
+SHOOT_KUBECONFIG="/tmp/${SHOOT_NAME}-kubeconfig"
+
+MAX_AGE=$((2 * 3600))
+
+needs_refresh() {
+    [[ ! -f "$SHOOT_KUBECONFIG" ]] && return 0
+    local age=$(( $(date +%s) - $(stat -c %Y "$SHOOT_KUBECONFIG") ))
+    (( age > MAX_AGE ))
+}
+
+if needs_refresh; then
+    KUBECONFIG="$KUBECONFIG_VIRTUAL" kubectl create -f - \
+        --raw "/apis/core.gardener.cloud/v1beta1/namespaces/${SHOOT_NAMESPACE}/shoots/${SHOOT_NAME}/adminkubeconfig" \
+        <<'EOF' 2>/dev/null | python3 -c "import sys, json, base64; data = json.load(sys.stdin); print(base64.b64decode(data['status']['kubeconfig']).decode())" > "$SHOOT_KUBECONFIG"
+{
+  "apiVersion": "authentication.gardener.cloud/v1alpha1",
+  "kind": "AdminKubeconfigRequest",
+  "spec": {
+    "expirationSeconds": 86400
+  }
+}
+EOF
+    if [[ $? -ne 0 || ! -s "$SHOOT_KUBECONFIG" ]]; then
+        echo "ERROR: Failed to fetch shoot kubeconfig" >&2
+        exit 1
+    fi
+    echo "Refreshed shoot kubeconfig → $SHOOT_KUBECONFIG" >&2
+fi
+
+exec kubectl --kubeconfig "$SHOOT_KUBECONFIG" "$@"
