@@ -13,3 +13,6 @@
   - version: 0.43.0
     classification: preview
     rulesVersion: 0.43.0
+  - version: 0.44.0
+    classification: preview
+    rulesVersion: 0.44.0

@@ -1,3 +1,5 @@
   falcosidekickVersions:
   - version: 2.32.0
     classification: supported
+  - version: 2.34.0
+    classification: supported
