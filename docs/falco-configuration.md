@@ -187,7 +187,20 @@ Falco can post events to several internal and external storage providers:
 - `splunk`: Post events to a Splunk instance via the HTTP Event Collector (HEC)
 - `custom`: Post events to a custom web server
 
+Additionally, operators may inject global default destinations (e.g., `central-splunk`) into your configuration automatically. These appear in the `destinations` list alongside standard destinations.
+
 More details for each destination are described below.
+
+Each destination supports an optional `enabled` field:
+
+```yaml
+      destinations:
+      - name: logging
+      - name: central-splunk
+        enabled: false
+```
+
+Setting `enabled: false` keeps the destination in the configuration but disables event forwarding to it. If omitted, the destination is enabled by default. This is useful for disabling operator-injected global default destinations on a per-shoot basis.
 
 The `custom` destination requires additional configuration:
 
@@ -268,8 +281,6 @@ configured for the Falco container:
 ## Destinations
 
 This section provides details about event destinations, use cases, and implementation.
-
-You can configure up to two destinations, provided one of them is `stdout`.
 
 ## Do Not Forward Falco Events (`stdout` Option)
 
