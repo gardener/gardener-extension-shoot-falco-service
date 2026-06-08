@@ -51,3 +51,15 @@ falco:
 
     # Private key for token issuer
     tokenIssuerPrivateKey: ""
+
+  # Global default destinations applied to all shoots unless opted out.
+  # Each entry has: name (unique identifier), key (falcosidekick output type),
+  # value (config map, supports <<.SeedIngressDomain>> and <<.Token>> templates)
+  # globalDefaultDestinations:
+  # - name: "central-splunk"
+  #   key: "splunk"
+  #   value:
+  #     host: "https://falco-splunk.<<.SeedIngressDomain>>"
+  #     token: "<<.Token>>"
+  #     checkcert: true
+  globalDefaultDestinations: []

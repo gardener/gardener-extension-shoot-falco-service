@@ -39,11 +39,7 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
       serviceAccountName: gardener-falcosidekick
-      {{ else }}
-      automountServiceAccountToken: false
-      {{- end }}
       {{- if .Values.falcosidekick.priorityClassName }}
       priorityClassName: "{{ .Values.falcosidekick.priorityClassName }}"
       {{- end }}
@@ -51,31 +47,24 @@ spec:
       securityContext:
       {{- toYaml .Values.falcosidekick.podSecurityContext | nindent 8}}
       {{- end }}
-      {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
       initContainers:
         - name: configure
           image: {{ .Values.falcosidekick.image.image }}
           command:
             - sh
           args:
-          {{- if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging" }}
             - -c
-            - awk 'BEGIN{getline l < "/etc/falcosidekick-token/token"}/TOK/{gsub("LOKI_TOKEN",l)}1' /etc/falcosidekick-config-template/config.yaml > /etc/falcosidekick/config.yaml
-          {{- else if eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp" }}
-            - -c
-            - awk 'BEGIN{getline l < "/etc/falcosidekick-token/token"}/OTLP_TOKEN/{gsub("OTLP_TOKEN",l)}1' /etc/falcosidekick-config-template/config.yaml > /etc/falcosidekick/config.yaml
-          {{- end }}
+            - awk 'BEGIN{getline l < "/etc/falcosidekick-token/token"}/SA_TOKEN/{gsub("SA_TOKEN",l)}1' /etc/falcosidekick-config-template/config.yaml > /etc/falcosidekick/config.yaml
           resources:
           volumeMounts:
             - mountPath: /etc/falcosidekick-config-template
               name: falcosidekick-secrets
             - mountPath: /etc/falcosidekick-token
-              name: loki-token
+              name: sa-token
             - mountPath: /etc/falcosidekick
               name: secrets-init-volume
           securityContext:
             allowPrivilegeEscalation: false
-      {{- end }}
       containers:
         - name: falcosidekick
           {{- if ne .Values.falcosidekick.image.image "" }}
@@ -130,19 +119,15 @@ spec:
             {{- toYaml .Values.falcosidekick.resources | nindent 12 }}
           volumeMounts:
             - mountPath: /etc/falcosidekick
-              {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
               name: secrets-init-volume
-              {{- else }}
-              name: falcosidekick-secrets
-              {{- end }}
               readOnly: true
           {{- if or .Values.falcosidekick.extraVolumeMounts (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt)) }}
         {{- if and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.ca_crt) }}
             - mountPath: /etc/certs/server
               name: certs-volume
               readOnly: true
-        {{- end }}  
-        {{- if or .Values.falcosidekick.extraVolumeMounts }}   
+        {{- end }}
+        {{- if or .Values.falcosidekick.extraVolumeMounts }}
 {{ toYaml .Values.falcosidekick.extraVolumeMounts | indent 12 }}
         {{- end }}
         {{- end }}
@@ -158,7 +143,6 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
     {{- end }}
-    {{- if or .Values.falcosidekick.extraVolumes (and .Values.falcosidekick.config.tlsserver.deploy (or .Values.falcosidekick.config.tlsserver.existingSecret .Values.falcosidekick.config.tlsserver.server_key .Values.falcosidekick.config.tlsserver.server_crt .Values.falcosidekick.config.tlsserver.server_ca_crt)) }}
       volumes:
         - name: secrets-init-volume
           emptyDir:
@@ -176,16 +160,13 @@ spec:
             secretName: falcosidekick-certs
             {{- end }}
     {{- end }}
-    {{- if or (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "logging") (eq .Values.gardenerExtensionShootFalcoService.output.eventCollector "otlp") }}
-        - name: loki-token
+        - name: sa-token
           secret:
             secretName: gardener-falcosidekick
             items:
               - key: token
                 path: token
-    {{- end }}
-    {{- if or .Values.falcosidekick.extraVolumes }}
+    {{- if .Values.falcosidekick.extraVolumes }}
 {{ toYaml .Values.falcosidekick.extraVolumes | indent 8 }}
-    {{- end }}
     {{- end }}
 {{- end }}
