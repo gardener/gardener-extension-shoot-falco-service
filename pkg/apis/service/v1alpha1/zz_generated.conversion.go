@@ -191,6 +191,7 @@ func Convert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, o
 
 func autoConvert_v1alpha1_Destination_To_service_Destination(in *Destination, out *service.Destination, s conversion.Scope) error {
 	out.Name = in.Name
+	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.ResourceSecretName = (*string)(unsafe.Pointer(in.ResourceSecretName))
 	return nil
 }
@@ -202,6 +203,7 @@ func Convert_v1alpha1_Destination_To_service_Destination(in *Destination, out *s
 
 func autoConvert_service_Destination_To_v1alpha1_Destination(in *service.Destination, out *Destination, s conversion.Scope) error {
 	out.Name = in.Name
+	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.ResourceSecretName = (*string)(unsafe.Pointer(in.ResourceSecretName))
 	return nil
 }
