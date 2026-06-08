@@ -16,6 +16,7 @@ import (
 
 	apisconfig "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/v1alpha1"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/validation"
 	controllerconfig "github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/config"
 )
 
@@ -58,6 +59,10 @@ func (o *FalcoOptions) Complete() error {
 		return err
 	}
 
+	if errs := validation.ValidateConfiguration(&config); len(errs) > 0 {
+		return errs.ToAggregate()
+	}
+
 	o.config = &FalcoConfig{
 		config: config,
 	}
@@ -78,6 +83,11 @@ func (c *FalcoOptions) AddFlags(fs *pflag.FlagSet) {
 // Apply sets the values of this Config in the given config.ControllerConfiguration.
 func (c *FalcoConfig) Apply(config *controllerconfig.Config) {
 	config.Configuration = c.config
+}
+
+// Configuration returns the parsed configuration.
+func (c *FalcoConfig) Configuration() *apisconfig.Configuration {
+	return &c.config
 }
 
 // ApplyHealthCheckConfig applies the HealthCheckConfig to the config.
