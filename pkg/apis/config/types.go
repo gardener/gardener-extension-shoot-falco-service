@@ -7,6 +7,7 @@ package config
 import (
 	healthcheckconfigv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -40,6 +41,19 @@ type Falco struct {
 	// Default event logger
 	// possible values are: "none", "central", "logging", "webhook"
 	DefaultEventDestination *string
+
+	// Global default destinations applied to all shoots unless opted out
+	GlobalDefaultDestinations []GlobalDefaultDestination
+}
+
+// GlobalDefaultDestination defines an operator-provided Falcosidekick output destination
+type GlobalDefaultDestination struct {
+	// Unique name for this destination
+	Name string
+	// Falcosidekick output key (e.g., "splunk", "webhook", "elasticsearch")
+	Key string
+	// Configuration values for the output (may contain template variables)
+	Value *runtime.RawExtension
 }
 
 // Central storage configuration
