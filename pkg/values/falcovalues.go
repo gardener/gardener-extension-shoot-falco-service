@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"text/template"
 
 	semver3 "github.com/Masterminds/semver/v3"
 	"github.com/go-logr/logr"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
+	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -115,6 +117,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	}
 
 	for _, dest := range falcoServiceConfig.Destinations {
+		if dest.Enabled != nil && !*dest.Enabled {
+			continue
+		}
 		switch dest.Name {
 		case constants.FalcoEventDestinationStdout:
 			falcoStdoutLog = true
@@ -127,7 +132,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				"format":    "json",
 				"checkcert": false,
 				"customheaders": map[string]string{
-					"Authorization": "Bearer LOKI_TOKEN",
+					"Authorization": "Bearer SA_TOKEN",
 				},
 			}
 			outputConfig := falcoOutputConfig{
@@ -142,7 +147,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				"logs": map[string]any{
 					"endpoint":  "https://" + otlpHost + "/opentelemetry.proto.collector.logs.v1.LogsService/Export",
 					"protocol":  "grpc",
-					"headers":   "Authorization=Bearer OTLP_TOKEN",
+					"headers":   "Authorization=Bearer SA_TOKEN",
 					"checkcert": false,
 				},
 				// bug in falcosidekick
@@ -355,6 +360,13 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				value: webhook,
 			}
 			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
+
+		default:
+			if outputConfig, err := c.renderGlobalDefaultDestination(dest.Name, reconcileCtx); err == nil {
+				falcoOutputConfigs = append(falcoOutputConfigs, *outputConfig)
+			} else {
+				log.Info("Skipping destination: not found in global defaults", "destination", dest.Name, "error", err.Error())
+			}
 		}
 	}
 
@@ -1107,4 +1119,43 @@ func validateYaml(data string) error {
 		return fmt.Errorf("data is not in valid yaml format: %v", err)
 	}
 	return nil
+}
+
+func (c *ConfigBuilder) renderGlobalDefaultDestination(name string, reconcileCtx *utils.ReconcileContext) (*falcoOutputConfig, error) {
+	if c.config.Falco == nil {
+		return nil, fmt.Errorf("no falco config")
+	}
+
+	gd := confighelper.FindGlobalDefaultByName(c.config.Falco.GlobalDefaultDestinations, name)
+	if gd == nil {
+		return nil, fmt.Errorf("global default destination %s not found in config", name)
+	}
+
+	if gd.Value == nil || gd.Value.Raw == nil {
+		return nil, fmt.Errorf("global default destination %s has no value", name)
+	}
+
+	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(gd.Value.Raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template for global default destination %s: %w", name, err)
+	}
+
+	data := map[string]string{
+		"SeedIngressDomain": reconcileCtx.SeedIngressDomain,
+		"Token":             "SA_TOKEN",
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to render global default destination %s: %w", name, err)
+	}
+
+	var valueMap map[string]interface{}
+	if err := yaml.Unmarshal(buf.Bytes(), &valueMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal global default destination %s value: %w", name, err)
+	}
+
+	return &falcoOutputConfig{
+		key:   gd.Key,
+		value: valueMap,
+	}, nil
 }
