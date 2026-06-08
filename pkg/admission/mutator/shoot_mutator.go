@@ -15,12 +15,15 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
 	pkgversion "github.com/hashicorp/go-version"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -28,34 +31,46 @@ import (
 )
 
 // NewShootMutator returns a new instance of a shoot mutator.
-func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
-	return NewShoot(mgr)
+func NewShootMutator(mgr manager.Manager, globalDefaults []config.GlobalDefaultDestination) extensionswebhook.Mutator {
+	return NewShoot(mgr, globalDefaults)
 }
 
-func NewShoot(mgr manager.Manager) *Shoot {
+func NewShoot(mgr manager.Manager, globalDefaults []config.GlobalDefaultDestination) *Shoot {
 	return &Shoot{
-		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
-		scheme:  mgr.GetScheme(),
+		decoder:        serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		scheme:         mgr.GetScheme(),
+		reader:         mgr.GetClient(),
+		globalDefaults: globalDefaults,
 	}
 }
 
 // shoot mutates shoots
 type Shoot struct {
-	decoder    runtime.Decoder
-	scheme     *runtime.Scheme
-	once       sync.Once
-	encoder    runtime.Encoder
-	encoderErr error
+	decoder        runtime.Decoder
+	scheme         *runtime.Scheme
+	reader         client.Reader
+	once           sync.Once
+	encoder        runtime.Encoder
+	encoderErr     error
+	globalDefaults []config.GlobalDefaultDestination
 }
 
 // Mutate implements extensionswebhook.Mutator.Mutate
-func (s *Shoot) Mutate(ctx context.Context, newObj, _ client.Object) error {
+func (s *Shoot) Mutate(ctx context.Context, newObj, oldObj client.Object) error {
 
 	switch obj := newObj.(type) {
 	case *gardencorev1beta1.Shoot:
-		return s.mutateShoot(ctx, obj)
+		var oldShoot *gardencorev1beta1.Shoot
+		if oldObj != nil {
+			oldShoot, _ = oldObj.(*gardencorev1beta1.Shoot)
+		}
+		return s.mutateShoot(ctx, obj, oldShoot)
 	case *gardencorev1beta1.Seed:
-		return s.mutateSeed(ctx, obj)
+		var oldSeed *gardencorev1beta1.Seed
+		if oldObj != nil {
+			oldSeed, _ = oldObj.(*gardencorev1beta1.Seed)
+		}
+		return s.mutateSeed(ctx, obj, oldSeed)
 	default:
 		return fmt.Errorf("unsupported object type %T", newObj)
 	}
@@ -192,7 +207,7 @@ func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVers
 	return nil, fmt.Errorf("no version was found to force update expired version %s", version)
 }
 
-func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) error {
+func (s *Shoot) mutateShoot(ctx context.Context, new *gardencorev1beta1.Shoot, old *gardencorev1beta1.Shoot) error {
 	if s.isDisabled(new) {
 		return nil
 	}
@@ -204,14 +219,24 @@ func (s *Shoot) mutateShoot(_ context.Context, new *gardencorev1beta1.Shoot) err
 	if falcoConf == nil {
 		falcoConf = &service.FalcoServiceConfig{}
 	}
-	newConfig, err := s.mutate(falcoConf)
+
+	var oldFalcoConf *service.FalcoServiceConfig
+	if old != nil {
+		oldFalcoConf, err = s.ExtractFalcoConfig(old)
+		if err != nil {
+			return err
+		}
+	}
+
+	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, new.Namespace)
 	if err != nil {
 		return err
 	}
+
 	return s.UpdateFalcoConfigShoot(new, newConfig)
 }
 
-func (s *Shoot) mutateSeed(_ context.Context, new *gardencorev1beta1.Seed) error {
+func (s *Shoot) mutateSeed(ctx context.Context, new *gardencorev1beta1.Seed, old *gardencorev1beta1.Seed) error {
 	falcoConf, err := s.ExtractFalcoConfig(new)
 	if err != nil {
 		return err
@@ -219,14 +244,23 @@ func (s *Shoot) mutateSeed(_ context.Context, new *gardencorev1beta1.Seed) error
 	if falcoConf == nil {
 		falcoConf = &service.FalcoServiceConfig{}
 	}
-	newConfig, err := s.mutate(falcoConf)
+
+	var oldFalcoConf *service.FalcoServiceConfig
+	if old != nil {
+		oldFalcoConf, err = s.ExtractFalcoConfig(old)
+		if err != nil {
+			return err
+		}
+	}
+
+	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, "")
 	if err != nil {
 		return err
 	}
 	return s.UpdateFalcoConfigSeed(new, newConfig)
 }
 
-func (s *Shoot) mutate(falcoConf *service.FalcoServiceConfig) (*service.FalcoServiceConfig, error) {
+func (s *Shoot) mutate(ctx context.Context, falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig, namespace string) (*service.FalcoServiceConfig, error) {
 
 	if falcoConf == nil {
 		falcoConf = &service.FalcoServiceConfig{}
@@ -241,6 +275,10 @@ func (s *Shoot) mutate(falcoConf *service.FalcoServiceConfig) (*service.FalcoSer
 	setRules(falcoConf)
 
 	setDestinations(falcoConf)
+
+	if err := s.injectGlobalDefaults(ctx, falcoConf, oldFalcoConf, namespace); err != nil {
+		return nil, err
+	}
 
 	return falcoConf, nil
 }
@@ -390,4 +428,101 @@ func (s *Shoot) getEncoder() (runtime.Encoder, error) {
 		return nil, s.encoderErr
 	}
 	return s.encoder, nil
+}
+
+func (s *Shoot) injectGlobalDefaults(ctx context.Context, falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig, namespace string) error {
+	// Clean up stale global defaults on UPDATE
+	if oldFalcoConf != nil {
+		s.removeStaleGlobalDefaults(falcoConf, oldFalcoConf)
+	}
+
+	if len(s.globalDefaults) == 0 {
+		return nil
+	}
+
+	// Check project-level opt-out annotation
+	if len(namespace) != 0 {
+		project, err := gardenerutils.ProjectForNamespaceFromReader(ctx, s.reader, namespace)
+		if err != nil {
+			return fmt.Errorf("failed to get project for namespace %s: %w", namespace, err)
+		}
+		if project != nil {
+			if v, ok := project.Annotations[constants.SkipDefaultDestinationsAnnotation]; ok && v == "true" {
+				return nil
+			}
+		}
+	}
+
+	// On UPDATE: only inject if old config did not exist
+	if oldFalcoConf != nil {
+		return nil
+	}
+
+	// Build set of output keys already used by enabled destinations
+	usedOutputKeys := make(map[string]struct{})
+	for _, dest := range falcoConf.Destinations {
+		if dest.Enabled != nil && !*dest.Enabled {
+			continue
+		}
+		if key, ok := constants.DestinationOutputKeys[dest.Name]; ok {
+			usedOutputKeys[key] = struct{}{}
+		}
+	}
+
+	for _, gd := range s.globalDefaults {
+		// Check if this global default is already listed by name
+		alreadyListed := false
+		for _, dest := range falcoConf.Destinations {
+			if dest.Name == gd.Name {
+				alreadyListed = true
+				break
+			}
+		}
+		if alreadyListed {
+			continue
+		}
+
+		dest := service.Destination{
+			Name: gd.Name,
+		}
+
+		// Inject as disabled if output key conflict
+		if _, ok := usedOutputKeys[gd.Key]; ok {
+			dest.Enabled = ptr.To(false)
+		}
+
+		falcoConf.Destinations = append(falcoConf.Destinations, dest)
+	}
+	return nil
+}
+
+// removeStaleGlobalDefaults removes destinations that were previously injected as global defaults
+// but are no longer present in the operator config.
+func (s *Shoot) removeStaleGlobalDefaults(falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig) {
+	// Build set of names that are currently valid (standard + current global defaults)
+	validNames := make(map[string]struct{})
+	for _, name := range constants.AllowedDestinations {
+		validNames[name] = struct{}{}
+	}
+	for _, gd := range s.globalDefaults {
+		validNames[gd.Name] = struct{}{}
+	}
+
+	// Build set of destination names from the old shoot
+	oldDestNames := make(map[string]struct{})
+	for _, dest := range oldFalcoConf.Destinations {
+		oldDestNames[dest.Name] = struct{}{}
+	}
+
+	// Remove destinations that: are not valid, existed in old shoot, and have no resourceSecretName
+	filtered := falcoConf.Destinations[:0]
+	for _, dest := range falcoConf.Destinations {
+		_, isValid := validNames[dest.Name]
+		_, wasInOld := oldDestNames[dest.Name]
+		if !isValid && wasInOld && dest.ResourceSecretName == nil {
+			continue
+		}
+		filtered = append(filtered, dest)
+	}
+	falcoConf.Destinations = filtered
 }

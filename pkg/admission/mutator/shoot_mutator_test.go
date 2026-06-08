@@ -12,11 +12,14 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -684,7 +687,7 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Manager could not be created")
 		err = serviceinstall.AddToScheme(mgr.GetScheme())
 		Expect(err).To(BeNil(), "Scheme could not be added")
-		mutator := NewShootMutator(mgr)
+		mutator := NewShootMutator(mgr, nil)
 
 		setProfileManager(profileManager1)
 
@@ -749,5 +752,164 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 		Expect(err).To(BeNil(), "Mutator failed", err)
 		result = genericShoot.Spec.Extensions[0].ProviderConfig.Raw
 		Expect(result).To(MatchJSON(expectedMutate10), "Mutator did not return expected result")
+	})
+})
+
+var _ = Describe("Global default destinations", func() {
+	Describe("#injectGlobalDefaults", func() {
+		var s *Shoot
+
+		Context("when no global defaults are configured", func() {
+			BeforeEach(func() {
+				s = &Shoot{globalDefaults: nil}
+			})
+
+			It("should not modify destinations", func() {
+				falcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{{Name: "logging"}},
+				}
+				Expect(s.injectGlobalDefaults(context.Background(), falcoConf, nil, "")).To(Succeed())
+				Expect(falcoConf.Destinations).To(HaveLen(1))
+			})
+		})
+
+		Context("on CREATE (oldFalcoConf is nil)", func() {
+			BeforeEach(func() {
+				s = &Shoot{
+					globalDefaults: []config.GlobalDefaultDestination{
+						{Name: "central-splunk", Key: "splunk"},
+					},
+				}
+			})
+
+			It("should inject the global default destination", func() {
+				falcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{{Name: "logging"}},
+				}
+				Expect(s.injectGlobalDefaults(context.Background(), falcoConf, nil, "")).To(Succeed())
+				Expect(falcoConf.Destinations).To(HaveLen(2))
+				Expect(falcoConf.Destinations[1].Name).To(Equal("central-splunk"))
+				Expect(falcoConf.Destinations[1].Enabled).To(BeNil())
+			})
+
+			It("should inject as disabled when output key conflicts", func() {
+				falcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{{Name: "splunk"}},
+				}
+				Expect(s.injectGlobalDefaults(context.Background(), falcoConf, nil, "")).To(Succeed())
+				Expect(falcoConf.Destinations).To(HaveLen(2))
+				Expect(falcoConf.Destinations[1].Enabled).To(PointTo(BeFalse()))
+			})
+
+			It("should not inject when destination already listed by name", func() {
+				falcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{
+						{Name: "logging"},
+						{Name: "central-splunk"},
+					},
+				}
+				Expect(s.injectGlobalDefaults(context.Background(), falcoConf, nil, "")).To(Succeed())
+				Expect(falcoConf.Destinations).To(HaveLen(2))
+			})
+
+			It("should not count disabled destinations as output key conflicts", func() {
+				falcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{
+						{Name: "splunk", Enabled: ptr.To(false)},
+					},
+				}
+				Expect(s.injectGlobalDefaults(context.Background(), falcoConf, nil, "")).To(Succeed())
+				Expect(falcoConf.Destinations).To(HaveLen(2))
+				Expect(falcoConf.Destinations[1].Enabled).To(BeNil())
+			})
+		})
+
+		Context("on UPDATE (oldFalcoConf is non-nil)", func() {
+			BeforeEach(func() {
+				s = &Shoot{
+					globalDefaults: []config.GlobalDefaultDestination{
+						{Name: "central-splunk", Key: "splunk"},
+					},
+				}
+			})
+
+			It("should not inject when old config existed", func() {
+				falcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{{Name: "logging"}},
+				}
+				oldFalcoConf := &service.FalcoServiceConfig{
+					Destinations: []service.Destination{{Name: "logging"}},
+				}
+				Expect(s.injectGlobalDefaults(context.Background(), falcoConf, oldFalcoConf, "")).To(Succeed())
+				Expect(falcoConf.Destinations).To(HaveLen(1))
+			})
+		})
+	})
+
+	Describe("#removeStaleGlobalDefaults", func() {
+		It("should remove destinations no longer in global defaults or standard list", func() {
+			s := &Shoot{
+				globalDefaults: []config.GlobalDefaultDestination{
+					{Name: "central-splunk", Key: "splunk"},
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "old-removed-default"},
+				},
+			}
+			oldFalcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "old-removed-default"},
+				},
+			}
+
+			s.removeStaleGlobalDefaults(falcoConf, oldFalcoConf)
+			Expect(falcoConf.Destinations).To(HaveLen(1))
+			Expect(falcoConf.Destinations[0].Name).To(Equal("logging"))
+		})
+
+		It("should keep destinations that are still in global defaults", func() {
+			s := &Shoot{
+				globalDefaults: []config.GlobalDefaultDestination{
+					{Name: "central-splunk", Key: "splunk"},
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "central-splunk"},
+				},
+			}
+			oldFalcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "central-splunk"},
+				},
+			}
+
+			s.removeStaleGlobalDefaults(falcoConf, oldFalcoConf)
+			Expect(falcoConf.Destinations).To(HaveLen(2))
+		})
+
+		It("should keep destinations that were not in the old config", func() {
+			s := &Shoot{globalDefaults: nil}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "unknown-new"},
+				},
+			}
+			oldFalcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "logging"},
+				},
+			}
+
+			s.removeStaleGlobalDefaults(falcoConf, oldFalcoConf)
+			Expect(falcoConf.Destinations).To(HaveLen(2))
+		})
 	})
 })

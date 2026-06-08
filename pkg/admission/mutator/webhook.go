@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
@@ -21,15 +22,15 @@ const (
 
 var logger = log.Log.WithName("shoot-falco-service-validator-webhook")
 
-// New creates a new webhook that validates Shoot resources.
-func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+// New creates a new webhook that mutates Shoot resources.
+func New(mgr manager.Manager, globalDefaults []config.GlobalDefaultDestination) (*extensionswebhook.Webhook, error) {
 	logger.Info("Setting up webhook", "name", MutatorName)
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
 		Provider: constants.ExtensionType,
 		Name:     MutatorName,
 		Path:     MutatorPath,
 		Mutators: map[extensionswebhook.Mutator][]extensionswebhook.Type{
-			NewShootMutator(mgr): {
+			NewShootMutator(mgr, globalDefaults): {
 				{Obj: &gardencorev1beta1.Shoot{}},
 				{Obj: &gardencorev1beta1.Seed{}}},
 		},
