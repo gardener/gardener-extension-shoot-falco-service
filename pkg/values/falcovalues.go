@@ -29,6 +29,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	servicehelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
@@ -117,7 +118,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	}
 
 	for _, dest := range falcoServiceConfig.Destinations {
-		if dest.Enabled != nil && !*dest.Enabled {
+		if !servicehelper.IsDestinationEnabled(dest) {
 			continue
 		}
 		switch dest.Name {

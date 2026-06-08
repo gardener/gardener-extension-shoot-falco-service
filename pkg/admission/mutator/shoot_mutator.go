@@ -25,6 +25,7 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	servicehelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/helper"
 	servicev1alpha1 "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/v1alpha1"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -461,7 +462,7 @@ func (s *Shoot) injectGlobalDefaults(ctx context.Context, falcoConf *service.Fal
 	// Build set of output keys already used by enabled destinations
 	usedOutputKeys := make(map[string]struct{})
 	for _, dest := range falcoConf.Destinations {
-		if dest.Enabled != nil && !*dest.Enabled {
+		if !servicehelper.IsDestinationEnabled(dest) {
 			continue
 		}
 		if key, ok := constants.DestinationOutputKeys[dest.Name]; ok {

@@ -25,6 +25,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	servicehelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
@@ -328,7 +329,7 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 	usedOutputKeys := make(map[string]string)
 
 	for _, dest := range falcoConf.Destinations {
-		isDisabled := dest.Enabled != nil && !*dest.Enabled
+		isDisabled := !servicehelper.IsDestinationEnabled(dest)
 
 		if !slices.Contains(allowedDestinations, dest.Name) && len(s.globalDefaultKeys[dest.Name]) == 0 {
 			return fmt.Errorf("unknown event destination: %s", dest.Name)
@@ -355,7 +356,7 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 
 	enabledDestNames := make([]string, 0)
 	for _, dest := range falcoConf.Destinations {
-		if dest.Enabled != nil && !*dest.Enabled {
+		if !servicehelper.IsDestinationEnabled(dest) {
 			continue
 		}
 		enabledDestNames = append(enabledDestNames, dest.Name)
@@ -371,7 +372,7 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 	}
 
 	idxCustom := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
-		return dest.Name == constants.FalcoEventDestinationCustom && (dest.Enabled == nil || *dest.Enabled)
+		return dest.Name == constants.FalcoEventDestinationCustom && servicehelper.IsDestinationEnabled(dest)
 	})
 
 	if idxCustom != -1 {
@@ -381,7 +382,7 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 	}
 
 	idxSplunk := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
-		return dest.Name == constants.FalcoEventDestinationSplunk && (dest.Enabled == nil || *dest.Enabled)
+		return dest.Name == constants.FalcoEventDestinationSplunk && servicehelper.IsDestinationEnabled(dest)
 	})
 
 	if idxSplunk != -1 {
