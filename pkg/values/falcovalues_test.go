@@ -1946,9 +1946,11 @@ var _ = Describe("BuildFalcoValues", func() {
 					CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
 					GlobalDefaultDestinations: []config.GlobalDefaultDestination{
 						{
-							Name:  "central-splunk",
-							Key:   "splunk",
-							Value: &runtime.RawExtension{Raw: []byte(splunkValue)},
+							Name: "central-splunk",
+							FalcosidekickOutput: config.FalcosidekickOutput{
+								Key:   "splunk",
+								Value: &runtime.RawExtension{Raw: []byte(splunkValue)},
+							},
 						},
 					},
 				},

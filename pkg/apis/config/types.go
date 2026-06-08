@@ -50,6 +50,12 @@ type Falco struct {
 type GlobalDefaultDestination struct {
 	// Unique name for this destination
 	Name string
+	// Falcosidekick output configuration
+	FalcosidekickOutput FalcosidekickOutput
+}
+
+// FalcosidekickOutput holds the Falcosidekick output key and value configuration
+type FalcosidekickOutput struct {
 	// Falcosidekick output key (e.g., "splunk", "webhook", "elasticsearch")
 	Key string
 	// Configuration values for the output (may contain template variables)

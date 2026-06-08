@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -50,10 +50,10 @@ func validateGlobalDefaultDestinations(gds []config.GlobalDefaultDestination, fl
 		}
 		names[gd.Name] = true
 
-		if existing, ok := keys[gd.Key]; ok {
-			allErrs = append(allErrs, field.Invalid(idxPath.Child("key"), gd.Key, "already used by destination "+existing))
+		if existing, ok := keys[gd.FalcosidekickOutput.Key]; ok {
+			allErrs = append(allErrs, field.Invalid(idxPath.Child("falcosidekickOutput").Child("key"), gd.FalcosidekickOutput.Key, "already used by destination "+existing))
 		}
-		keys[gd.Key] = gd.Name
+		keys[gd.FalcosidekickOutput.Key] = gd.Name
 	}
 
 	return allErrs

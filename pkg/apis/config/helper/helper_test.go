@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -25,8 +25,8 @@ var _ = Describe("Helper", func() {
 
 		BeforeEach(func() {
 			gds = []config.GlobalDefaultDestination{
-				{Name: "splunk-central", Key: "splunk"},
-				{Name: "elastic-central", Key: "elasticsearch"},
+				{Name: "splunk-central", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
+				{Name: "elastic-central", FalcosidekickOutput: config.FalcosidekickOutput{Key: "elasticsearch"}},
 			}
 		})
 
@@ -34,7 +34,7 @@ var _ = Describe("Helper", func() {
 			found := FindGlobalDefaultByName(gds, "splunk-central")
 			Expect(found).NotTo(BeNil())
 			Expect(found.Name).To(Equal("splunk-central"))
-			Expect(found.Key).To(Equal("splunk"))
+			Expect(found.FalcosidekickOutput.Key).To(Equal("splunk"))
 		})
 
 		It("should return nil for a nonexistent name", func() {
@@ -49,8 +49,8 @@ var _ = Describe("Helper", func() {
 	Describe("#GlobalDefaultKeyMap", func() {
 		It("should build a map from name to key", func() {
 			gds := []config.GlobalDefaultDestination{
-				{Name: "splunk-central", Key: "splunk"},
-				{Name: "elastic-central", Key: "elasticsearch"},
+				{Name: "splunk-central", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
+				{Name: "elastic-central", FalcosidekickOutput: config.FalcosidekickOutput{Key: "elasticsearch"}},
 			}
 			keys := GlobalDefaultKeyMap(gds)
 			Expect(keys).To(HaveLen(2))

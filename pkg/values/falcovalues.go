@@ -1131,11 +1131,11 @@ func (c *ConfigBuilder) renderGlobalDefaultDestination(name string, reconcileCtx
 		return nil, fmt.Errorf("global default destination %s not found in config", name)
 	}
 
-	if gd.Value == nil || gd.Value.Raw == nil {
+	if gd.FalcosidekickOutput.Value == nil || gd.FalcosidekickOutput.Value.Raw == nil {
 		return nil, fmt.Errorf("global default destination %s has no value", name)
 	}
 
-	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(gd.Value.Raw))
+	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(gd.FalcosidekickOutput.Value.Raw))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template for global default destination %s: %w", name, err)
 	}
@@ -1155,7 +1155,7 @@ func (c *ConfigBuilder) renderGlobalDefaultDestination(name string, reconcileCtx
 	}
 
 	return &falcoOutputConfig{
-		key:   gd.Key,
+		key:   gd.FalcosidekickOutput.Key,
 		value: valueMap,
 	}, nil
 }

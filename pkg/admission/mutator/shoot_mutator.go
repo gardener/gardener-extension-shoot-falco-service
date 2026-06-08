@@ -487,7 +487,7 @@ func (s *Shoot) injectGlobalDefaults(ctx context.Context, falcoConf *service.Fal
 		}
 
 		// Inject as disabled if output key conflict
-		if _, ok := usedOutputKeys[gd.Key]; ok {
+		if _, ok := usedOutputKeys[gd.FalcosidekickOutput.Key]; ok {
 			dest.Enabled = ptr.To(false)
 		}
 

@@ -777,7 +777,7 @@ var _ = Describe("Global default destinations", func() {
 			BeforeEach(func() {
 				s = &Shoot{
 					globalDefaults: []config.GlobalDefaultDestination{
-						{Name: "central-splunk", Key: "splunk"},
+						{Name: "central-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
 					},
 				}
 			})
@@ -828,7 +828,7 @@ var _ = Describe("Global default destinations", func() {
 			BeforeEach(func() {
 				s = &Shoot{
 					globalDefaults: []config.GlobalDefaultDestination{
-						{Name: "central-splunk", Key: "splunk"},
+						{Name: "central-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
 					},
 				}
 			})
@@ -850,7 +850,7 @@ var _ = Describe("Global default destinations", func() {
 		It("should remove destinations no longer in global defaults or standard list", func() {
 			s := &Shoot{
 				globalDefaults: []config.GlobalDefaultDestination{
-					{Name: "central-splunk", Key: "splunk"},
+					{Name: "central-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
 				},
 			}
 			falcoConf := &service.FalcoServiceConfig{
@@ -874,7 +874,7 @@ var _ = Describe("Global default destinations", func() {
 		It("should keep destinations that are still in global defaults", func() {
 			s := &Shoot{
 				globalDefaults: []config.GlobalDefaultDestination{
-					{Name: "central-splunk", Key: "splunk"},
+					{Name: "central-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
 				},
 			}
 			falcoConf := &service.FalcoServiceConfig{

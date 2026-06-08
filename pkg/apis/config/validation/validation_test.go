@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -40,8 +40,8 @@ var _ = Describe("ValidateConfiguration", func() {
 		conf := &config.Configuration{
 			Falco: &config.Falco{
 				GlobalDefaultDestinations: []config.GlobalDefaultDestination{
-					{Name: "my-splunk", Key: "splunk"},
-					{Name: "my-elastic", Key: "elasticsearch"},
+					{Name: "my-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
+					{Name: "my-elastic", FalcosidekickOutput: config.FalcosidekickOutput{Key: "elasticsearch"}},
 				},
 			},
 		}
@@ -52,7 +52,7 @@ var _ = Describe("ValidateConfiguration", func() {
 		conf := &config.Configuration{
 			Falco: &config.Falco{
 				GlobalDefaultDestinations: []config.GlobalDefaultDestination{
-					{Name: "logging", Key: "loki"},
+					{Name: "logging", FalcosidekickOutput: config.FalcosidekickOutput{Key: "loki"}},
 				},
 			},
 		}
@@ -68,8 +68,8 @@ var _ = Describe("ValidateConfiguration", func() {
 		conf := &config.Configuration{
 			Falco: &config.Falco{
 				GlobalDefaultDestinations: []config.GlobalDefaultDestination{
-					{Name: "my-splunk", Key: "splunk"},
-					{Name: "my-splunk", Key: "webhook"},
+					{Name: "my-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
+					{Name: "my-splunk", FalcosidekickOutput: config.FalcosidekickOutput{Key: "webhook"}},
 				},
 			},
 		}
@@ -85,15 +85,15 @@ var _ = Describe("ValidateConfiguration", func() {
 		conf := &config.Configuration{
 			Falco: &config.Falco{
 				GlobalDefaultDestinations: []config.GlobalDefaultDestination{
-					{Name: "dest-a", Key: "splunk"},
-					{Name: "dest-b", Key: "splunk"},
+					{Name: "dest-a", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
+					{Name: "dest-b", FalcosidekickOutput: config.FalcosidekickOutput{Key: "splunk"}},
 				},
 			},
 		}
 		Expect(ValidateConfiguration(conf)).To(ConsistOf(
 			PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("falco.globalDefaultDestinations[1].key"),
+				"Field": Equal("falco.globalDefaultDestinations[1].falcosidekickOutput.key"),
 			})),
 		))
 	})

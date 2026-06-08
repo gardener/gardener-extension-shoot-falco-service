@@ -23,19 +23,21 @@ falco:
       ...
   globalDefaultDestinations:
   - name: central-splunk
-    key: splunk
-    value:
-      host: "https://splunk-hec.example.com/services/collector/event"
-      token: "my-hec-token"
-      checkcert: true
+    falcosidekickOutput:
+      key: splunk
+      value:
+        host: "https://splunk-hec.example.com/services/collector/event"
+        token: "my-hec-token"
+        checkcert: true
   - name: central-elastic
-    key: elasticsearch
-    value:
-      hostport: "https://elasticsearch.example.com:9200"
-      index: "falco"
-      suffix: "daily"
-      username: "falco"
-      password: "secret"
+    falcosidekickOutput:
+      key: elasticsearch
+      value:
+        hostport: "https://elasticsearch.example.com:9200"
+        index: "falco"
+        suffix: "daily"
+        username: "falco"
+        password: "secret"
 ```
 
 - `certificateLifetime`: Lifetime of certificates generated for communication between Falco and Falcosidekick.
@@ -68,12 +70,12 @@ Each global default destination is defined with:
 | Field | Description |
 |-------|-------------|
 | `name` | A unique name identifying this destination. Must not conflict with standard destination names (`logging`, `custom`, `central`, `stdout`, `otlp`, `opensearch`, `splunk`). |
-| `key` | The Falcosidekick output key (e.g., `splunk`, `webhook`, `elasticsearch`, `loki`, `otlp`). Each key can only be used once across all global defaults. |
-| `value` | The configuration map passed to Falcosidekick for that output. Supports template variables (see below). |
+| `falcosidekickOutput.key` | The Falcosidekick output key (e.g., `splunk`, `webhook`, `elasticsearch`, `loki`, `otlp`). Each key can only be used once across all global defaults. |
+| `falcosidekickOutput.value` | The configuration map passed to Falcosidekick for that output. Supports template variables (see below). |
 
 ### Template Variables
 
-The `value` field supports Go templates with `<<` and `>>` delimiters. Available variables:
+The `falcosidekickOutput.value` field supports Go templates with `<<` and `>>` delimiters. Available variables:
 
 | Variable | Description |
 |----------|-------------|
@@ -85,13 +87,14 @@ Example using templates:
 ```yaml
 globalDefaultDestinations:
 - name: central-loki
-  key: loki
-  value:
-    hostport: "https://loki.<<.SeedIngressDomain>>"
-    endpoint: "/loki/api/v1/push"
-    checkcert: false
-    customheaders:
-      Authorization: "Bearer <<.Token>>"
+  falcosidekickOutput:
+    key: loki
+    value:
+      hostport: "https://loki.<<.SeedIngressDomain>>"
+      endpoint: "/loki/api/v1/push"
+      checkcert: false
+      customheaders:
+        Authorization: "Bearer <<.Token>>"
 ```
 
 ### Injection Behavior

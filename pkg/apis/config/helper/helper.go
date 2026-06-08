@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -22,7 +22,7 @@ func FindGlobalDefaultByName(gds []config.GlobalDefaultDestination, name string)
 func GlobalDefaultKeyMap(gds []config.GlobalDefaultDestination) map[string]string {
 	keys := make(map[string]string, len(gds))
 	for _, gd := range gds {
-		keys[gd.Name] = gd.Key
+		keys[gd.Name] = gd.FalcosidekickOutput.Key
 	}
 	return keys
 }
