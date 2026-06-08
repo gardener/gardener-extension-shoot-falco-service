@@ -12,9 +12,11 @@ import (
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	"github.com/gardener/gardener/pkg/apis/core/install"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"github.com/gardener/gardener/pkg/api/indexer"
 	gardenerhealthz "github.com/gardener/gardener/pkg/healthz"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -31,10 +33,12 @@ import (
 	runtimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	admissioncmd "github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/cmd"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/validator"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	profileiinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/install"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	pkgcmd "github.com/gardener/gardener-extension-shoot-falco-service/pkg/cmd"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/maintenance"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
@@ -46,6 +50,8 @@ var log = runtimelog.Log.WithName("gardener-extension-admission-shoot-falco-serv
 
 // NewAdmissionCommand creates a new command for running an admission webhook.
 func NewAdmissionCommand(ctx context.Context) *cobra.Command {
+	var globalDefaults []config.GlobalDefaultDestination
+
 	var (
 		restOpts = &controllercmd.RESTOptions{}
 		mgrOpts  = &controllercmd.ManagerOptions{
@@ -63,8 +69,15 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			Namespace: os.Getenv("WEBHOOK_CONFIG_NAMESPACE"),
 		}
 
-		webhookSwitches = admissioncmd.GardenWebhookSwitchOptions()
-		webhookOptions  = webhookcmd.NewAddToManagerOptions(
+		webhookSwitches = webhookcmd.NewSwitchOptions(
+			webhookcmd.Switch(validator.ValidatorName, func(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+				return validator.New(mgr, globalDefaults)
+			}),
+			webhookcmd.Switch(mutator.MutatorName, func(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+				return mutator.New(mgr, globalDefaults)
+			}),
+		)
+		webhookOptions = webhookcmd.NewAddToManagerOptions(
 			AdmissionName,
 			"",
 			nil,
@@ -73,13 +86,15 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			webhookSwitches,
 		)
 
-		falcoOptions = &validator.FalcoWebhookOptions{}
-		aggOption    = controllercmd.NewOptionAggregator(
+		falcoOptions  = &validator.FalcoWebhookOptions{}
+		configOptions = &pkgcmd.FalcoOptions{}
+		aggOption     = controllercmd.NewOptionAggregator(
 			restOpts,
 			mgrOpts,
 			generalOpts,
 			webhookOptions,
 			falcoOptions,
+			configOptions,
 		)
 	)
 
@@ -132,6 +147,13 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			}
 
 			falcoOptions.Completed().Apply(&validator.DefaultFalcoWebhookOptions)
+
+			if cfg := configOptions.Completed(); cfg != nil {
+				if cfg.Configuration().Falco != nil {
+					globalDefaults = cfg.Configuration().Falco.GlobalDefaultDestinations
+				}
+			}
+
 			mgr, err := manager.New(restOpts.Completed().Config, managerOptions)
 			if err != nil {
 				runtimelog.Log.Error(err, "Could not instantiate manager")
@@ -148,6 +170,10 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 			if err := profileiinstall.AddToScheme(mgr.GetScheme()); err != nil {
 				runtimelog.Log.Error(err, "could not update manager scheme")
 				os.Exit(1)
+			}
+
+			if err := indexer.AddProjectNamespace(ctx, mgr.GetFieldIndexer()); err != nil {
+				return err
 			}
 
 			var sourceCluster cluster.Cluster
