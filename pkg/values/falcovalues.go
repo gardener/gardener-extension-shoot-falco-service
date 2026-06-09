@@ -1142,7 +1142,7 @@ func (c *ConfigBuilder) renderGlobalDefaultDestination(name string, reconcileCtx
 	}
 
 	data := map[string]string{
-		"SeedIngressDomain": reconcileCtx.SeedIngressDomain,
+		"SeedIngressDomain":   reconcileCtx.SeedIngressDomain,
 		"ServiceAccountToken": "SA_TOKEN",
 	}
 	var buf bytes.Buffer
