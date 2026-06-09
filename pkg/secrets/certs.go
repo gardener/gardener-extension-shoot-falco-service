@@ -87,6 +87,30 @@ func CertsNeedRenewal(certs *FalcoCertificates, maxAge time.Duration) bool {
 	return caNeedsRenewal(certs.ServerCert, maxAge) || caNeedsRenewal(certs.ClientCert, maxAge)
 }
 
+func CertsNeedRegeneration(certs *FalcoCertificates, namespace string) bool {
+	hasClientAuth := false
+	for _, usage := range certs.ClientCert.ExtKeyUsage {
+		if usage == x509.ExtKeyUsageClientAuth {
+			hasClientAuth = true
+			break
+		}
+	}
+	if !hasClientAuth {
+		return true
+	}
+
+	expectedDNS := getDnsNames(namespace)
+	if len(certs.ServerCert.DNSNames) != len(expectedDNS) {
+		return true
+	}
+	for i, name := range expectedDNS {
+		if certs.ServerCert.DNSNames[i] != name {
+			return true
+		}
+	}
+	return false
+}
+
 func GenerateFalcoCas(clusterName string, lifetime time.Duration) (*FalcoCas, error) {
 
 	falcoCas := FalcoCas{}
@@ -176,7 +200,7 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duratio
 		NotAfter:           time.Now().Add(lifetime),
 
 		KeyUsage:              clientCaUsage,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 		DNSNames:              getDnsNames(namespace),
