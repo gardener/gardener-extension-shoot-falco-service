@@ -38,7 +38,6 @@ gardener:
   autonomousShootCluster: false
 
 # Extension config passed to admission controller (optional).
-# When set, creates a secret and passes --config-file to the admission deployment.
 # config:
 #   globalDefaultDestinations:
 #   - name: "central-splunk"
