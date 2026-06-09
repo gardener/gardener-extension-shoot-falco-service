@@ -1143,7 +1143,7 @@ func (c *ConfigBuilder) renderGlobalDefaultDestination(name string, reconcileCtx
 
 	data := map[string]string{
 		"SeedIngressDomain": reconcileCtx.SeedIngressDomain,
-		"Token":             "SA_TOKEN",
+		"ServiceAccountToken": "SA_TOKEN",
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {

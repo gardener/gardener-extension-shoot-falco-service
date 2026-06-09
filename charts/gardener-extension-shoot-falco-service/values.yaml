@@ -54,12 +54,12 @@ falco:
 
   # Global default destinations applied to all shoots unless opted out.
   # Each entry has: name (unique identifier), key (falcosidekick output type),
-  # value (config map, supports <<.SeedIngressDomain>> and <<.Token>> templates)
+  # value (config map, supports <<.SeedIngressDomain>> and <<.ServiceAccountToken>> templates)
   # globalDefaultDestinations:
   # - name: "central-splunk"
   #   key: "splunk"
   #   value:
   #     host: "https://falco-splunk.<<.SeedIngressDomain>>"
-  #     token: "<<.Token>>"
+  #     token: "<<.ServiceAccountToken>>"
   #     checkcert: true
   globalDefaultDestinations: []

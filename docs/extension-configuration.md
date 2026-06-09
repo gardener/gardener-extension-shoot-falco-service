@@ -80,7 +80,7 @@ The `falcosidekickOutput.value` field supports Go templates with `<<` and `>>` d
 | Variable | Description |
 |----------|-------------|
 | `<<.SeedIngressDomain>>` | The seed's ingress domain |
-| `<<.Token>>` | A service account token placeholder (replaced at reconcile time) |
+| `<<.ServiceAccountToken>>` | A service account token placeholder (replaced at reconcile time) |
 
 Example using templates:
 
@@ -94,7 +94,7 @@ globalDefaultDestinations:
       endpoint: "/loki/api/v1/push"
       checkcert: false
       customheaders:
-        Authorization: "Bearer <<.Token>>"
+        Authorization: "Bearer <<.ServiceAccountToken>>"
 ```
 
 ### Injection Behavior

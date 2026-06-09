@@ -45,5 +45,5 @@ gardener:
 #     key: "splunk"
 #     value:
 #       host: "https://falco-splunk.<<.SeedIngressDomain>>"
-#       token: "<<.Token>>"
+#       token: "<<.ServiceAccountToken>>"
 #       checkcert: true
