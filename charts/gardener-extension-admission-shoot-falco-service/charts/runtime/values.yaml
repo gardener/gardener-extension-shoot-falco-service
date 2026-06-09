@@ -42,8 +42,9 @@ gardener:
 # config:
 #   globalDefaultDestinations:
 #   - name: "central-splunk"
-#     key: "splunk"
-#     value:
-#       host: "https://falco-splunk.<<.SeedIngressDomain>>"
-#       token: "<<.ServiceAccountToken>>"
-#       checkcert: true
+#     falcosidekickOutput:
+#       key: "splunk"
+#       value:
+#         host: "https://falco-splunk.<<.SeedIngressDomain>>"
+#         token: "<<.ServiceAccountToken>>"
+#         checkcert: true
