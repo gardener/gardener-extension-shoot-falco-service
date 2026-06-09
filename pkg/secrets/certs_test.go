@@ -75,6 +75,70 @@ var _ = Describe("Certificate", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("certificate signed by unknown authority")))
 		})
+
+		It("should generate client cert with ClientAuth extended key usage", func() {
+			duration := time.Hour
+			cas, err := secrets.GenerateFalcoCas("dummyname", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(certs.ClientCert.ExtKeyUsage).To(ContainElement(x509.ExtKeyUsageClientAuth))
+			Expect(certs.ClientCert.ExtKeyUsage).NotTo(ContainElement(x509.ExtKeyUsageServerAuth))
+		})
+	})
+
+	Describe("CertsNeedRegeneration", func() {
+		It("should not need regeneration when certs match the namespace", func() {
+			namespace := "kube-system"
+			duration := time.Hour
+			cas, err := secrets.GenerateFalcoCas("dummyname", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			certs, err := secrets.GenerateKeysAndCerts(cas, namespace, duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(secrets.CertsNeedRegeneration(certs, namespace)).To(BeFalse())
+		})
+
+		It("should need regeneration when namespace differs", func() {
+			duration := time.Hour
+			cas, err := secrets.GenerateFalcoCas("dummyname", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			certs, err := secrets.GenerateKeysAndCerts(cas, "old-namespace", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(secrets.CertsNeedRegeneration(certs, "kube-system")).To(BeTrue())
+		})
+
+		It("should need regeneration when client cert lacks ClientAuth usage", func() {
+			duration := time.Hour
+			cas, err := secrets.GenerateFalcoCas("dummyname", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Simulate old cert with ServerAuth instead of ClientAuth
+			certs.ClientCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+
+			Expect(secrets.CertsNeedRegeneration(certs, "kube-system")).To(BeTrue())
+		})
+
+		It("should need regeneration when client cert has no ExtKeyUsage", func() {
+			duration := time.Hour
+			cas, err := secrets.GenerateFalcoCas("dummyname", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", duration)
+			Expect(err).NotTo(HaveOccurred())
+
+			certs.ClientCert.ExtKeyUsage = nil
+
+			Expect(secrets.CertsNeedRegeneration(certs, "kube-system")).To(BeTrue())
+		})
 	})
 })
 
