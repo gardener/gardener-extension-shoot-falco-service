@@ -88,13 +88,16 @@ func CertsNeedRenewal(certs *FalcoCertificates, maxAge time.Duration) bool {
 }
 
 func CertsNeedRegeneration(certs *FalcoCertificates, namespace string) bool {
+	hasClientAuth := false
 	for _, usage := range certs.ClientCert.ExtKeyUsage {
 		if usage == x509.ExtKeyUsageClientAuth {
-			goto clientAuthOk
+			hasClientAuth = true
+			break
 		}
 	}
-	return true
-clientAuthOk:
+	if !hasClientAuth {
+		return true
+	}
 
 	expectedDNS := getDnsNames(namespace)
 	if len(certs.ServerCert.DNSNames) != len(expectedDNS) {
