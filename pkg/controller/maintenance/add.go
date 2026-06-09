@@ -30,7 +30,7 @@ var logger = log.Log.WithName(CONTROLLERNAME)
 func AddToManager(ctx context.Context, mgr manager.Manager) error { // , cfg config.ControllerManagerConfiguration) error {
 	// if err := (&maintenance.Reconciler{Config: cfg.Controllers.ShootMaintenance,}).AddToManager(mgr); err != nil {
 
-	r := &Reconciler{mutator: mutator.NewShoot(mgr)}
+	r := &Reconciler{mutator: mutator.NewShoot(mgr, nil)}
 	if err := r.AddToManager(mgr); err != nil {
 		return fmt.Errorf("failed adding maintenance reconciler: %w", err)
 	}

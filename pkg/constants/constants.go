@@ -67,6 +67,7 @@ const (
 
 	NamespaceEnableAnnotation         = "falco.gardener.cloud/enabled"
 	NamespaceCentralLoggingAnnotation = "falco.gardener.cloud/central-logging"
+	SkipDefaultDestinationsAnnotation = "falco.gardener.cloud/skip-default-destinations"
 
 	// limit the number of rule files with custom rules per config map
 	MaxCustomRulesFilesPerConfigMap = 10
@@ -90,5 +91,14 @@ var (
 		ConfigFalcoRules,
 		ConfigFalcoIncubatingRules,
 		ConfigFalcoSandboxRules,
+	}
+
+	DestinationOutputKeys = map[string]string{
+		FalcoEventDestinationLogging:    "loki",
+		FalcoEventDestinationOTLP:       "otlp",
+		FalcoEventDestinationCustom:     "webhook",
+		FalcoEventDestinationOpenSearch: "elasticsearch",
+		FalcoEventDestinationSplunk:     "splunk",
+		FalcoEventDestinationCentral:    "webhook",
 	}
 )

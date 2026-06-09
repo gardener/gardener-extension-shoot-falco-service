@@ -22,14 +22,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
+	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
+	servicehelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
-)
-
-const (
-	// maxEventDestinations defines the maximum number of event destinations allowed
-	maxEventDestinations = 3
 )
 
 // extra Falco options
@@ -76,10 +74,10 @@ func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
 
 // NewShootValidator returns a new instance of a shoot validator.
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
-	return NewShootValidatorWithOption(mgr, &DefaultFalcoWebhookOptions)
+	return NewShootValidatorWithOption(mgr, &DefaultFalcoWebhookOptions, nil)
 }
 
-func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions) extensionswebhook.Validator {
+func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptions, globalDefaults []config.GlobalDefaultDestination) extensionswebhook.Validator {
 
 	restrictedUsage := options.RestrictedUsage
 	// environment overwrites command line option
@@ -88,11 +86,13 @@ func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptio
 			restrictedUsage = envOverwrite
 		}
 	}
+
 	return &shoot{
 		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		restrictedUsage:          restrictedUsage,
 		restrictedCentralLogging: options.RestrictedCentralizedLogging,
 		otlpLoggingDestination:   options.OtlpLogging,
+		globalDefaultKeys:        confighelper.GlobalDefaultKeyMap(globalDefaults),
 	}
 }
 
@@ -102,6 +102,7 @@ type shoot struct {
 	restrictedUsage          bool
 	restrictedCentralLogging bool
 	otlpLoggingDestination   bool
+	globalDefaultKeys        map[string]string
 }
 
 // Validate implements extensionswebhook.Validator.Validate
@@ -173,7 +174,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyEventDestinations(falcoConf, shoot); err != nil {
+	if err := s.verifyEventDestinations(falcoConf, shoot); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -204,7 +205,7 @@ func (s *shoot) validateSeed(_ context.Context, seed *core.Seed) error {
 		allErrs = append(allErrs, err)
 	}
 
-	if err := verifyEventDestinationsSeed(falcoConf, seed); err != nil {
+	if err := s.verifyEventDestinationsSeed(falcoConf, seed); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -307,15 +308,15 @@ func verifyCustomRules(customRules []service.CustomRule, resources []core.NamedR
 	return nil
 }
 
-func verifyEventDestinations(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
-	return verifyEventDestinationsCommon(falcoConf, shoot.Spec.Resources, constants.AllowedDestinations)
+func (s *shoot) verifyEventDestinations(falcoConf *service.FalcoServiceConfig, sh *core.Shoot) error {
+	return s.verifyEventDestinationsCommon(falcoConf, sh.Spec.Resources, constants.AllowedDestinations)
 }
 
-func verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfig, seed *core.Seed) error {
-	return verifyEventDestinationsCommon(falcoConf, seed.Spec.Resources, constants.AllowedDestinationsSeed)
+func (s *shoot) verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfig, seed *core.Seed) error {
+	return s.verifyEventDestinationsCommon(falcoConf, seed.Spec.Resources, constants.AllowedDestinationsSeed)
 }
 
-func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resources []core.NamedResourceReference, allowedDestinations []string) error {
+func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resources []core.NamedResourceReference, allowedDestinations []string) error {
 	if falcoConf.Destinations == nil {
 		return fmt.Errorf("event destination property is not defined")
 	}
@@ -324,25 +325,46 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 		return fmt.Errorf("no event destination is set")
 	}
 
-	if len(falcoConf.Destinations) > maxEventDestinations {
-		return fmt.Errorf("more than %d event destinations are not allowed", maxEventDestinations)
-	}
-
 	eventDestinationNames := make([]string, 0, len(falcoConf.Destinations))
+	usedOutputKeys := make(map[string]string)
+
 	for _, dest := range falcoConf.Destinations {
-		if !slices.Contains(allowedDestinations, dest.Name) {
+		isDisabled := !servicehelper.IsDestinationEnabled(dest)
+
+		if !slices.Contains(allowedDestinations, dest.Name) && len(s.globalDefaultKeys[dest.Name]) == 0 {
 			return fmt.Errorf("unknown event destination: %s", dest.Name)
 		}
 		eventDestinationNames = append(eventDestinationNames, dest.Name)
+
+		if !isDisabled {
+			key, ok := constants.DestinationOutputKeys[dest.Name]
+			if !ok {
+				key, ok = s.globalDefaultKeys[dest.Name]
+			}
+			if ok {
+				if len(usedOutputKeys[key]) != 0 {
+					return fmt.Errorf("multiple enabled destinations use the same output key %q", key)
+				}
+				usedOutputKeys[key] = dest.Name
+			}
+		}
 	}
 
 	if !unique(eventDestinationNames) {
 		return fmt.Errorf("duplicate entry in event destinations")
 	}
 
-	if len(eventDestinationNames) > 1 {
-		hasLogging := slices.Contains(eventDestinationNames, constants.FalcoEventDestinationLogging)
-		hasCustom := slices.Contains(eventDestinationNames, constants.FalcoEventDestinationCustom)
+	enabledDestNames := make([]string, 0)
+	for _, dest := range falcoConf.Destinations {
+		if !servicehelper.IsDestinationEnabled(dest) {
+			continue
+		}
+		enabledDestNames = append(enabledDestNames, dest.Name)
+	}
+
+	if len(enabledDestNames) > 1 {
+		hasLogging := slices.Contains(enabledDestNames, constants.FalcoEventDestinationLogging)
+		hasCustom := slices.Contains(enabledDestNames, constants.FalcoEventDestinationCustom)
 
 		if hasLogging && hasCustom {
 			return fmt.Errorf("logging and custom destinations cannot be used together")
@@ -350,7 +372,7 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 	}
 
 	idxCustom := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
-		return dest.Name == constants.FalcoEventDestinationCustom
+		return dest.Name == constants.FalcoEventDestinationCustom && servicehelper.IsDestinationEnabled(dest)
 	})
 
 	if idxCustom != -1 {
@@ -360,7 +382,7 @@ func verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resour
 	}
 
 	idxSplunk := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
-		return dest.Name == constants.FalcoEventDestinationSplunk
+		return dest.Name == constants.FalcoEventDestinationSplunk && servicehelper.IsDestinationEnabled(dest)
 	})
 
 	if idxSplunk != -1 {

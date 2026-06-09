@@ -45,6 +45,7 @@ type FalcoServiceConfig struct {
 
 type Destination struct {
 	Name               string
+	Enabled            *bool
 	ResourceSecretName *string
 }
 

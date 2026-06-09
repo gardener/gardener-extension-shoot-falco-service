@@ -26,6 +26,7 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	yaml "sigs.k8s.io/yaml"
@@ -1932,6 +1933,105 @@ var _ = Describe("BuildFalcoValues", func() {
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).NotTo(HaveKey("resources"))
+		})
+	})
+
+	Describe("#GlobalDefaultDestinations", func() {
+		It("should render a global default destination config into sidekick values", func(ctx SpecContext) {
+			splunkValue := `{"host":"https://splunk.example.com:8088","token":"test-token","checkcert":true}`
+			configWithGlobalDefault := &config.Configuration{
+				Falco: &config.Falco{
+					PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
+					CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
+					CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
+					GlobalDefaultDestinations: []config.GlobalDefaultDestination{
+						{
+							Name: "central-splunk",
+							FalcosidekickOutput: config.FalcosidekickOutput{
+								Key:   "splunk",
+								Value: &runtime.RawExtension{Raw: []byte(splunkValue)},
+							},
+						},
+					},
+				},
+			}
+
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).NotTo(HaveOccurred())
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, configWithGlobalDefault, falcoProfileManager)
+
+			falcoConf := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: []string{"falco-rules"},
+				},
+				Destinations: []service.Destination{
+					{Name: "central-splunk"},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: falcoConf,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			Expect(sidekickConfig).To(HaveKey("splunk"))
+
+			splunk := sidekickConfig["splunk"].(map[string]interface{})
+			Expect(splunk["host"]).To(Equal("https://splunk.example.com:8088"))
+			Expect(splunk["token"]).To(Equal("test-token"))
+			Expect(splunk["checkcert"]).To(BeTrue())
+		})
+
+		It("should skip an unrecognized destination not in global defaults", func(ctx SpecContext) {
+			configWithoutGlobalDefaults := &config.Configuration{
+				Falco: &config.Falco{
+					PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
+					CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
+					CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
+				},
+			}
+
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).NotTo(HaveOccurred())
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, configWithoutGlobalDefaults, falcoProfileManager)
+
+			falcoConf := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: []string{"falco-rules"},
+				},
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "nonexistent-destination"},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: falcoConf,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			Expect(sidekickConfig).To(HaveKey("loki"))
+			Expect(sidekickConfig).NotTo(HaveKey("nonexistent-destination"))
 		})
 	})
 })

@@ -67,6 +67,7 @@ spec:
         {{- if .Values.otlpLogging }}
         - --otlp-logging
         {{- end }}
+        - --config-file=/etc/gardener-extension-admission-shoot-falco-service/config/config.yaml
         {{- if or .Values.gardener.virtualCluster.enabled .Values.restrictedUsage }}
         env:
         {{- if .Values.gardener.virtualCluster.enabled }}
@@ -112,6 +113,9 @@ spec:
           mountPath: {{ required ".Values.projectedKubeconfig.baseMountPath is required" .Values.projectedKubeconfig.baseMountPath }}
           readOnly: true
         {{- end }}
+        - name: extension-config
+          mountPath: /etc/gardener-extension-admission-shoot-falco-service/config
+          readOnly: true
       volumes:
       {{- if .Values.kubeconfig }}
       - name: gardener-extension-admission-shoot-falco-service-kubeconfig
@@ -137,3 +141,7 @@ spec:
               name: {{ required ".Values.projectedKubeconfig.tokenSecretName is required" .Values.projectedKubeconfig.tokenSecretName }}
               optional: false
       {{- end }}
+      - name: extension-config
+        secret:
+          secretName: gardener-extension-admission-shoot-falco-service-config
+          defaultMode: 420

@@ -16,6 +16,14 @@ rules:
   - watch
   - update
 - apiGroups:
+  - core.gardener.cloud
+  resources:
+  - projects
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - namespaces

@@ -36,3 +36,14 @@ gardener:
     serviceAccount: {}
   runtimeCluster: {}
   autonomousShootCluster: false
+
+# Extension config passed to admission controller (optional).
+# config:
+#   globalDefaultDestinations:
+#   - name: "central-splunk"
+#     falcosidekickOutput:
+#       key: "splunk"
+#       value:
+#         host: "https://falco-splunk.<<.SeedIngressDomain>>"
+#         token: "<<.ServiceAccountToken>>"
+#         checkcert: true

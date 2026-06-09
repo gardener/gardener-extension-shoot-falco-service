@@ -5,7 +5,9 @@
 package cmd
 
 import (
+	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/validator"
@@ -14,7 +16,11 @@ import (
 // GardenWebhookSwitchOptions are the webhookcmd.SwitchOptions for the admission webhooks.
 func GardenWebhookSwitchOptions() *webhookcmd.SwitchOptions {
 	return webhookcmd.NewSwitchOptions(
-		webhookcmd.Switch(validator.ValidatorName, validator.New),
-		webhookcmd.Switch(mutator.MutatorName, mutator.New),
+		webhookcmd.Switch(validator.ValidatorName, func(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+			return validator.New(mgr, nil)
+		}),
+		webhookcmd.Switch(mutator.MutatorName, func(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+			return mutator.New(mgr, nil)
+		}),
 	)
 }

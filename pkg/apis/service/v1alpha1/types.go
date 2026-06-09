@@ -47,6 +47,7 @@ type FalcoServiceConfig struct {
 
 type Destination struct {
 	Name               string  `json:"name,omitempty"`
+	Enabled            *bool   `json:"enabled,omitempty"`
 	ResourceSecretName *string `json:"resourceSecretName,omitempty"`
 }
 

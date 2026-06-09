@@ -665,14 +665,15 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 	})
 
 	It("verify event destinations", func(ctx SpecContext) {
+		s := &shoot{}
 		falcoConf := &service.FalcoServiceConfig{
 			Destinations: nil,
 		}
-		err := verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err := s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Nil destinations not detected")
 
 		falcoConf.Destinations = []service.Destination{}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
 		falcoConf.Destinations = []service.Destination{
@@ -680,11 +681,11 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: "abcdgarbage",
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Invalid destination was accepted")
 
 		falcoConf.Destinations = []service.Destination{}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
 		falcoConf.Destinations = []service.Destination{
@@ -692,11 +693,11 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationCentral,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Valid destination was not accepted")
 
 		falcoConf.Destinations = []service.Destination{}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Empty destinations not detected")
 
 		falcoConf.Destinations = []service.Destination{
@@ -707,7 +708,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationCentral,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Dublicate destination was accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -721,7 +722,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationLogging,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Three destinations were not accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -738,20 +739,20 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationOTLP,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
-		Expect(err).NotTo(BeNil(), "Four destinations were accepted")
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
+		Expect(err).To(BeNil(), "Four destinations should be accepted")
 
 		falcoConf.Destinations = []service.Destination{
 			{Name: constants.FalcoEventDestinationLogging},
 			{Name: constants.FalcoEventDestinationCustom},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "logging+custom destinations were accepted")
 
 		falcoConf.Destinations = []service.Destination{
 			{Name: constants.FalcoEventDestinationCustom},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Custom destinations w/o ref was accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -763,7 +764,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationStdout,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "False custom destinations was accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -775,7 +776,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationStdout,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Correct custom destinations was not accepted")
 
 		// Splunk destination tests
@@ -784,7 +785,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationSplunk,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Splunk destination without secret ref was accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -793,7 +794,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				ResourceSecretName: stringValue("non-existing-splunk-secret"),
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).NotTo(BeNil(), "Splunk destination with non-existent secret was accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -802,7 +803,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				ResourceSecretName: stringValue("my-custom-webhook-ref"),
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Splunk destination with valid secret was not accepted")
 
 		falcoConf.Destinations = []service.Destination{
@@ -817,7 +818,7 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationLogging,
 			},
 		}
-		err = verifyEventDestinations(falcoConf, genericShootWithSecret)
+		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)
 		Expect(err).To(BeNil(), "Splunk with two other destinations was not accepted")
 	})
 
@@ -1094,5 +1095,88 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("unknown event destination: logging"))
 		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"))
+	})
+
+	Context("global default destinations", func() {
+		It("should accept a destination whose name is a global default", func() {
+			s := &shoot{
+				globalDefaultKeys: map[string]string{
+					"central-splunk": "splunk",
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "central-splunk"},
+				},
+			}
+			err := s.verifyEventDestinations(falcoConf, genericShootWithSecret)
+			Expect(err).To(BeNil())
+		})
+
+		It("should reject an unknown destination not in global defaults", func() {
+			s := &shoot{
+				globalDefaultKeys: map[string]string{
+					"central-splunk": "splunk",
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "unknown-thing"},
+				},
+			}
+			err := s.verifyEventDestinations(falcoConf, genericShootWithSecret)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unknown event destination"))
+		})
+
+		It("should detect output key conflict between standard and global default", func() {
+			s := &shoot{
+				globalDefaultKeys: map[string]string{
+					"central-splunk": "splunk",
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: constants.FalcoEventDestinationSplunk, ResourceSecretName: stringValue("my-splunk-secret")},
+					{Name: "central-splunk"},
+				},
+			}
+			err := s.verifyEventDestinations(falcoConf, genericShootWithSecret)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("same output key"))
+		})
+
+		It("should skip disabled destinations in output key conflict check", func() {
+			s := &shoot{
+				globalDefaultKeys: map[string]string{
+					"central-splunk": "splunk",
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: constants.FalcoEventDestinationSplunk, Enabled: boolValue(false), ResourceSecretName: stringValue("my-splunk-secret")},
+					{Name: "central-splunk"},
+				},
+			}
+			err := s.verifyEventDestinations(falcoConf, genericShootWithSecret)
+			Expect(err).To(BeNil())
+		})
+
+		It("should allow multiple global defaults with different output keys", func() {
+			s := &shoot{
+				globalDefaultKeys: map[string]string{
+					"central-splunk":  "splunk",
+					"central-elastic": "elasticsearch",
+				},
+			}
+			falcoConf := &service.FalcoServiceConfig{
+				Destinations: []service.Destination{
+					{Name: "central-splunk"},
+					{Name: "central-elastic"},
+				},
+			}
+			err := s.verifyEventDestinations(falcoConf, genericShootWithSecret)
+			Expect(err).To(BeNil())
+		})
 	})
 })
