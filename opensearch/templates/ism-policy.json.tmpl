@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "description": "Daily rollover with {{RETENTION}}d retention for {{PREFIX}} indices",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          {
+            "rollover": {
+              "min_index_age": "1d"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "{{RETENTION}}d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {
+        "index_patterns": ["{{PREFIX}}-*-*"],
+        "priority": 100
+      }
+    ]
+  }
+}
