@@ -648,7 +648,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 
 		os.Setenv("GODEBUG", "rsa1024min=0") // allow smaller keysize for testing
@@ -1178,7 +1178,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 			URL:                   url,
 		}
 
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 
 		os.Setenv("GODEBUG", "rsa1024min=0") // allow smaller keysize for testing
@@ -1290,7 +1290,7 @@ var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 	})
 
@@ -1325,7 +1325,7 @@ var _ = Describe("Getter for Falco rules", Label("falcovalues"), func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 	})
 
 	It("can identify falco version and rules mismatches", func(ctx SpecContext) {
@@ -1343,7 +1343,7 @@ var _ = Describe("loadRulesFromRulesFiles", func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 	})
 
@@ -1516,7 +1516,7 @@ var _ = Describe("BuildFalcoValues", func() {
 		fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 		tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 		Expect(err).To(BeNil())
-		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+		configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 		logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 	})
 
@@ -1648,7 +1648,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 			Expect(err).To(BeNil())
-			configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, extensionConfiguration, falcoProfileManager)
+			configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
 			logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
 		})
 
@@ -1959,7 +1959,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 			Expect(err).NotTo(HaveOccurred())
-			builder := NewConfigBuilder(fakeclient, tokenIssuer, configWithGlobalDefault, falcoProfileManager)
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configWithGlobalDefault, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
@@ -2004,7 +2004,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
 			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
 			Expect(err).NotTo(HaveOccurred())
-			builder := NewConfigBuilder(fakeclient, tokenIssuer, configWithoutGlobalDefaults, falcoProfileManager)
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configWithoutGlobalDefaults, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
@@ -2032,6 +2032,169 @@ var _ = Describe("BuildFalcoValues", func() {
 			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 			Expect(sidekickConfig).To(HaveKey("loki"))
 			Expect(sidekickConfig).NotTo(HaveKey("nonexistent-destination"))
+		})
+
+		It("should replace <<.ClusterIdentityToken>> placeholder when issuer is configured", func(ctx SpecContext) {
+			webhookValue := `{"address":"http://echo.example.com","customheaders":{"Authorization":"Bearer <<.ClusterIdentityToken>>"}}`
+			configWithToken := &config.Configuration{
+				Falco: &config.Falco{
+					PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
+					CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
+					CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
+					GlobalDefaultDestinations: []config.GlobalDefaultDestination{
+						{
+							Name: "token-dest",
+							FalcosidekickOutput: config.FalcosidekickOutput{
+								Key:   "webhook",
+								Value: &runtime.RawExtension{Raw: []byte(webhookValue)},
+							},
+						},
+					},
+				},
+			}
+
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).NotTo(HaveOccurred())
+			clusterIdentityTokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: 7 * 24 * time.Hour})
+			Expect(err).NotTo(HaveOccurred())
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, clusterIdentityTokenIssuer, configWithToken, falcoProfileManager)
+
+			falcoConf := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: []string{"falco-rules"},
+				},
+				Destinations: []service.Destination{
+					{Name: "token-dest"},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: falcoConf,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			Expect(sidekickConfig).To(HaveKey("webhook"))
+
+			webhook := sidekickConfig["webhook"].(map[string]interface{})
+			Expect(webhook["address"]).To(Equal("http://echo.example.com"))
+
+			customHeaders := webhook["customheaders"].(map[string]interface{})
+			authHeader := customHeaders["Authorization"].(string)
+			Expect(authHeader).To(HavePrefix("Bearer ey"))
+			Expect(authHeader).NotTo(ContainSubstring("<<.ClusterIdentityToken>>"))
+		})
+
+		It("should replace <<.SeedIngressDomain>> placeholder", func(ctx SpecContext) {
+			webhookValue := `{"address":"https://ingestor.<<.SeedIngressDomain>>/ingest"}`
+			configWithDomain := &config.Configuration{
+				Falco: &config.Falco{
+					PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
+					CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
+					CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
+					GlobalDefaultDestinations: []config.GlobalDefaultDestination{
+						{
+							Name: "domain-dest",
+							FalcosidekickOutput: config.FalcosidekickOutput{
+								Key:   "webhook",
+								Value: &runtime.RawExtension{Raw: []byte(webhookValue)},
+							},
+						},
+					},
+				},
+			}
+
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).NotTo(HaveOccurred())
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configWithDomain, falcoProfileManager)
+
+			falcoConf := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: []string{"falco-rules"},
+				},
+				Destinations: []service.Destination{
+					{Name: "domain-dest"},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: falcoConf,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			webhook := sidekickConfig["webhook"].(map[string]interface{})
+			Expect(webhook["address"]).To(Equal("https://ingestor.seed-mock-ingress.com/ingest"))
+		})
+
+		It("should skip destination when <<.ClusterIdentityToken>> is used but issuer is not configured", func(ctx SpecContext) {
+			webhookValue := `{"address":"http://echo.example.com","customheaders":{"Authorization":"Bearer <<.ClusterIdentityToken>>"}}`
+			configNoIssuer := &config.Configuration{
+				Falco: &config.Falco{
+					PriorityClassName:     stringValue("falco-test-priority-dummy-classname"),
+					CertificateLifetime:   &metav1.Duration{Duration: constants.DefaultCertificateLifetime},
+					CertificateRenewAfter: &metav1.Duration{Duration: constants.DefaultCertificateRenewAfter},
+					GlobalDefaultDestinations: []config.GlobalDefaultDestination{
+						{
+							Name: "token-no-issuer",
+							FalcosidekickOutput: config.FalcosidekickOutput{
+								Key:   "webhook",
+								Value: &runtime.RawExtension{Raw: []byte(webhookValue)},
+							},
+						},
+					},
+				},
+			}
+
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).NotTo(HaveOccurred())
+			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configNoIssuer, falcoProfileManager)
+
+			falcoConf := &service.FalcoServiceConfig{
+				FalcoVersion: stringValue("0.38.0"),
+				Rules: &service.Rules{
+					StandardRules: []string{"falco-rules"},
+				},
+				Destinations: []service.Destination{
+					{Name: "logging"},
+					{Name: "token-no-issuer"},
+				},
+			}
+
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: falcoConf,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+			}
+
+			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			Expect(sidekickConfig).To(HaveKey("loki"))
+			Expect(sidekickConfig).NotTo(HaveKey("webhook"))
 		})
 	})
 })

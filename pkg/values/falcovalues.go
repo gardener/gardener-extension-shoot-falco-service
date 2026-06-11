@@ -45,10 +45,11 @@ func init() {
 }
 
 type ConfigBuilder struct {
-	client      client.Client
-	config      *config.Configuration
-	tokenIssuer *secrets.TokenIssuer
-	profile     *profile.FalcoProfileManager
+	client                     client.Client
+	config                     *config.Configuration
+	tokenIssuer                *secrets.TokenIssuer
+	clusterIdentityTokenIssuer *secrets.TokenIssuer
+	profile                    *profile.FalcoProfileManager
 }
 
 type customRulesFile struct {
@@ -65,12 +66,13 @@ type falcoOutputConfig struct {
 	value map[string]interface{}
 }
 
-func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, config *config.Configuration, profile *profile.FalcoProfileManager) *ConfigBuilder {
+func NewConfigBuilder(client client.Client, tokenIssuer *secrets.TokenIssuer, clusterIdentityTokenIssuer *secrets.TokenIssuer, config *config.Configuration, profile *profile.FalcoProfileManager) *ConfigBuilder {
 	return &ConfigBuilder{
-		client:      client,
-		config:      config,
-		tokenIssuer: tokenIssuer,
-		profile:     profile,
+		client:                     client,
+		config:                     config,
+		tokenIssuer:                tokenIssuer,
+		clusterIdentityTokenIssuer: clusterIdentityTokenIssuer,
+		profile:                    profile,
 	}
 }
 
@@ -1141,14 +1143,37 @@ func (c *ConfigBuilder) renderGlobalDefaultDestination(name string, reconcileCtx
 		return nil, fmt.Errorf("global default destination %s has no value", name)
 	}
 
-	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(gd.FalcosidekickOutput.Value.Raw))
+	// Convert JSON Raw bytes to YAML for template processing.
+	// Go's json.Marshal escapes < and > as < / >, which prevents
+	// the text/template parser from recognizing << >> delimiters.
+	var rawObj interface{}
+	if err := yaml.Unmarshal(gd.FalcosidekickOutput.Value.Raw, &rawObj); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal raw value for global default destination %s: %w", name, err)
+	}
+	yamlBytes, err := yaml.Marshal(rawObj)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse template for global default destination %s: %w", name, err)
+		return nil, fmt.Errorf("failed to marshal value to YAML for global default destination %s: %w", name, err)
 	}
 
+	templateStr := string(yamlBytes)
 	data := map[string]string{
 		"SeedIngressDomain":   reconcileCtx.SeedIngressDomain,
 		"ServiceAccountToken": "SA_TOKEN",
+	}
+
+	if c.clusterIdentityTokenIssuer != nil && reconcileCtx.ClusterIdentity != nil {
+		token, err := c.clusterIdentityTokenIssuer.IssueClusterIdentityToken(*reconcileCtx.ClusterIdentity)
+		if err != nil {
+			return nil, fmt.Errorf("failed to issue cluster identity token for destination %s: %w", name, err)
+		}
+		data["ClusterIdentityToken"] = token
+	} else if strings.Contains(templateStr, "<<.ClusterIdentityToken>>") {
+		return nil, fmt.Errorf("global default destination %s uses <<.ClusterIdentityToken>> but clusterIdentityToken is not configured", name)
+	}
+
+	tmpl, err := template.New("").Delims("<<", ">>").Parse(templateStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template for global default destination %s: %w", name, err)
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
