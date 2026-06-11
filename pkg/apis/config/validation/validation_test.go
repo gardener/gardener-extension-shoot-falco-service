@@ -5,6 +5,10 @@
 package validation_test
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +23,15 @@ import (
 func TestValidation(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Config Validation Suite")
+}
+
+func generateTestRSAKey() string {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	Expect(err).NotTo(HaveOccurred())
+	return string(pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	}))
 }
 
 var _ = Describe("ValidateConfiguration", func() {
@@ -96,5 +109,77 @@ var _ = Describe("ValidateConfiguration", func() {
 				"Field": Equal("falco.globalDefaultDestinations[1].falcosidekickOutput.key"),
 			})),
 		))
+	})
+
+	Describe("ClusterIdentityToken validation", func() {
+		It("should pass when clusterIdentityToken is nil", func() {
+			conf := &config.Configuration{
+				Falco: &config.Falco{},
+			}
+			Expect(ValidateConfiguration(conf)).To(BeEmpty())
+		})
+
+		It("should pass for valid private key", func() {
+			conf := &config.Configuration{
+				Falco: &config.Falco{
+					ClusterIdentityToken: &config.ClusterIdentityTokenConfig{
+						TokenIssuerPrivateKey: generateTestRSAKey(),
+					},
+				},
+			}
+			Expect(ValidateConfiguration(conf)).To(BeEmpty())
+		})
+
+		It("should reject empty private key", func() {
+			conf := &config.Configuration{
+				Falco: &config.Falco{
+					ClusterIdentityToken: &config.ClusterIdentityTokenConfig{
+						TokenIssuerPrivateKey: "",
+					},
+				},
+			}
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("falco.clusterIdentityToken.tokenIssuerPrivateKey"),
+				})),
+			))
+		})
+
+		It("should reject invalid PEM data", func() {
+			conf := &config.Configuration{
+				Falco: &config.Falco{
+					ClusterIdentityToken: &config.ClusterIdentityTokenConfig{
+						TokenIssuerPrivateKey: "not-a-valid-pem-key",
+					},
+				},
+			}
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("falco.clusterIdentityToken.tokenIssuerPrivateKey"),
+				})),
+			))
+		})
+
+		It("should reject PEM with wrong block type", func() {
+			wrongTypePEM := string(pem.EncodeToMemory(&pem.Block{
+				Type:  "EC PRIVATE KEY",
+				Bytes: []byte("fake-key-data"),
+			}))
+			conf := &config.Configuration{
+				Falco: &config.Falco{
+					ClusterIdentityToken: &config.ClusterIdentityTokenConfig{
+						TokenIssuerPrivateKey: wrongTypePEM,
+					},
+				},
+			}
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("falco.clusterIdentityToken.tokenIssuerPrivateKey"),
+				})),
+			))
+		})
 	})
 })

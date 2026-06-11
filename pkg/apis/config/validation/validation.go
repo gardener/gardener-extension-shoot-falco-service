@@ -5,6 +5,9 @@
 package validation
 
 import (
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"slices"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -29,7 +32,37 @@ func validateFalco(falco *config.Falco, fldPath *field.Path) field.ErrorList {
 
 	allErrs = append(allErrs, validateGlobalDefaultDestinations(falco.GlobalDefaultDestinations, fldPath.Child("globalDefaultDestinations"))...)
 
+	if falco.ClusterIdentityToken != nil {
+		allErrs = append(allErrs, validateClusterIdentityToken(falco.ClusterIdentityToken, fldPath.Child("clusterIdentityToken"))...)
+	}
+
 	return allErrs
+}
+
+func validateClusterIdentityToken(cfg *config.ClusterIdentityTokenConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if cfg.TokenIssuerPrivateKey == "" {
+		allErrs = append(allErrs, field.Required(fldPath.Child("tokenIssuerPrivateKey"), "must be set when clusterIdentityToken is configured"))
+		return allErrs
+	}
+
+	if err := validateRSAPrivateKey(cfg.TokenIssuerPrivateKey); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("tokenIssuerPrivateKey"), "<redacted>", err.Error()))
+	}
+
+	return allErrs
+}
+
+func validateRSAPrivateKey(keyPEM string) error {
+	block, _ := pem.Decode([]byte(keyPEM))
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return fmt.Errorf("must be a PEM-encoded RSA private key (expected block type \"RSA PRIVATE KEY\")")
+	}
+	if _, err := x509.ParsePKCS1PrivateKey(block.Bytes); err != nil {
+		return fmt.Errorf("failed to parse RSA private key: %w", err)
+	}
+	return nil
 }
 
 func validateGlobalDefaultDestinations(gds []config.GlobalDefaultDestination, fldPath *field.Path) field.ErrorList {
