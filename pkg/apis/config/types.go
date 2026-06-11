@@ -31,6 +31,9 @@ type Falco struct {
 	// Central storage configuration
 	CentralStorage *CentralStorageConfig
 
+	// Cluster identity token configuration for global default destinations
+	ClusterIdentityToken *ClusterIdentityTokenConfig
+
 	// Lifetime of the CA certificates
 	// (Falco - Falcosidekick communication)
 	CertificateLifetime *metav1.Duration
@@ -75,4 +78,14 @@ type CentralStorageConfig struct {
 
 	// Enabled ?
 	Enabled bool
+}
+
+// ClusterIdentityTokenConfig holds configuration for issuing per-shoot JWT tokens
+// used as template variable in global default destinations
+type ClusterIdentityTokenConfig struct {
+	// Private key (PEM-encoded RSA) for signing cluster identity tokens
+	TokenIssuerPrivateKey string
+
+	// Lifetime of the issued token
+	TokenLifetime *metav1.Duration
 }
