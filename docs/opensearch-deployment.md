@@ -36,25 +36,23 @@ falcosidekick → landing index (e.g. "falco-events")
 ```bash
 # Deploy everything for a landscape (shared resources + landscape-specific):
 ./opensearch/deploy.sh \
-    --host backend-sf-XXXX.example.com \
-    --dashboards-host dashboards-sf-XXXX.example.com \
+    --host opensearch.example.com \
+    --dashboards-host dashboards.example.com \
     --user admin --pass-file ./secret.txt \
-    --prefix falco --landscape staging \
-    --landing-index falco-events
+    --prefix falco --landscape staging
 
 # Deploy combined tenant (read access across all landscapes):
 ./opensearch/deploy.sh \
-    --host backend-sf-XXXX.example.com \
-    --dashboards-host dashboards-sf-XXXX.example.com \
+    --host opensearch.example.com \
+    --dashboards-host dashboards.example.com \
     --user admin --pass-file ./secret.txt \
     --prefix falco --combined
 
 # Deploy shared resources only (pipeline, template, ISM policy, shared writer role):
 ./opensearch/deploy.sh \
-    --host backend-sf-XXXX.example.com \
+    --host opensearch.example.com \
     --user admin --pass-file ./secret.txt \
-    --prefix falco --shared-only \
-    --landing-index falco-events
+    --prefix falco --shared-only
 ```
 
 ### Parameters
@@ -69,7 +67,6 @@ falcosidekick → landing index (e.g. "falco-events")
 | `--landscape` | For per-landscape | — | Landscape name (e.g. `staging`, `production`) |
 | `--combined` | Flag | — | Deploy combined tenant (uses `<prefix>-*`) |
 | `--shared-only` | Flag | — | Deploy only shared resources |
-| `--landing-index` | Yes | — | Index falcosidekick writes to |
 | `--retention` | No | 180 | Days before index deletion |
 
 ## What Gets Created
@@ -171,5 +168,78 @@ opensearch/
     ├── role-reader.json.tmpl       # Reader role
     ├── role-writer.json.tmpl       # Writer role
     ├── role-mapping.json.tmpl      # OIDC backend role mapping
-    └── tenant.json.tmpl            # Tenant definition
+    ├── tenant.json.tmpl            # Tenant definition
+    ├── notification-channel.json.tmpl  # Slack notification channel
+    ├── monitor-heartbeat.json.tmpl     # Missing heartbeat monitor
+    └── monitor-critical-events.json.tmpl # Critical/emergency event monitor
 ```
+
+## Alerting
+
+The script can set up Slack-based alerting for a landscape:
+
+```bash
+./opensearch/deploy.sh \
+    --host opensearch.example.com \
+    --user admin --pass-file ./secret.txt \
+    --prefix falco --landscape staging \
+    --setup-alerting --slack-webhook-file ./slack-webhook.txt
+```
+
+This creates:
+
+1. **Missing Heartbeat Monitor** — checks every 10 minutes, alerts if any cluster's last heartbeat is >20 minutes old
+2. **Critical/Emergency Events Monitor** — checks every 5 minutes, alerts on any Critical or Emergency priority events with top rules and clusters in the message
+
+Prerequisites:
+- The landscape must already be deployed (alias must exist)
+- A Slack incoming webhook URL (stored in a file, not committed to git)
+
+## Anomaly Detection
+
+OpenSearch includes a built-in Anomaly Detection plugin (Random Cut Forest algorithm) that learns "normal" patterns and alerts on deviations. This is recommended as a manual setup after sufficient data has been collected.
+
+### Useful Detectors
+
+| Detector | What it catches |
+|----------|----------------|
+| Event volume spike per cluster | Compromised node, misconfigured workload, runaway rule |
+| New rule appearing | New attack pattern, or a rule enabled unexpectedly |
+| Sudden drop to zero events | Falco/falcosidekick silently broken (complements heartbeat monitor) |
+| Spike in a specific priority level | Escalation from mostly Warnings to lots of Criticals |
+
+### Example: Event Volume Spike Detector
+
+Create via Dashboards UI (Anomaly Detection → Create detector) or API:
+
+```json
+POST _plugins/_anomaly_detection/detectors
+{
+  "name": "falco-<landscape>-volume-spike",
+  "description": "Detects unusual event volume per cluster",
+  "indices": ["<prefix>-<landscape>-*"],
+  "time_field": "@timestamp",
+  "detection_interval": { "period": { "interval": 10, "unit": "MINUTES" } },
+  "feature_attributes": [
+    {
+      "feature_name": "event_count",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "event_count": { "value_count": { "field": "@timestamp" } }
+      }
+    }
+  ],
+  "category_field": ["output_fields.cluster_id.keyword"],
+  "window_delay": { "period": { "interval": 2, "unit": "MINUTES" } }
+}
+```
+
+The `category_field` creates a high-cardinality detector — it learns a separate baseline per cluster, so a noisy cluster won't mask anomalies in a quiet one.
+
+### Practical Considerations
+
+- **Requires data history** — needs 1-2 weeks of data to learn what's "normal". Not useful on day one.
+- **False positives** — new clusters, deployments, and legitimate workload changes will trigger it initially. Tuning takes time.
+- **Resource usage** — high-cardinality detectors (per cluster) use more memory. Fine for tens of clusters, monitor carefully with hundreds.
+- **Best created interactively** — the Dashboards UI allows previewing anomaly results before enabling, making it easier to tune thresholds.
+- **Alerting integration** — once a detector is running, create a monitor that queries anomaly results and fires when the anomaly grade exceeds a threshold (e.g. >0.7).

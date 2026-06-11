@@ -1,0 +1,75 @@
+{
+  "type": "monitor",
+  "monitor_type": "bucket_level_monitor",
+  "name": "{{PREFIX}} - Missing Heartbeat ({{LANDSCAPE}})",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 10,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": ["{{PREFIX}}-{{LANDSCAPE}}-*"],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                { "term": { "rule.keyword": "Detect Falco Heartbeat" } },
+                { "range": { "@timestamp": { "gte": "now-1h" } } }
+              ]
+            }
+          },
+          "aggs": {
+            "clusters": {
+              "terms": {
+                "field": "output_fields.cluster_id.keyword",
+                "size": 1000
+              },
+              "aggs": {
+                "last_heartbeat": {
+                  "max": { "field": "@timestamp" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "bucket_level_trigger": {
+        "name": "Heartbeat missing > 20min",
+        "severity": "2",
+        "condition": {
+          "buckets_path": {
+            "last_hb": "last_heartbeat"
+          },
+          "parent_bucket_path": "clusters",
+          "script": {
+            "source": "params.last_hb < Instant.now().toEpochMilli() - 1200000",
+            "lang": "painless"
+          }
+        },
+        "actions": [
+          {
+            "name": "Notify Slack",
+            "destination_id": "{{CHANNEL_ID}}",
+            "throttle_enabled": true,
+            "throttle": {
+              "value": 30,
+              "unit": "MINUTES"
+            },
+            "message_template": {
+              "source": "Falco heartbeat missing for cluster {{ctx.bucket_key}} in landscape {{LANDSCAPE}} (last seen: {{ctx.results.last_hb}})"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
