@@ -13,19 +13,23 @@ HOST=""
 DASHBOARDS_HOST=""
 USER=""
 PASS_FILE=""
-LANDING_INDEX=""
+SLACK_WEBHOOK_URL=""
+SLACK_WEBHOOK_FILE=""
 
 usage() {
     cat <<'EOF'
 Usage:
   deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
-            --landscape <name> [--dashboards-host <host>] [--landing-index <idx>] [--retention <days>]
+            --landscape <name> [--dashboards-host <host>] [--retention <days>]
 
   deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
-            --combined [--dashboards-host <host>] [--landing-index <idx>] [--retention <days>]
+            --combined [--dashboards-host <host>] [--retention <days>]
 
   deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
-            --shared-only [--landing-index <idx>] [--retention <days>]
+            --shared-only [--retention <days>]
+
+  deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
+            --setup-alerting --landscape <name> --slack-webhook-file <file>
 
 Options:
   --host              OpenSearch backend endpoint (required)
@@ -36,7 +40,8 @@ Options:
   --landscape         Landscape name, e.g. 'staging', 'production' (per-landscape mode)
   --combined          Deploy combined tenant with access to all landscapes
   --shared-only       Deploy only shared resources (pipeline, template, ISM, writer role)
-  --landing-index     Index that falcosidekick writes to (for template matching)
+  --setup-alerting    Create Slack notification channel and heartbeat monitor for a landscape
+  --slack-webhook-file Path to file containing the Slack incoming webhook URL (required for --setup-alerting)
   --retention         Days before index deletion (default: 180)
 EOF
     exit 1
@@ -50,10 +55,12 @@ while [[ $# -gt 0 ]]; do
         --user) USER="$2"; shift 2 ;;
         --pass-file) PASS_FILE="$2"; shift 2 ;;
         --prefix) PREFIX="$2"; shift 2 ;;
-        --landscape) LANDSCAPE="$2"; MODE="landscape"; shift 2 ;;
+        --landscape) LANDSCAPE="$2"; if [[ -z "$MODE" ]]; then MODE="landscape"; fi; shift 2 ;;
         --combined) MODE="combined"; shift ;;
         --shared-only) MODE="shared"; shift ;;
-        --landing-index) LANDING_INDEX="$2"; shift 2 ;;
+        --setup-alerting) MODE="alerting"; shift ;;
+        --slack-webhook-file) SLACK_WEBHOOK_FILE="$2"; shift 2 ;;
+        --slack-webhook-url) SLACK_WEBHOOK_URL="$2"; shift 2 ;;
         --retention) RETENTION="$2"; shift 2 ;;
         --help|-h) usage ;;
         *) echo "ERROR: Unknown option: $1"; usage ;;
@@ -65,11 +72,29 @@ done
 [[ -z "$USER" ]] && { echo "ERROR: --user is required"; usage; }
 [[ -z "$PASS_FILE" ]] && { echo "ERROR: --pass-file is required"; usage; }
 [[ -z "$PREFIX" ]] && { echo "ERROR: --prefix is required"; usage; }
-[[ -z "$MODE" ]] && { echo "ERROR: One of --landscape, --combined, or --shared-only is required"; usage; }
+[[ -z "$MODE" ]] && { echo "ERROR: One of --landscape, --combined, --shared-only, or --setup-alerting is required"; usage; }
 
 if [[ "$MODE" == "landscape" && -z "$LANDSCAPE" ]]; then
     echo "ERROR: --landscape requires a landscape name"
     usage
+fi
+
+if [[ "$MODE" == "alerting" ]]; then
+    if [[ -z "$LANDSCAPE" ]]; then
+        echo "ERROR: --setup-alerting requires --landscape"
+        usage
+    fi
+    if [[ -n "$SLACK_WEBHOOK_FILE" ]]; then
+        if [[ ! -f "$SLACK_WEBHOOK_FILE" ]]; then
+            echo "ERROR: Slack webhook file not found: $SLACK_WEBHOOK_FILE"
+            exit 1
+        fi
+        SLACK_WEBHOOK_URL="$(cat "$SLACK_WEBHOOK_FILE")"
+    fi
+    if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
+        echo "ERROR: --setup-alerting requires --slack-webhook-file or --slack-webhook-url"
+        usage
+    fi
 fi
 
 # Read password from file
@@ -189,13 +214,24 @@ deploy_shared() {
         "PREFIX" "$PREFIX")
     os_api PUT "_index_template/${PREFIX}-template" "$template_body"
 
-    # 3. ISM policy
+    # 3. ISM policy (requires seq_no/primary_term for updates)
     echo -n "  Creating ISM policy '$PREFIX-rollover'..."
     local ism_body
     ism_body=$(render_template "$TEMPLATES_DIR/ism-policy.json.tmpl" \
         "PREFIX" "$PREFIX" \
         "RETENTION" "$RETENTION")
-    os_api PUT "_plugins/_ism/policies/${PREFIX}-rollover" "$ism_body"
+
+    local ism_response
+    ism_response=$(curl -s -X GET -u "$USER:$PASS" -H "Content-Type: application/json" "$HOST/_plugins/_ism/policies/${PREFIX}-rollover")
+    local seq_no primary_term
+    seq_no=$(echo "$ism_response" | jq -r '._seq_no // empty')
+    primary_term=$(echo "$ism_response" | jq -r '._primary_term // empty')
+
+    if [[ -n "$seq_no" && -n "$primary_term" ]]; then
+        os_api PUT "_plugins/_ism/policies/${PREFIX}-rollover?if_seq_no=${seq_no}&if_primary_term=${primary_term}" "$ism_body"
+    else
+        os_api PUT "_plugins/_ism/policies/${PREFIX}-rollover" "$ism_body"
+    fi
 
     # 4. Shared writer role
     echo -n "  Creating shared writer role '${PREFIX}_writer'..."
@@ -268,7 +304,7 @@ deploy_landscape() {
     os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_${LANDSCAPE}_writer" "$writer_mapping"
 
     # 6. Dashboard deployment
-    deploy_dashboards "${PREFIX}_${LANDSCAPE}" "${PREFIX}-${LANDSCAPE}-*"
+    deploy_dashboards "${PREFIX}_${LANDSCAPE}" "${PREFIX}-${LANDSCAPE}-*" "$LANDSCAPE"
 
     echo "=== Landscape '$LANDSCAPE' deployed ==="
     echo ""
@@ -300,7 +336,7 @@ deploy_combined() {
     os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_combined_reader" "$mapping_body"
 
     # 4. Dashboard deployment
-    deploy_dashboards "${PREFIX}_combined" "${PREFIX}-*"
+    deploy_dashboards "${PREFIX}_combined" "${PREFIX}-*" "combined"
 
     echo "=== Combined tenant deployed ==="
     echo ""
@@ -324,7 +360,7 @@ deploy_dashboards() {
     fi
 
     local tmp_file
-    tmp_file=$(mktemp)
+    tmp_file=$(mktemp --suffix=.ndjson)
     trap "rm -f $tmp_file" RETURN
 
     # Process dashboard NDJSON:
@@ -332,13 +368,18 @@ deploy_dashboards() {
     # 2. Replace index pattern ID with a deterministic one
     # 3. Strip fieldFormatMap (contains instance-specific URLs from export)
     # 4. Update all internal references to the new pattern ID
+    # 5. Add landscape/tenant name to dashboard title
     local pattern_id="${tenant}-pattern"
+    local display_name="${3:-combined}"
 
     jq -c '
         if .type == "index-pattern" then
             .id = "'"$pattern_id"'" |
             .attributes.title = "'"$index_pattern_title"'" |
             .attributes.fieldFormatMap = "{}"
+        elif .type == "dashboard" then
+            .attributes.title = (.attributes.title + " ('"$display_name"')") |
+            (if .references then .references = [.references[] | if .type == "index-pattern" then .id = "'"$pattern_id"'" else . end] else . end)
         elif .references then
             .references = [.references[] | if .type == "index-pattern" then .id = "'"$pattern_id"'" else . end]
         else
@@ -349,14 +390,138 @@ deploy_dashboards() {
     echo -n "    Importing saved objects..."
     dashboards_api POST "api/saved_objects/_import?overwrite=true" "$tenant" "$tmp_file"
 
+    # Import saved searches (merged with index pattern so references resolve)
+    local searches_source="$TEMPLATES_DIR/saved-searches.ndjson"
+    if [[ ! -f "$searches_source" ]]; then
+        echo "    ERROR: $searches_source not found"
+        exit 1
+    fi
+
+    local tmp_searches
+    tmp_searches=$(mktemp --suffix=.ndjson)
+
+    # Include the index pattern line first, then the searches with updated references
+    jq -c '
+        if .type == "index-pattern" then
+            .id = "'"$pattern_id"'" |
+            .attributes.title = "'"$index_pattern_title"'" |
+            .attributes.fieldFormatMap = "{}"
+        else
+            empty
+        end
+    ' "$dashboard_source" > "$tmp_searches"
+
+    jq -c '
+        .references = [.references[] | if .type == "index-pattern" then .id = "'"$pattern_id"'" else . end]
+    ' "$searches_source" >> "$tmp_searches"
+
+    echo -n "    Importing saved searches..."
+    dashboards_api POST "api/saved_objects/_import?overwrite=true" "$tenant" "$tmp_searches"
+
+    rm -f "$tmp_searches"
     rm -f "$tmp_file"
     trap - RETURN
 }
 
+deploy_alerting() {
+    echo "=== Setting up alerting for landscape: $LANDSCAPE (prefix: $PREFIX) ==="
+
+    # Verify the landscape index/alias exists
+    echo -n "  Checking landscape alias '$PREFIX-$LANDSCAPE' exists..."
+    if ! os_api GET "_alias/${PREFIX}-${LANDSCAPE}" >/dev/null 2>&1; then
+        echo "  ERROR: Alias '${PREFIX}-${LANDSCAPE}' does not exist. Deploy the landscape first."
+        exit 1
+    fi
+    echo "  OK"
+
+    # Verify heartbeat events exist in this landscape
+    echo -n "  Checking for heartbeat events in '${PREFIX}-${LANDSCAPE}-*'..."
+    local check_response
+    check_response=$(curl -s -X POST -u "$USER:$PASS" -H "Content-Type: application/json" \
+        "$HOST/${PREFIX}-${LANDSCAPE}-*/_search" \
+        -d '{"size":0,"query":{"bool":{"filter":[{"term":{"rule.keyword":"Detect Falco Heartbeat"}}]}},"aggs":{"total":{"value_count":{"field":"@timestamp"}}}}')
+    local hb_count
+    hb_count=$(echo "$check_response" | jq -r '.aggregations.total.value // 0')
+    if [[ "$hb_count" == "0" ]]; then
+        echo "  WARNING: No heartbeat events found in '${PREFIX}-${LANDSCAPE}-*'. Monitor will not trigger until heartbeats arrive."
+    else
+        echo "  OK ($hb_count heartbeat events found)"
+    fi
+
+    # 1. Create or update notification channel
+    local channel_id="${PREFIX}-${LANDSCAPE}-slack"
+    echo -n "  Creating notification channel '$channel_id'..."
+    local channel_body
+    channel_body=$(render_template "$TEMPLATES_DIR/notification-channel.json.tmpl" \
+        "CHANNEL_ID" "$channel_id" \
+        "PREFIX" "$PREFIX" \
+        "SLACK_WEBHOOK_URL" "$SLACK_WEBHOOK_URL")
+    os_api POST "_plugins/_notifications/configs" "$channel_body" || \
+    os_api PUT "_plugins/_notifications/configs/$channel_id" "$channel_body"
+
+    # 2. Create heartbeat monitor
+    # Check if monitor already exists (by name)
+    local monitor_name="${PREFIX} - Missing Heartbeat (${LANDSCAPE})"
+    echo -n "  Checking for existing monitor '$monitor_name'..."
+    local existing_monitor
+    existing_monitor=$(curl -s -X POST -u "$USER:$PASS" -H "Content-Type: application/json" \
+        "$HOST/_plugins/_alerting/monitors/_search" \
+        -d "{\"query\":{\"term\":{\"monitor.name.keyword\":\"$monitor_name\"}}}")
+    local monitor_id
+    monitor_id=$(echo "$existing_monitor" | jq -r '.hits.hits[0]._id // empty')
+
+    local monitor_body
+    monitor_body=$(render_template "$TEMPLATES_DIR/monitor-heartbeat.json.tmpl" \
+        "PREFIX" "$PREFIX" \
+        "LANDSCAPE" "$LANDSCAPE" \
+        "CHANNEL_ID" "$channel_id")
+
+    if [[ -n "$monitor_id" ]]; then
+        echo " found ($monitor_id), updating..."
+        echo -n "  Updating monitor..."
+        os_api PUT "_plugins/_alerting/monitors/$monitor_id" "$monitor_body"
+    else
+        echo " not found, creating..."
+        echo -n "  Creating monitor..."
+        os_api POST "_plugins/_alerting/monitors" "$monitor_body"
+    fi
+
+    # 3. Create critical/emergency events monitor
+    local critical_monitor_name="${PREFIX} - Critical/Emergency Events (${LANDSCAPE})"
+    echo -n "  Checking for existing monitor '$critical_monitor_name'..."
+    local existing_critical
+    existing_critical=$(curl -s -X POST -u "$USER:$PASS" -H "Content-Type: application/json" \
+        "$HOST/_plugins/_alerting/monitors/_search" \
+        -d "{\"query\":{\"term\":{\"monitor.name.keyword\":\"$critical_monitor_name\"}}}")
+    local critical_monitor_id
+    critical_monitor_id=$(echo "$existing_critical" | jq -r '.hits.hits[0]._id // empty')
+
+    local critical_body
+    critical_body=$(render_template "$TEMPLATES_DIR/monitor-critical-events.json.tmpl" \
+        "PREFIX" "$PREFIX" \
+        "LANDSCAPE" "$LANDSCAPE" \
+        "CHANNEL_ID" "$channel_id")
+
+    if [[ -n "$critical_monitor_id" ]]; then
+        echo " found ($critical_monitor_id), updating..."
+        echo -n "  Updating monitor..."
+        os_api PUT "_plugins/_alerting/monitors/$critical_monitor_id" "$critical_body"
+    else
+        echo " not found, creating..."
+        echo -n "  Creating monitor..."
+        os_api POST "_plugins/_alerting/monitors" "$critical_body"
+    fi
+
+    echo "=== Alerting setup complete ==="
+    echo ""
+}
+
 # --- Main execution ---
 
-# Always deploy shared resources first (idempotent)
-deploy_shared
+# Deploy shared resources first (idempotent) unless in alerting mode
+if [[ "$MODE" != "alerting" ]]; then
+    deploy_shared
+fi
 
 case "$MODE" in
     landscape)
@@ -367,6 +532,9 @@ case "$MODE" in
         ;;
     shared)
         echo "Shared-only mode: done."
+        ;;
+    alerting)
+        deploy_alerting
         ;;
 esac
 
