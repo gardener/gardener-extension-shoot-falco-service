@@ -13,6 +13,5 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 }
 
 // SetDefaults_Configuration sets default values for Configuration objects.
-func SetDefaults_Configuration(obj *Configuration) {
-
+func SetDefaults_Configuration(_ *Configuration) {
 }
