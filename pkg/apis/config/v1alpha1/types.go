@@ -33,6 +33,10 @@ type Falco struct {
 	// Central storage configuration
 	CentralStorage *CentralStorageConfig `json:"centralStorage,omitempty"`
 
+	// Cluster identity token configuration for global default destinations
+	// +optional
+	ClusterIdentityToken *ClusterIdentityTokenConfig `json:"clusterIdentityToken,omitempty"`
+
 	// Lifetime of the CA certificates
 	// +optional
 	CertificateLifetime *metav1.Duration `json:"certificateLifetime,omitempty"`
@@ -83,4 +87,16 @@ type CentralStorageConfig struct {
 	// Central storage configuration enabled
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+// ClusterIdentityTokenConfig holds configuration for issuing per-shoot JWT tokens
+// used as template variable in global default destinations
+type ClusterIdentityTokenConfig struct {
+	// Private key (PEM-encoded RSA) for signing cluster identity tokens
+	// +optional
+	TokenIssuerPrivateKey string `json:"tokenIssuerPrivateKey,omitempty"`
+
+	// Lifetime of the issued token
+	// +optional
+	TokenLifetime *metav1.Duration `json:"tokenLifetime,omitempty"`
 }

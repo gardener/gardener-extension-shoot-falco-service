@@ -66,7 +66,19 @@ func NewActuator(mgr manager.Manager, config config.Configuration) (extension.Ac
 			return nil, err
 		}
 	}
-	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, &config, profile.FalcoProfileManagerInstance)
+
+	var clusterIdentityTokenIssuer *secrets.TokenIssuer
+	if config.Falco.ClusterIdentityToken != nil && config.Falco.ClusterIdentityToken.TokenIssuerPrivateKey != "" {
+		var err error
+		if clusterIdentityTokenIssuer, err = secrets.NewTokenIssuer(
+			config.Falco.ClusterIdentityToken.TokenIssuerPrivateKey,
+			config.Falco.ClusterIdentityToken.TokenLifetime,
+		); err != nil {
+			return nil, fmt.Errorf("failed to create cluster identity token issuer: %w", err)
+		}
+	}
+
+	configBuilder := values.NewConfigBuilder(mgr.GetClient(), tokenIssuer, clusterIdentityTokenIssuer, &config, profile.FalcoProfileManagerInstance)
 
 	gardenRESTConfig, err := kubernetes.RESTConfigFromKubeconfigFile(os.Getenv("GARDEN_KUBECONFIG"), kubernetes.AuthTokenFile)
 	if err != nil {
@@ -122,6 +134,15 @@ func setConfigDefaults(config config.Configuration) {
 			config.Falco.CentralStorage.TokenLifetime =
 				&metav1.Duration{
 					Duration: constants.DefaultTokenLifetime,
+				}
+		}
+	}
+
+	if config.Falco.ClusterIdentityToken != nil {
+		if config.Falco.ClusterIdentityToken.TokenLifetime == nil {
+			config.Falco.ClusterIdentityToken.TokenLifetime =
+				&metav1.Duration{
+					Duration: constants.DefaultClusterIdentityTokenLifetime,
 				}
 		}
 	}

@@ -21,6 +21,11 @@ falco:
     tokenIssuerPrivateKey: |
       -----BEGIN RSA PRIVATE KEY-----
       ...
+  clusterIdentityToken:
+    tokenIssuerPrivateKey: |
+      -----BEGIN RSA PRIVATE KEY-----
+      ...
+    tokenLifetime: "168h"
   globalDefaultDestinations:
   - name: central-splunk
     falcosidekickOutput:
@@ -47,6 +52,9 @@ falco:
   - `tokenLifetime`: Lifetime of the JWT token generated during each reconcile for sending events to central storage.
   - `url`: URL of the Falco event ingestor.
   - `tokenIssuerPrivateKey`: Private key used for issuing the JWT token.
+- `clusterIdentityToken`: Optional configuration for per-shoot JWT tokens used with the `<<.ClusterIdentityToken>>` template variable in global default destinations.
+  - `tokenIssuerPrivateKey`: PEM-encoded RSA private key for signing tokens.
+  - `tokenLifetime`: Lifetime of the issued token (default: 168h / 7 days).
 - `globalDefaultDestinations`: Optional list of operator-provided Falcosidekick output destinations (see below).
 
 ## Central Storage
@@ -81,6 +89,7 @@ The `falcosidekickOutput.value` field supports Go templates with `<<` and `>>` d
 |----------|-------------|
 | `<<.SeedIngressDomain>>` | The seed's ingress domain |
 | `<<.ServiceAccountToken>>` | A service account token placeholder (replaced at reconcile time) |
+| `<<.ClusterIdentityToken>>` | A per-shoot JWT token signed with the configured private key (requires `clusterIdentityToken` config) |
 
 Example using templates:
 

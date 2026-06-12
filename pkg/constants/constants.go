@@ -58,6 +58,8 @@ const (
 
 	DefaultTokenLifetime = time.Hour * 24 * 7
 
+	DefaultClusterIdentityTokenLifetime = time.Hour * 24 * 7
+
 	FalcoRules           = "falco_rules.yaml"
 	FalcoIncubatingRules = "falco-incubating_rules.yaml"
 	FalcoSandboxRules    = "falco-sandbox_rules.yaml"

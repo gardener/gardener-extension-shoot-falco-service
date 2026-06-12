@@ -52,6 +52,13 @@ falco:
     # Private key for token issuer
     tokenIssuerPrivateKey: ""
 
+  # Cluster identity token configuration for global default destinations.
+  # When configured, enables the <<.ClusterIdentityToken>> template variable
+  # which is replaced with a per-shoot JWT at reconcile time.
+  clusterIdentityToken:
+    tokenIssuerPrivateKey: ""
+    tokenLifetime: "168h"
+
   # Global default destinations applied to all shoots unless opted out.
   # Each entry has: name (unique identifier), falcosidekickOutput.key (output type),
   # falcosidekickOutput.value (config map, supports <<.SeedIngressDomain>> and <<.ServiceAccountToken>> templates)

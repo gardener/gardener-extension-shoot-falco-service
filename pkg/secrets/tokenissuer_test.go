@@ -74,6 +74,60 @@ var _ = Describe("TokenIssuer", func() {
 
 		Expect(tm.Truncate(24 * time.Hour)).To(Equal(time.Now().Add(validity.Duration).Truncate(24 * time.Hour)))
 	})
+
+	Describe("IssueClusterIdentityToken", func() {
+		It("should issue a valid JWT with correct claims", func() {
+			validity := metav1.Duration{Duration: 7 * 24 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			clusterIdentity := "shoot--garden--aws-ha-6fe5a58a-f98e-4cf3-9fbd-197d5bcb2a78"
+			tokenString, err := issuer.IssueClusterIdentityToken(clusterIdentity)
+			Expect(err).NotTo(HaveOccurred())
+
+			pubKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(validKeyPub))
+			Expect(err).NotTo(HaveOccurred())
+
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				Expect(token.Method).To(BeAssignableToTypeOf(&jwt.SigningMethodRSA{}))
+				return pubKey, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			claims, ok := token.Claims.(jwt.MapClaims)
+			Expect(ok).To(BeTrue())
+
+			Expect(claims["iss"]).To(Equal("urn:gardener:gardener-falco-extension"))
+			Expect(claims["sub"]).To(Equal(clusterIdentity))
+			Expect(claims).To(HaveKey("iat"))
+			Expect(claims).To(HaveKey("exp"))
+			Expect(claims).NotTo(HaveKey("aud"))
+			Expect(claims).NotTo(HaveKey("gardener-falco"))
+		})
+
+		It("should set expiration based on configured token lifetime", func() {
+			validity := metav1.Duration{Duration: 48 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			tokenString, err := issuer.IssueClusterIdentityToken("test-cluster")
+			Expect(err).NotTo(HaveOccurred())
+
+			pubKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(validKeyPub))
+			Expect(err).NotTo(HaveOccurred())
+
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				return pubKey, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			claims := token.Claims.(jwt.MapClaims)
+			exp := time.Unix(int64(claims["exp"].(float64)), 0)
+			iat := time.Unix(int64(claims["iat"].(float64)), 0)
+
+			Expect(exp.Sub(iat)).To(Equal(48 * time.Hour))
+		})
+	})
 })
 
 func genValidKey() (string, string) {

@@ -56,3 +56,14 @@ func (t *TokenIssuer) IssueToken(clusterIdentity string) (string, error) {
 	// TODO: decide what to do if this fails (PANIC)
 	return token.SignedString(t.privateKey)
 }
+
+func (t *TokenIssuer) IssueClusterIdentityToken(clusterIdentity string) (string, error) {
+	now := time.Now()
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"iss": "urn:gardener:gardener-falco-extension",
+		"sub": clusterIdentity,
+		"iat": now.Unix(),
+		"exp": now.Add(t.tokenValidity.Duration).Unix(),
+	})
+	return token.SignedString(t.privateKey)
+}
