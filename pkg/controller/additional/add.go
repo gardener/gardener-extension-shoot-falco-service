@@ -15,13 +15,6 @@ import (
 // AddToManager registers the additional seed resources reconciler with the manager.
 // The controller always runs so it can clean up stale resources even when the config is empty.
 func AddToManager(mgr manager.Manager, log logr.Logger, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig) error {
-	r := &Reconciler{
-		client:     mgr.GetClient(),
-		restConfig: restConfig,
-		namespace:  namespace,
-		additional: additional,
-		log:        log.WithName("additional-seed-resources"),
-	}
-
+	r := NewReconciler(mgr.GetClient(), restConfig, namespace, additional, log.WithName("additional-seed-resources"))
 	return mgr.Add(r)
 }

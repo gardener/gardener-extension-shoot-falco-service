@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gardener/gardener/pkg/chartrenderer"
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
+	"github.com/gardener/gardener/pkg/chartrenderer"
 	managedresources "github.com/gardener/gardener/pkg/utils/managedresources"
 	"github.com/gardener/gardener/pkg/utils/oci"
 	"github.com/go-logr/logr"
@@ -35,8 +35,19 @@ type Reconciler struct {
 	log        logr.Logger
 }
 
+// NewReconciler creates a new Reconciler for additional seed resources.
+func NewReconciler(c client.Client, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig, log logr.Logger) *Reconciler {
+	return &Reconciler{
+		client:     c,
+		restConfig: restConfig,
+		namespace:  namespace,
+		additional: additional,
+		log:        log,
+	}
+}
+
 func (r *Reconciler) Start(ctx context.Context) error {
-	r.reconcile(ctx)
+	r.Reconcile(ctx)
 
 	ticker := time.NewTicker(reconcileInterval)
 	defer ticker.Stop()
@@ -46,23 +57,25 @@ func (r *Reconciler) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			r.reconcile(ctx)
+			r.Reconcile(ctx)
 		}
 	}
 }
 
 func (r *Reconciler) NeedLeaderElection() bool { return true }
 
-func (r *Reconciler) reconcile(ctx context.Context) {
-	if err := r.deploy(ctx); err != nil {
+// Reconcile deploys configured resources and cleans up stale ones.
+func (r *Reconciler) Reconcile(ctx context.Context) {
+	if err := r.Deploy(ctx); err != nil {
 		r.log.Error(err, "Failed to deploy additional seed resources")
 	}
-	if err := r.cleanup(ctx); err != nil {
+	if err := r.Cleanup(ctx); err != nil {
 		r.log.Error(err, "Failed to clean up stale additional seed resources")
 	}
 }
 
-func (r *Reconciler) deploy(ctx context.Context) error {
+// Deploy creates or updates ManagedResources for all configured Helm charts.
+func (r *Reconciler) Deploy(ctx context.Context) error {
 	if r.additional == nil || len(r.additional.SeedManagedResources) == 0 {
 		return nil
 	}
@@ -107,7 +120,8 @@ func (r *Reconciler) deploy(ctx context.Context) error {
 	return nil
 }
 
-func (r *Reconciler) cleanup(ctx context.Context) error {
+// Cleanup removes ManagedResources that are labeled as additional but no longer in the config.
+func (r *Reconciler) Cleanup(ctx context.Context) error {
 	desiredNames := sets.New[string]()
 	if r.additional != nil {
 		for _, res := range r.additional.SeedManagedResources {
