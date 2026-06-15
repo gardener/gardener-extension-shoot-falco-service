@@ -11,10 +11,12 @@ import (
 	"encoding/pem"
 	"testing"
 
+	gardencorev1 "github.com/gardener/gardener/pkg/apis/core/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	. "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/validation"
@@ -180,6 +182,97 @@ var _ = Describe("ValidateConfiguration", func() {
 					"Field": Equal("falco.clusterIdentityToken.tokenIssuerPrivateKey"),
 				})),
 			))
+		})
+	})
+
+	Context("AdditionalConfig validation", func() {
+		var conf *config.Configuration
+
+		BeforeEach(func() {
+			conf = &config.Configuration{
+				Falco: &config.Falco{
+					Additional: &config.AdditionalConfig{
+						SeedManagedResources: []config.AdditionalSeedManagedResource{
+							{
+								Name: "my-nginx",
+								Helm: config.HelmConfig{
+									OCIRepository: gardencorev1.OCIRepository{
+										Ref: ptr.To("registry-1.docker.io/bitnamicharts/nginx:25.0.5"),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should pass for nil additional config", func() {
+			conf.Falco.Additional = nil
+			Expect(ValidateConfiguration(conf)).To(BeEmpty())
+		})
+
+		It("should pass for valid seed managed resources", func() {
+			Expect(ValidateConfiguration(conf)).To(BeEmpty())
+		})
+
+		It("should reject empty name", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Name = ""
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("falco.additional.seedManagedResources[0].name"),
+				})),
+			))
+		})
+
+		It("should reject invalid DNS label name", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Name = "INVALID_NAME"
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("falco.additional.seedManagedResources[0].name"),
+				})),
+			))
+		})
+
+		It("should reject duplicate names", func() {
+			conf.Falco.Additional.SeedManagedResources = append(
+				conf.Falco.Additional.SeedManagedResources,
+				conf.Falco.Additional.SeedManagedResources[0],
+			)
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeDuplicate),
+					"Field": Equal("falco.additional.seedManagedResources[1].name"),
+				})),
+			))
+		})
+
+		It("should reject nil OCI repository ref", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = nil
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("falco.additional.seedManagedResources[0].helm.ociRepository.ref"),
+				})),
+			))
+		})
+
+		It("should reject empty OCI repository ref", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = ptr.To("")
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("falco.additional.seedManagedResources[0].helm.ociRepository.ref"),
+				})),
+			))
+		})
+
+		It("should report multiple errors at once", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Name = ""
+			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = nil
+			Expect(ValidateConfiguration(conf)).To(HaveLen(2))
 		})
 	})
 })
