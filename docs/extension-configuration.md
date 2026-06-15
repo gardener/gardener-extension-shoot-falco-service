@@ -131,6 +131,34 @@ metadata:
 
 When this annotation is present, no global defaults are injected for shoots in that project.
 
+## Additional Seed Managed Resources
+
+Operators can configure additional Helm charts to be deployed as ManagedResources on the seed cluster. This is useful for deploying provider-specific components.
+
+### Configuration
+
+The `additional.seedManagedResources` field accepts a list of Helm charts to deploy:
+
+```yaml
+apiVersion: falco.extensions.config.gardener.cloud/v1alpha1
+kind: Configuration
+falco:
+  additional:
+    seedManagedResources:
+    - name: my-nginx
+      helm:
+        ociRepository:
+          ref: registry:tag
+        values:
+          replicaCount: 2
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | A unique name for the resource. Must be a valid DNS label (lowercase, alphanumeric, hyphens, max 63 characters). Used as a suffix in the ManagedResource name (`falco-additional-<name>`). |
+| `helm.ociRepository.ref` | Full OCI artifact reference for the Helm chart (required). |
+| `helm.values` | Optional Helm values passed to the chart during rendering. |
+
 ### Validation
 
 The admission validating webhook enforces:
