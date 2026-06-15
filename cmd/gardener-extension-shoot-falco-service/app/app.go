@@ -28,8 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/cmd"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/additional"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/healthcheck"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/lifecycle"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -148,15 +150,12 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)
 			}
 
-			if lifecycle.DefaultAddOptions.ServiceConfig.Falco != nil && lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional != nil {
-				additional := lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional
-				extensionNamespace := os.Getenv("LEADER_ELECTION_NAMESPACE")
-				if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-					log.Info("Deploying additional seed managed resources after leader election")
-					return lifecycle.DeployAdditionalSeedResources(ctx, log, mgr.GetClient(), restOpts.Completed().Config, extensionNamespace, additional)
-				})); err != nil {
-					return fmt.Errorf("could not add additional seed resource deployer: %w", err)
-				}
+			var additionalConfig *config.AdditionalConfig
+			if lifecycle.DefaultAddOptions.ServiceConfig.Falco != nil {
+				additionalConfig = lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional
+			}
+			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, os.Getenv("LEADER_ELECTION_NAMESPACE"), additionalConfig); err != nil {
+				return fmt.Errorf("could not add additional seed resources controller: %w", err)
 			}
 
 			if err := healthcheck.AddToManager(ctx, mgr); err != nil {
