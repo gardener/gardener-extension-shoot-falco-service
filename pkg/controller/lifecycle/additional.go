@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
 // DeployAdditionalSeedResources pulls Helm charts from OCI and deploys them as ManagedResources.
@@ -33,7 +34,8 @@ func DeployAdditionalSeedResources(ctx context.Context, log logr.Logger, c clien
 	}
 
 	for _, res := range additional.SeedManagedResources {
-		log.Info("Deploying additional seed managed resource", "name", res.Name, "namespace", namespace)
+		mrName := constants.AdditionalManagedResourcePrefix + res.Name
+		log.Info("Deploying additional seed managed resource", "name", mrName, "namespace", namespace)
 
 		archive, err := helmRegistry.Pull(ctx, &res.Helm.OCIRepository)
 		if err != nil {
@@ -55,11 +57,11 @@ func DeployAdditionalSeedResources(ctx context.Context, log logr.Logger, c clien
 		data := map[string][]byte{"manifests.yaml": release.Manifest()}
 		keepObjects := false
 		forceOverwrite := false
-		if err := managedresources.Create(ctx, c, namespace, res.Name, nil, false, "seed", data, &keepObjects, nil, &forceOverwrite); err != nil {
-			return fmt.Errorf("failed to create managed resource %s/%s: %w", namespace, res.Name, err)
+		if err := managedresources.Create(ctx, c, namespace, mrName, nil, false, "seed", data, &keepObjects, nil, &forceOverwrite); err != nil {
+			return fmt.Errorf("failed to create managed resource %s/%s: %w", namespace, mrName, err)
 		}
 
-		log.Info("Successfully deployed additional seed managed resource", "name", res.Name, "namespace", namespace)
+		log.Info("Successfully deployed additional seed managed resource", "name", mrName, "namespace", namespace)
 	}
 
 	return nil
