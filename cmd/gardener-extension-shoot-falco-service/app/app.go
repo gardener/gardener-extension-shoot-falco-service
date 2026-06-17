@@ -27,9 +27,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/cmd"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/additional"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/healthcheck"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/lifecycle"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
@@ -146,6 +148,14 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 
 			if err := lifecycle.AddToManager(ctx, mgr); err != nil {
 				return fmt.Errorf("could not add falco extension controller to manager: %w", err)
+			}
+
+			var additionalConfig *config.AdditionalConfig
+			if lifecycle.DefaultAddOptions.ServiceConfig.Falco != nil {
+				additionalConfig = lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional
+			}
+			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig); err != nil {
+				return fmt.Errorf("could not add additional seed resources controller: %w", err)
 			}
 
 			if err := healthcheck.AddToManager(ctx, mgr); err != nil {

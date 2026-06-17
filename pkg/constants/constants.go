@@ -23,6 +23,12 @@ const (
 	// Name of the chart deployed in control plane (seed)
 	ManagedResourceNameFalcoChartSeed = ExtensionServiceName + "-chart-seed"
 
+	// Prefix for additional operator-configured ManagedResources
+	AdditionalManagedResourcePrefix = "falco-additional-"
+
+	// Label to identify ManagedResources created by the additional resources controller
+	AdditionalManagedResourceLabel = "falco.gardener.cloud/additional-resource"
+
 	// Name of the Falco certificate secret file in shoot namespace
 	FalcoCertificatesSecretName = GardenerExtensionServiceName + "-certificates"
 

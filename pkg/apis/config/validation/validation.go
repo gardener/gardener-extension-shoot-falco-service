@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"slices"
 
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
@@ -31,6 +32,7 @@ func validateFalco(falco *config.Falco, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, validateGlobalDefaultDestinations(falco.GlobalDefaultDestinations, fldPath.Child("globalDefaultDestinations"))...)
+	allErrs = append(allErrs, validateAdditionalConfig(falco.Additional, fldPath.Child("additional"))...)
 
 	if falco.ClusterIdentityToken != nil {
 		allErrs = append(allErrs, validateClusterIdentityToken(falco.ClusterIdentityToken, fldPath.Child("clusterIdentityToken"))...)
@@ -87,6 +89,39 @@ func validateGlobalDefaultDestinations(gds []config.GlobalDefaultDestination, fl
 			allErrs = append(allErrs, field.Invalid(idxPath.Child("falcosidekickOutput").Child("key"), gd.FalcosidekickOutput.Key, "already used by destination "+existing))
 		}
 		keys[gd.FalcosidekickOutput.Key] = gd.Name
+	}
+
+	return allErrs
+}
+
+func validateAdditionalConfig(additional *config.AdditionalConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if additional == nil {
+		return allErrs
+	}
+
+	names := make(map[string]bool, len(additional.SeedManagedResources))
+
+	for i, res := range additional.SeedManagedResources {
+		idxPath := fldPath.Child("seedManagedResources").Index(i)
+
+		if res.Name == "" {
+			allErrs = append(allErrs, field.Required(idxPath.Child("name"), "name must not be empty"))
+		} else {
+			if errs := validation.IsDNS1123Label(res.Name); len(errs) > 0 {
+				allErrs = append(allErrs, field.Invalid(idxPath.Child("name"), res.Name, "must be a valid DNS label: "+errs[0]))
+			}
+
+			if names[res.Name] {
+				allErrs = append(allErrs, field.Duplicate(idxPath.Child("name"), res.Name))
+			}
+			names[res.Name] = true
+		}
+
+		if res.Helm.OCIRepository.Ref == nil || *res.Helm.OCIRepository.Ref == "" {
+			allErrs = append(allErrs, field.Required(idxPath.Child("helm").Child("ociRepository").Child("ref"), "OCI repository ref must not be empty"))
+		}
 	}
 
 	return allErrs
