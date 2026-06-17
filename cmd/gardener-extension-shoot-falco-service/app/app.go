@@ -154,7 +154,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if lifecycle.DefaultAddOptions.ServiceConfig.Falco != nil {
 				additionalConfig = lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional
 			}
-			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, os.Getenv("LEADER_ELECTION_NAMESPACE"), additionalConfig); err != nil {
+			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig); err != nil {
 				return fmt.Errorf("could not add additional seed resources controller: %w", err)
 			}
 

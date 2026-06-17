@@ -6,6 +6,7 @@ package additional_test
 
 import (
 	"context"
+	"time"
 
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -37,10 +39,15 @@ var _ = Describe("Reconciler", func() {
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	})
 
-	Describe("NeedLeaderElection", func() {
-		It("should return true", func() {
-			r := additional.NewReconciler(nil, nil, namespace, nil, zap.New(zap.WriteTo(GinkgoWriter)))
-			Expect(r.NeedLeaderElection()).To(BeTrue())
+	Describe("Reconcile", func() {
+		It("should requeue after the reconcile interval on success", func() {
+			fakeClient := crfake.NewClientBuilder().WithScheme(scheme).Build()
+			r, err := additional.NewReconciler(fakeClient, nil, namespace, nil, zap.New(zap.WriteTo(GinkgoWriter)))
+			Expect(err).NotTo(HaveOccurred())
+
+			result, reconcileErr := r.Reconcile(ctx, reconcile.Request{})
+			Expect(reconcileErr).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(1 * time.Minute))
 		})
 	})
 
@@ -62,18 +69,22 @@ var _ = Describe("Reconciler", func() {
 
 		BeforeEach(func() {
 			fakeClient = crfake.NewClientBuilder().WithScheme(scheme).Build()
-			r = additional.NewReconciler(fakeClient, nil, namespace, nil, zap.New(zap.WriteTo(GinkgoWriter)))
+			var err error
+			r, err = additional.NewReconciler(fakeClient, nil, namespace, nil, zap.New(zap.WriteTo(GinkgoWriter)))
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should delete stale resources not in config", func() {
 			Expect(fakeClient.Create(ctx, staleMR(constants.AdditionalManagedResourcePrefix+"old-nginx"))).To(Succeed())
 			Expect(fakeClient.Create(ctx, staleMR(constants.AdditionalManagedResourcePrefix+"old-redis"))).To(Succeed())
 
-			r = additional.NewReconciler(fakeClient, nil, namespace, &config.AdditionalConfig{
+			var err error
+			r, err = additional.NewReconciler(fakeClient, nil, namespace, &config.AdditionalConfig{
 				SeedManagedResources: []config.AdditionalSeedManagedResource{
 					{Name: "old-nginx"},
 				},
 			}, zap.New(zap.WriteTo(GinkgoWriter)))
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(r.Cleanup(ctx)).To(Succeed())
 
@@ -112,12 +123,14 @@ var _ = Describe("Reconciler", func() {
 
 	Describe("Deploy", func() {
 		It("should return nil when additional config is nil", func() {
-			r := additional.NewReconciler(nil, nil, namespace, nil, zap.New(zap.WriteTo(GinkgoWriter)))
+			r, err := additional.NewReconciler(nil, nil, namespace, nil, zap.New(zap.WriteTo(GinkgoWriter)))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(r.Deploy(ctx)).To(Succeed())
 		})
 
 		It("should return nil when seed managed resources list is empty", func() {
-			r := additional.NewReconciler(nil, nil, namespace, &config.AdditionalConfig{}, zap.New(zap.WriteTo(GinkgoWriter)))
+			r, err := additional.NewReconciler(nil, nil, namespace, &config.AdditionalConfig{}, zap.New(zap.WriteTo(GinkgoWriter)))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(r.Deploy(ctx)).To(Succeed())
 		})
 	})
