@@ -104,7 +104,8 @@ func (r *Reconciler) Deploy(ctx context.Context) error {
 }
 
 func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSeedManagedResource, mrName string, labels map[string]string) error {
-	archive, err := r.helmRegistry.Pull(ctx, &res.Helm.OCIRepository)
+	pullCtx := context.WithValue(ctx, oci.ContextKeySecretNamespace, r.namespace)
+	archive, err := r.helmRegistry.Pull(pullCtx, &res.Helm.OCIRepository)
 	if err != nil {
 		return fmt.Errorf("failed to pull chart: %w", err)
 	}
