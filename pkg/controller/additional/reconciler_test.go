@@ -13,11 +13,18 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
+
+	"bytes"
+	"io"
+	"strings"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -133,5 +140,242 @@ var _ = Describe("Reconciler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(r.Deploy(ctx)).To(Succeed())
 		})
+	})
+})
+
+var _ = Describe("InjectNamespace", func() {
+	const targetNS = "extension-shoot-falco-abc123"
+
+	decodeAll := func(data []byte) []*unstructured.Unstructured {
+		var objects []*unstructured.Unstructured
+		decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 1024)
+		for {
+			var raw map[string]interface{}
+			if err := decoder.Decode(&raw); err != nil {
+				if err == io.EOF {
+					break
+				}
+				Fail("unexpected decode error: " + err.Error())
+			}
+			if raw == nil {
+				continue
+			}
+			objects = append(objects, &unstructured.Unstructured{Object: raw})
+		}
+		return objects
+	}
+
+	It("should inject namespace into a resource without one", func() {
+		manifest := []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  key: value
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(1))
+		Expect(objects[0].GetNamespace()).To(Equal(targetNS))
+		Expect(objects[0].GetName()).To(Equal("my-config"))
+	})
+
+	It("should not overwrite an existing namespace", func() {
+		manifest := []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+  namespace: kube-system
+data:
+  key: value
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(1))
+		Expect(objects[0].GetNamespace()).To(Equal("kube-system"))
+	})
+
+	It("should not inject namespace into a Namespace resource", func() {
+		manifest := []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-namespace
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(1))
+		Expect(objects[0].GetNamespace()).To(Equal(""))
+		Expect(objects[0].GetKind()).To(Equal("Namespace"))
+	})
+
+	It("should handle multiple documents separated by ---", func() {
+		manifest := []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deploy
+spec:
+  replicas: 1
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(3))
+		Expect(objects[0].GetName()).To(Equal("config-one"))
+		Expect(objects[0].GetNamespace()).To(Equal(targetNS))
+		Expect(objects[1].GetName()).To(Equal("my-service"))
+		Expect(objects[1].GetNamespace()).To(Equal(targetNS))
+		Expect(objects[2].GetName()).To(Equal("my-deploy"))
+		Expect(objects[2].GetNamespace()).To(Equal(targetNS))
+	})
+
+	It("should handle mixed namespaced and cluster-scoped resources", func() {
+		manifest := []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: my-role
+rules: []
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-sa
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(2))
+		// ClusterRole has no namespace set, and InjectNamespace doesn't know it's cluster-scoped
+		// (it doesn't have a REST mapper), so it sets the namespace. This is safe: the
+		// resource-manager will unset it for non-namespaced kinds based on its REST mapping.
+		Expect(objects[0].GetName()).To(Equal("my-role"))
+		Expect(objects[1].GetName()).To(Equal("my-sa"))
+		Expect(objects[1].GetNamespace()).To(Equal(targetNS))
+	})
+
+	It("should handle empty manifest", func() {
+		result, err := additional.InjectNamespace([]byte(""), targetNS)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(BeEmpty())
+	})
+
+	It("should skip empty YAML documents", func() {
+		manifest := []byte(`---
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: real-config
+---
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(1))
+		Expect(objects[0].GetName()).To(Equal("real-config"))
+		Expect(objects[0].GetNamespace()).To(Equal(targetNS))
+	})
+
+	It("should preserve all fields of the original resource", func() {
+		manifest := []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deploy
+  labels:
+    app: test
+  annotations:
+    note: important
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: main
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		objects := decodeAll(result)
+		Expect(objects).To(HaveLen(1))
+		obj := objects[0]
+		Expect(obj.GetNamespace()).To(Equal(targetNS))
+		Expect(obj.GetLabels()).To(HaveKeyWithValue("app", "test"))
+		Expect(obj.GetAnnotations()).To(HaveKeyWithValue("note", "important"))
+
+		replicas, found, err := unstructured.NestedFloat64(obj.Object, "spec", "replicas")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).To(BeTrue())
+		Expect(replicas).To(Equal(float64(3)))
+
+		containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).To(BeTrue())
+		Expect(containers).To(HaveLen(1))
+	})
+
+	It("should return error for invalid YAML", func() {
+		manifest := []byte(`not: valid: yaml: [[[`)
+		_, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should produce valid multi-doc YAML output", func() {
+		manifest := []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: first
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: second
+type: Opaque
+`)
+		result, err := additional.InjectNamespace(manifest, targetNS)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Verify the output is valid YAML that can be re-parsed
+		parts := strings.Split(string(result), "---\n")
+		validDocs := 0
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			var obj map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(part), &obj)).To(Succeed())
+			validDocs++
+		}
+		Expect(validDocs).To(Equal(2))
 	})
 })

@@ -5,11 +5,13 @@
 package additional
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
@@ -18,11 +20,14 @@ import (
 	"github.com/gardener/gardener/pkg/utils/oci"
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -139,9 +144,14 @@ func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSe
 		return fmt.Errorf("failed to render chart: %w", err)
 	}
 
+	manifests, err := InjectNamespace(release.Manifest(), r.namespace)
+	if err != nil {
+		return fmt.Errorf("failed to inject namespace into manifests: %w", err)
+	}
+
 	var (
 		isNew          = !r.managedResourceExists(ctx, mrName)
-		data           = map[string][]byte{"manifests.yaml": release.Manifest()}
+		data           = map[string][]byte{"manifests.yaml": manifests}
 		keepObjects    = false
 		forceOverwrite = false
 	)
@@ -188,4 +198,42 @@ func (r *Reconciler) Cleanup(ctx context.Context) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// InjectNamespace sets the namespace on all namespaced resources in the manifest
+// that don't already have one. The resource-manager defaults namespace-less resources
+// to "default", so we must inject the target namespace explicitly.
+func InjectNamespace(manifest []byte, namespace string) ([]byte, error) {
+	decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(manifest), 1024)
+	var out bytes.Buffer
+
+	for {
+		var rawObj map[string]interface{}
+		if err := decoder.Decode(&rawObj); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("failed to decode YAML document: %w", err)
+		}
+		if rawObj == nil {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{Object: rawObj}
+		if obj.GetNamespace() == "" && obj.GetKind() != "Namespace" {
+			obj.SetNamespace(namespace)
+		}
+
+		patched, err := yaml.Marshal(obj.Object)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal patched object: %w", err)
+		}
+
+		if out.Len() > 0 {
+			out.WriteString("---\n")
+		}
+		out.Write(patched)
+	}
+
+	return out.Bytes(), nil
 }
