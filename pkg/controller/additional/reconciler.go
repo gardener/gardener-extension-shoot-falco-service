@@ -6,6 +6,7 @@ package additional
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,7 +84,7 @@ func (r *Reconciler) Deploy(ctx context.Context) error {
 		return nil
 	}
 
-	if r.renderer == nil || r.helmRegistry == nil {
+	if r.renderer == nil {
 		return fmt.Errorf("chart renderer not initialized — restConfig was nil at construction time")
 	}
 
@@ -104,9 +105,26 @@ func (r *Reconciler) Deploy(ctx context.Context) error {
 }
 
 func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSeedManagedResource, mrName string, labels map[string]string) error {
-	archive, err := r.helmRegistry.Pull(ctx, &res.Helm.OCIRepository)
-	if err != nil {
-		return fmt.Errorf("failed to pull chart: %w", err)
+	var archive []byte
+	var err error
+
+	switch {
+	case res.Helm.Chart != nil && *res.Helm.Chart != "":
+		archive, err = base64.StdEncoding.DecodeString(*res.Helm.Chart)
+		if err != nil {
+			return fmt.Errorf("failed to decode inline chart: %w", err)
+		}
+	case res.Helm.OCIRepository != nil:
+		if r.helmRegistry == nil {
+			return fmt.Errorf("helm registry not initialized — restConfig was nil at construction time")
+		}
+		pullCtx := context.WithValue(ctx, oci.ContextKeySecretNamespace, r.namespace)
+		archive, err = r.helmRegistry.Pull(pullCtx, res.Helm.OCIRepository)
+		if err != nil {
+			return fmt.Errorf("failed to pull chart: %w", err)
+		}
+	default:
+		return fmt.Errorf("neither chart nor ociRepository set for resource %s", res.Name)
 	}
 
 	var values map[string]interface{}

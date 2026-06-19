@@ -13,6 +13,7 @@ import (
 
 	config "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	configv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
+	corev1 "github.com/gardener/gardener/pkg/apis/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -317,7 +318,8 @@ func Convert_config_GlobalDefaultDestination_To_v1alpha1_GlobalDefaultDestinatio
 }
 
 func autoConvert_v1alpha1_HelmConfig_To_config_HelmConfig(in *HelmConfig, out *config.HelmConfig, s conversion.Scope) error {
-	out.OCIRepository = in.OCIRepository
+	out.OCIRepository = (*corev1.OCIRepository)(unsafe.Pointer(in.OCIRepository))
+	out.Chart = (*string)(unsafe.Pointer(in.Chart))
 	out.Values = (*runtime.RawExtension)(unsafe.Pointer(in.Values))
 	return nil
 }
@@ -328,7 +330,8 @@ func Convert_v1alpha1_HelmConfig_To_config_HelmConfig(in *HelmConfig, out *confi
 }
 
 func autoConvert_config_HelmConfig_To_v1alpha1_HelmConfig(in *config.HelmConfig, out *HelmConfig, s conversion.Scope) error {
-	out.OCIRepository = in.OCIRepository
+	out.OCIRepository = (*corev1.OCIRepository)(unsafe.Pointer(in.OCIRepository))
+	out.Chart = (*string)(unsafe.Pointer(in.Chart))
 	out.Values = (*runtime.RawExtension)(unsafe.Pointer(in.Values))
 	return nil
 }
