@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"text/template"
 	"time"
 
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
@@ -136,21 +137,13 @@ func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSe
 
 	var values map[string]interface{}
 	if res.Helm.Values != nil && res.Helm.Values.Raw != nil {
-		if err := json.Unmarshal(res.Helm.Values.Raw, &values); err != nil {
+		raw, err := r.substituteTemplateVariables(res.Helm.Values.Raw)
+		if err != nil {
+			return fmt.Errorf("failed to substitute template variables in helm values: %w", err)
+		}
+		if err := json.Unmarshal(raw, &values); err != nil {
 			return fmt.Errorf("failed to unmarshal helm values: %w", err)
 		}
-	}
-
-	if r.seedIngressDomain != "" {
-		if values == nil {
-			values = make(map[string]interface{})
-		}
-		ingestor, _ := values["ingestor"].(map[string]interface{})
-		if ingestor == nil {
-			ingestor = make(map[string]interface{})
-			values["ingestor"] = ingestor
-		}
-		ingestor["ingressDomain"] = "falco-splunk-ingestor." + r.seedIngressDomain
 	}
 
 	release, err := r.renderer.RenderArchive(archive, res.Name, r.namespace, values)
@@ -184,6 +177,24 @@ func (r *Reconciler) managedResourceExists(ctx context.Context, mrName string) b
 	mr := &resourcesv1alpha1.ManagedResource{}
 	err := r.client.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: mrName}, mr)
 	return err == nil || !apierrors.IsNotFound(err)
+}
+
+// substituteTemplateVariables replaces <<.VarName>> placeholders in raw JSON values
+// with runtime values (same pattern as global default destinations in falcovalues.go).
+func (r *Reconciler) substituteTemplateVariables(raw []byte) ([]byte, error) {
+	data := map[string]string{
+		"SeedIngressDomain": r.seedIngressDomain,
+	}
+
+	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 // Cleanup removes ManagedResources that are labeled as additional but no longer in the config.
