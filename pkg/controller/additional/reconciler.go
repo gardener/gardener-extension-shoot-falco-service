@@ -38,21 +38,23 @@ const reconcileInterval = 1 * time.Minute
 // Reconciler periodically deploys additional seed ManagedResources from OCI Helm charts
 // and cleans up stale ones that are no longer in the config.
 type Reconciler struct {
-	client       client.Client
-	namespace    string
-	additional   *config.AdditionalConfig
-	log          logr.Logger
-	helmRegistry *oci.HelmRegistry
-	renderer     chartrenderer.Interface
+	client             client.Client
+	namespace          string
+	additional         *config.AdditionalConfig
+	log                logr.Logger
+	helmRegistry       *oci.HelmRegistry
+	renderer           chartrenderer.Interface
+	seedIngressDomain  string
 }
 
 // NewReconciler creates a new Reconciler for additional seed resources.
-func NewReconciler(c client.Client, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig, log logr.Logger) (*Reconciler, error) {
+func NewReconciler(c client.Client, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig, seedIngressDomain string, log logr.Logger) (*Reconciler, error) {
 	r := &Reconciler{
-		client:     c,
-		namespace:  namespace,
-		additional: additional,
-		log:        log,
+		client:            c,
+		namespace:         namespace,
+		additional:        additional,
+		seedIngressDomain: seedIngressDomain,
+		log:               log,
 	}
 
 	if restConfig != nil {
@@ -137,6 +139,18 @@ func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSe
 		if err := json.Unmarshal(res.Helm.Values.Raw, &values); err != nil {
 			return fmt.Errorf("failed to unmarshal helm values: %w", err)
 		}
+	}
+
+	if r.seedIngressDomain != "" {
+		if values == nil {
+			values = make(map[string]interface{})
+		}
+		ingestor, _ := values["ingestor"].(map[string]interface{})
+		if ingestor == nil {
+			ingestor = make(map[string]interface{})
+			values["ingestor"] = ingestor
+		}
+		ingestor["ingressDomain"] = "falco-splunk-ingestor." + r.seedIngressDomain
 	}
 
 	release, err := r.renderer.RenderArchive(archive, res.Name, r.namespace, values)

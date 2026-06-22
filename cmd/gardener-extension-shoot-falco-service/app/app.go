@@ -35,6 +35,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/healthcheck"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/controller/lifecycle"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
 )
 
 const Name = "gardener-extension-shoot-falco-service"
@@ -154,7 +155,17 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if lifecycle.DefaultAddOptions.ServiceConfig.Falco != nil {
 				additionalConfig = lifecycle.DefaultAddOptions.ServiceConfig.Falco.Additional
 			}
-			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig); err != nil {
+
+			var seedIngressDomain string
+			seed, err := utils.GetSeed(context.TODO(), dynamicGardenCluster, os.Getenv("SEED_NAME"))
+			if err != nil {
+				return fmt.Errorf("could not get seed for additional resources controller: %w", err)
+			}
+			if seed.Spec.Ingress != nil {
+				seedIngressDomain = seed.Spec.Ingress.Domain
+			}
+
+			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig, seedIngressDomain); err != nil {
 				return fmt.Errorf("could not add additional seed resources controller: %w", err)
 			}
 

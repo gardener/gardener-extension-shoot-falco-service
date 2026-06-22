@@ -424,14 +424,5 @@ func (a *actuator) getClusterResourcesForSeed() []gardenerv1beta1.NamedResourceR
 }
 
 func getSeed(ctx context.Context, client *dynamic.DynamicClient, seedName string) (*gardenerv1beta1.Seed, error) {
-	seedResource, err := client.Resource(gardenerv1beta1.SchemeGroupVersion.WithResource("seeds")).Get(ctx, seedName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	var seed gardenerv1beta1.Seed
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(seedResource.Object, &seed)
-	if err != nil {
-		return nil, err
-	}
-	return &seed, nil
+	return utils.GetSeed(ctx, client, seedName)
 }
