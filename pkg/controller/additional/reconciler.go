@@ -38,13 +38,13 @@ const reconcileInterval = 1 * time.Minute
 // Reconciler periodically deploys additional seed ManagedResources from OCI Helm charts
 // and cleans up stale ones that are no longer in the config.
 type Reconciler struct {
-	client             client.Client
-	namespace          string
-	additional         *config.AdditionalConfig
-	log                logr.Logger
-	helmRegistry       *oci.HelmRegistry
-	renderer           chartrenderer.Interface
-	seedIngressDomain  string
+	client            client.Client
+	namespace         string
+	additional        *config.AdditionalConfig
+	log               logr.Logger
+	helmRegistry      *oci.HelmRegistry
+	renderer          chartrenderer.Interface
+	seedIngressDomain string
 }
 
 // NewReconciler creates a new Reconciler for additional seed resources.

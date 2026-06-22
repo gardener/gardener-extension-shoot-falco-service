@@ -8,6 +8,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gardener/gardener/pkg/apis/core/install"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,8 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/gardener/gardener/pkg/apis/core/install"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/admission/mutator"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
