@@ -181,12 +181,24 @@ func (r *Reconciler) managedResourceExists(ctx context.Context, mrName string) b
 
 // substituteTemplateVariables replaces <<.VarName>> placeholders in raw JSON values
 // with runtime values (same pattern as global default destinations in falcovalues.go).
+// Go's json.Marshal escapes < and > as < / >, which prevents the
+// text/template parser from recognizing << >> delimiters. We convert to YAML first
+// (which does not escape these characters), perform substitution, then convert back.
 func (r *Reconciler) substituteTemplateVariables(raw []byte) ([]byte, error) {
+	var rawObj interface{}
+	if err := yaml.Unmarshal(raw, &rawObj); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal values: %w", err)
+	}
+	yamlBytes, err := yaml.Marshal(rawObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal values to YAML: %w", err)
+	}
+
 	data := map[string]string{
 		"SeedIngressDomain": r.seedIngressDomain,
 	}
 
-	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(raw))
+	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(yamlBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
@@ -194,7 +206,12 @@ func (r *Reconciler) substituteTemplateVariables(raw []byte) ([]byte, error) {
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
-	return buf.Bytes(), nil
+
+	var result interface{}
+	if err := yaml.Unmarshal(buf.Bytes(), &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal substituted values: %w", err)
+	}
+	return json.Marshal(result)
 }
 
 // Cleanup removes ManagedResources that are labeled as additional but no longer in the config.
