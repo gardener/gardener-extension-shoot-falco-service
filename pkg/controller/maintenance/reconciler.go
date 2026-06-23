@@ -52,8 +52,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 
 	requeueAfter, nextMaintenance := requeueAfterDuration(shoot)
 	if !mustMaintainNow(shoot, r.Clock) {
-		logger.Info("Skipping Shoot because it doesn't need to be maintained now")
-		logger.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
+		// logger.Info("Skipping Shoot because it doesn't need to be maintained now")
+		// logger.Info("Scheduled next maintenance for Shoot", "duration", requeueAfter.Round(time.Minute), "nextMaintenance", nextMaintenance.Round(time.Minute))
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 
@@ -96,7 +96,8 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 		return err
 	}
 	if falcoConf == nil {
-		return fmt.Errorf("the Falco config is empty")
+		logger.Info("Shoot has no Falco configuration, skipping maintenance")
+		return nil
 	}
 
 	currentVersion := falcoConf.FalcoVersion

@@ -5,10 +5,14 @@
 package additional
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"text/template"
 	"time"
 
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
@@ -17,11 +21,14 @@ import (
 	"github.com/gardener/gardener/pkg/utils/oci"
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -32,21 +39,23 @@ const reconcileInterval = 1 * time.Minute
 // Reconciler periodically deploys additional seed ManagedResources from OCI Helm charts
 // and cleans up stale ones that are no longer in the config.
 type Reconciler struct {
-	client       client.Client
-	namespace    string
-	additional   *config.AdditionalConfig
-	log          logr.Logger
-	helmRegistry *oci.HelmRegistry
-	renderer     chartrenderer.Interface
+	client            client.Client
+	namespace         string
+	additional        *config.AdditionalConfig
+	log               logr.Logger
+	helmRegistry      *oci.HelmRegistry
+	renderer          chartrenderer.Interface
+	seedIngressDomain string
 }
 
 // NewReconciler creates a new Reconciler for additional seed resources.
-func NewReconciler(c client.Client, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig, log logr.Logger) (*Reconciler, error) {
+func NewReconciler(c client.Client, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig, seedIngressDomain string, log logr.Logger) (*Reconciler, error) {
 	r := &Reconciler{
-		client:     c,
-		namespace:  namespace,
-		additional: additional,
-		log:        log,
+		client:            c,
+		namespace:         namespace,
+		additional:        additional,
+		seedIngressDomain: seedIngressDomain,
+		log:               log,
 	}
 
 	if restConfig != nil {
@@ -83,7 +92,7 @@ func (r *Reconciler) Deploy(ctx context.Context) error {
 		return nil
 	}
 
-	if r.renderer == nil || r.helmRegistry == nil {
+	if r.renderer == nil {
 		return fmt.Errorf("chart renderer not initialized — restConfig was nil at construction time")
 	}
 
@@ -104,14 +113,35 @@ func (r *Reconciler) Deploy(ctx context.Context) error {
 }
 
 func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSeedManagedResource, mrName string, labels map[string]string) error {
-	archive, err := r.helmRegistry.Pull(ctx, &res.Helm.OCIRepository)
-	if err != nil {
-		return fmt.Errorf("failed to pull chart: %w", err)
+	var archive []byte
+	var err error
+
+	switch {
+	case res.Helm.Chart != nil && *res.Helm.Chart != "":
+		archive, err = base64.StdEncoding.DecodeString(*res.Helm.Chart)
+		if err != nil {
+			return fmt.Errorf("failed to decode inline chart: %w", err)
+		}
+	case res.Helm.OCIRepository != nil:
+		if r.helmRegistry == nil {
+			return fmt.Errorf("helm registry not initialized — restConfig was nil at construction time")
+		}
+		pullCtx := context.WithValue(ctx, oci.ContextKeySecretNamespace, r.namespace)
+		archive, err = r.helmRegistry.Pull(pullCtx, res.Helm.OCIRepository)
+		if err != nil {
+			return fmt.Errorf("failed to pull chart: %w", err)
+		}
+	default:
+		return fmt.Errorf("neither chart nor ociRepository set for resource %s", res.Name)
 	}
 
 	var values map[string]interface{}
 	if res.Helm.Values != nil && res.Helm.Values.Raw != nil {
-		if err := json.Unmarshal(res.Helm.Values.Raw, &values); err != nil {
+		raw, err := r.substituteTemplateVariables(res.Helm.Values.Raw)
+		if err != nil {
+			return fmt.Errorf("failed to substitute template variables in helm values: %w", err)
+		}
+		if err := json.Unmarshal(raw, &values); err != nil {
 			return fmt.Errorf("failed to unmarshal helm values: %w", err)
 		}
 	}
@@ -121,9 +151,14 @@ func (r *Reconciler) deployResource(ctx context.Context, res config.AdditionalSe
 		return fmt.Errorf("failed to render chart: %w", err)
 	}
 
+	manifests, err := InjectNamespace(release.Manifest(), r.namespace)
+	if err != nil {
+		return fmt.Errorf("failed to inject namespace into manifests: %w", err)
+	}
+
 	var (
 		isNew          = !r.managedResourceExists(ctx, mrName)
-		data           = map[string][]byte{"manifests.yaml": release.Manifest()}
+		data           = map[string][]byte{"manifests.yaml": manifests}
 		keepObjects    = false
 		forceOverwrite = false
 	)
@@ -142,6 +177,41 @@ func (r *Reconciler) managedResourceExists(ctx context.Context, mrName string) b
 	mr := &resourcesv1alpha1.ManagedResource{}
 	err := r.client.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: mrName}, mr)
 	return err == nil || !apierrors.IsNotFound(err)
+}
+
+// substituteTemplateVariables replaces <<.VarName>> placeholders in raw JSON values
+// with runtime values (same pattern as global default destinations in falcovalues.go).
+// Go's json.Marshal escapes < and > as < / >, which prevents the
+// text/template parser from recognizing << >> delimiters. We convert to YAML first
+// (which does not escape these characters), perform substitution, then convert back.
+func (r *Reconciler) substituteTemplateVariables(raw []byte) ([]byte, error) {
+	var rawObj interface{}
+	if err := yaml.Unmarshal(raw, &rawObj); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal values: %w", err)
+	}
+	yamlBytes, err := yaml.Marshal(rawObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal values to YAML: %w", err)
+	}
+
+	data := map[string]string{
+		"SeedIngressDomain": r.seedIngressDomain,
+	}
+
+	tmpl, err := template.New("").Delims("<<", ">>").Parse(string(yamlBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	var result interface{}
+	if err := yaml.Unmarshal(buf.Bytes(), &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal substituted values: %w", err)
+	}
+	return json.Marshal(result)
 }
 
 // Cleanup removes ManagedResources that are labeled as additional but no longer in the config.
@@ -170,4 +240,42 @@ func (r *Reconciler) Cleanup(ctx context.Context) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// InjectNamespace sets the namespace on all namespaced resources in the manifest
+// that don't already have one. The resource-manager defaults namespace-less resources
+// to "default", so we must inject the target namespace explicitly.
+func InjectNamespace(manifest []byte, namespace string) ([]byte, error) {
+	decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(manifest), 1024)
+	var out bytes.Buffer
+
+	for {
+		var rawObj map[string]interface{}
+		if err := decoder.Decode(&rawObj); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("failed to decode YAML document: %w", err)
+		}
+		if rawObj == nil {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{Object: rawObj}
+		if obj.GetNamespace() == "" && obj.GetKind() != "Namespace" {
+			obj.SetNamespace(namespace)
+		}
+
+		patched, err := yaml.Marshal(obj.Object)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal patched object: %w", err)
+		}
+
+		if out.Len() > 0 {
+			out.WriteString("---\n")
+		}
+		out.Write(patched)
+	}
+
+	return out.Bytes(), nil
 }

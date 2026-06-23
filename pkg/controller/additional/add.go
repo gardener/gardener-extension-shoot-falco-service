@@ -20,8 +20,8 @@ import (
 const ControllerName = "additional-seed-resources"
 
 // AddToManager registers the additional seed resources reconciler with the manager.
-func AddToManager(mgr manager.Manager, log logr.Logger, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig) error {
-	r, err := NewReconciler(mgr.GetClient(), restConfig, namespace, additional, log.WithName(ControllerName))
+func AddToManager(mgr manager.Manager, log logr.Logger, restConfig *rest.Config, namespace string, additional *config.AdditionalConfig, seedIngressDomain string) error {
+	r, err := NewReconciler(mgr.GetClient(), restConfig, namespace, additional, seedIngressDomain, log.WithName(ControllerName))
 	if err != nil {
 		return fmt.Errorf("could not create additional seed resources reconciler: %w", err)
 	}

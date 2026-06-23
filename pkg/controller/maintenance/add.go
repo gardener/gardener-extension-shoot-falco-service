@@ -62,23 +62,41 @@ func (r *Reconciler) AddToManager(mgr manager.Manager) error {
 // ShootPredicate returns the predicates for the core.gardener.cloud/v1beta1.Shoot watch.
 func (r *Reconciler) ShootPredicate() predicate.Predicate {
 	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			shoot, ok := e.Object.(*gardencorev1beta1.Shoot)
+			if !ok {
+				return false
+			}
+			return hasFalcoLabel(shoot)
+		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			shoot, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
 			if !ok {
-				return ok
+				return false
+			}
+
+			if !hasFalcoLabel(shoot) {
+				return false
 			}
 
 			oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
 			if !ok {
-				return ok
+				return false
 			}
-			maintain := (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
+
+			return (hasMaintainNowAnnotation(shoot) && !hasMaintainNowAnnotation(oldShoot)) ||
 				!apiequality.Semantic.DeepEqual(oldShoot.Spec.Maintenance.TimeWindow, shoot.Spec.Maintenance.TimeWindow)
-
-			key := "extensions.extensions.gardener.cloud/shoot-falco-service"
-			val, ok := shoot.Labels[key]
-
-			return maintain && ok && val == "true"
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return false
+		},
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
 		},
 	}
+}
+
+func hasFalcoLabel(shoot *gardencorev1beta1.Shoot) bool {
+	val, ok := shoot.Labels["extensions.extensions.gardener.cloud/shoot-falco-service"]
+	return ok && val == "true"
 }

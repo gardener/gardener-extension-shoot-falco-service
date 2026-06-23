@@ -196,7 +196,7 @@ var _ = Describe("ValidateConfiguration", func() {
 							{
 								Name: "my-nginx",
 								Helm: config.HelmConfig{
-									OCIRepository: gardencorev1.OCIRepository{
+									OCIRepository: &gardencorev1.OCIRepository{
 										Ref: ptr.To("registry-1.docker.io/bitnamicharts/nginx:25.0.5"),
 									},
 								},
@@ -212,7 +212,14 @@ var _ = Describe("ValidateConfiguration", func() {
 			Expect(ValidateConfiguration(conf)).To(BeEmpty())
 		})
 
-		It("should pass for valid seed managed resources", func() {
+		It("should pass for valid seed managed resources with OCI ref", func() {
+			Expect(ValidateConfiguration(conf)).To(BeEmpty())
+		})
+
+		It("should pass for valid seed managed resources with inline chart", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Helm = config.HelmConfig{
+				Chart: ptr.To("H4sIAAAAAAAAA+3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAB+BjG/"),
+			}
 			Expect(ValidateConfiguration(conf)).To(BeEmpty())
 		})
 
@@ -249,29 +256,49 @@ var _ = Describe("ValidateConfiguration", func() {
 			))
 		})
 
-		It("should reject nil OCI repository ref", func() {
-			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = nil
+		It("should reject when neither OCI ref nor chart is set", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Helm = config.HelmConfig{}
 			Expect(ValidateConfiguration(conf)).To(ConsistOf(
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("falco.additional.seedManagedResources[0].helm.ociRepository.ref"),
+					"Field": Equal("falco.additional.seedManagedResources[0].helm"),
 				})),
 			))
 		})
 
-		It("should reject empty OCI repository ref", func() {
+		It("should reject when both OCI ref and chart are set", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Helm.Chart = ptr.To("H4sIAAAAAAAAA+3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAB+BjG/")
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("falco.additional.seedManagedResources[0].helm"),
+				})),
+			))
+		})
+
+		It("should reject nil OCI repository ref when no chart set", func() {
+			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = nil
+			Expect(ValidateConfiguration(conf)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("falco.additional.seedManagedResources[0].helm"),
+				})),
+			))
+		})
+
+		It("should reject empty OCI repository ref when no chart set", func() {
 			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = ptr.To("")
 			Expect(ValidateConfiguration(conf)).To(ConsistOf(
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("falco.additional.seedManagedResources[0].helm.ociRepository.ref"),
+					"Field": Equal("falco.additional.seedManagedResources[0].helm"),
 				})),
 			))
 		})
 
 		It("should report multiple errors at once", func() {
 			conf.Falco.Additional.SeedManagedResources[0].Name = ""
-			conf.Falco.Additional.SeedManagedResources[0].Helm.OCIRepository.Ref = nil
+			conf.Falco.Additional.SeedManagedResources[0].Helm = config.HelmConfig{}
 			Expect(ValidateConfiguration(conf)).To(HaveLen(2))
 		})
 	})

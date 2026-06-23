@@ -119,8 +119,14 @@ func validateAdditionalConfig(additional *config.AdditionalConfig, fldPath *fiel
 			names[res.Name] = true
 		}
 
-		if res.Helm.OCIRepository.Ref == nil || *res.Helm.OCIRepository.Ref == "" {
-			allErrs = append(allErrs, field.Required(idxPath.Child("helm").Child("ociRepository").Child("ref"), "OCI repository ref must not be empty"))
+		helmPath := idxPath.Child("helm")
+		hasOCI := res.Helm.OCIRepository != nil && res.Helm.OCIRepository.Ref != nil && *res.Helm.OCIRepository.Ref != ""
+		hasChart := res.Helm.Chart != nil && *res.Helm.Chart != ""
+
+		if hasOCI && hasChart {
+			allErrs = append(allErrs, field.Forbidden(helmPath, "only one of ociRepository or chart may be set"))
+		} else if !hasOCI && !hasChart {
+			allErrs = append(allErrs, field.Required(helmPath, "one of ociRepository.ref or chart must be set"))
 		}
 	}
 

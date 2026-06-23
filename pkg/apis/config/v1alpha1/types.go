@@ -110,10 +110,16 @@ type AdditionalSeedManagedResource struct {
 	Helm HelmConfig `json:"helm"`
 }
 
-// HelmConfig specifies a Helm chart to pull from an OCI repository and render with values.
+// HelmConfig specifies a Helm chart source and render values.
+// Exactly one of OCIRepository or Chart must be set.
 type HelmConfig struct {
 	// OCIRepository defines where to pull the chart from.
-	OCIRepository gardencorev1.OCIRepository `json:"ociRepository"`
+	// +optional
+	OCIRepository *gardencorev1.OCIRepository `json:"ociRepository,omitempty"`
+
+	// Chart is a base64-encoded, gzipped tar archive of the Helm chart.
+	// +optional
+	Chart *string `json:"chart,omitempty"`
 
 	// Values are the Helm values to use when rendering the chart.
 	// +optional
