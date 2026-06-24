@@ -15,6 +15,19 @@ falco:
   certificateLifetime: 2100h
   certificateRenewAfter: 1600h
   priorityClassName: gardener-shoot-system-900
+  falcoVPA:
+    minAllowed:
+      memory: "512Mi"
+      cpu: "100m"
+    maxAllowed:
+      memory: "1Gi"
+      cpu: "200m"
+  defaultRequests:
+    memory: "512Mi"
+    cpu: "100m"
+  # defaultLimits:
+  #   memory: "2Gi"
+  #   cpu: "500m"
   centralStorage:
     tokenLifetime: "720h"
     url: <ingestor URL>
@@ -48,6 +61,15 @@ falco:
 - `certificateLifetime`: Lifetime of certificates generated for communication between Falco and Falcosidekick.
 - `certificateRenewAfter`: Time period after which certificates are renewed.
 - `priorityClassName`: Priority class used for Falco when deployed.
+- `falcoVPA`: Default VPA (Vertical Pod Autoscaler) bounds for the Falco DaemonSet (see below).
+  - `minAllowed`: Minimum resources VPA can recommend (floor). VPA will not scale below these values.
+  - `maxAllowed`: Maximum resources VPA can recommend (ceiling). VPA will not scale above these values.
+- `defaultRequests`: Default resource requests for Falco pods. These are always set on the Falco container.
+  - `memory`: Memory request (default: "512Mi")
+  - `cpu`: CPU request (default: "100m")
+- `defaultLimits`: Optional default resource limits for Falco pods. No limits are set by default.
+  - `memory`: Memory limit
+  - `cpu`: CPU limit
 - `centralStorage`: Optional configuration for central event storage (see below)
   - `tokenLifetime`: Lifetime of the JWT token generated during each reconcile for sending events to central storage.
   - `url`: URL of the Falco event ingestor.
@@ -56,6 +78,48 @@ falco:
   - `tokenIssuerPrivateKey`: PEM-encoded RSA private key for signing tokens.
   - `tokenLifetime`: Lifetime of the issued token (default: 168h / 7 days).
 - `globalDefaultDestinations`: Optional list of operator-provided Falcosidekick output destinations (see below).
+
+## Vertical Pod Autoscaler (VPA)
+
+A VPA is always deployed alongside the Falco DaemonSet in shoot clusters. It automatically adjusts resource requests based on actual usage, ensuring Falco pods are right-sized without manual intervention.
+
+### How It Works
+
+- **UpdateMode: Recreate** — VPA evicts and recreates pods when adjusting resources. The Gardener resource-manager webhook may mutate this to `InPlaceOrRecreate` if supported.
+- **controlledResources:** `[memory, cpu]` — VPA manages both memory and CPU.
+- **controlledValues: RequestsOnly** — VPA adjusts only requests, not limits. This avoids OOMKill issues when limits are set.
+- **minAllowed** acts as a floor — VPA will never recommend resources below this value.
+- **maxAllowed** acts as a ceiling — VPA will never recommend resources above this value.
+
+### Defaults
+
+The extension ships with hardcoded defaults that apply when no explicit configuration is provided:
+
+| Setting | Default |
+|---------|---------|
+| `falcoVPA.minAllowed.memory` | 512Mi |
+| `falcoVPA.minAllowed.cpu` | 100m |
+| `falcoVPA.maxAllowed.memory` | 1Gi |
+| `falcoVPA.maxAllowed.cpu` | 200m |
+| `defaultRequests.memory` | 512Mi |
+| `defaultRequests.cpu` | 100m |
+| `defaultLimits` | none |
+
+Operators can override these defaults in the extension configuration. Shoot owners can further override VPA bounds per shoot (see [Falco Configuration](falco-configuration.md)).
+
+### Configuration Hierarchy
+
+For each setting, the effective value is resolved as:
+
+1. **Shoot manifest** (user override, highest priority)
+2. **Extension configuration** (operator default)
+3. **Hardcoded constant** (built-in fallback)
+
+### Design Rationale
+
+- **No limits by default**: Aligns with Gardener practice. Limits can cause OOMKill when memory usage spikes temporarily. VPA with `RequestsOnly` ensures the scheduler allocates sufficient resources without hard-capping.
+- **minAllowed equals requests**: The minimum VPA recommendation matches the pod requests. This prevents VPA from scaling Falco below its minimum working set.
+- **Always on**: VPA is not optional because Falco resource usage is highly workload-dependent. Without VPA, operators must over-provision to avoid resource starvation.
 
 ## Central Storage
 

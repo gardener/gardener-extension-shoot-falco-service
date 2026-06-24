@@ -87,18 +87,17 @@ scc:
   create: true
 
 resources:
-  # -- Although resources needed are subjective on the actual workload we provide
-  # a sane defaults ones. If you have more questions or concerns, please refer
-  # to #falco slack channel for more info about it.
   requests:
     cpu: 100m
     memory: 512Mi
-  # -- Maximum amount of resources that Falco container could get.
-  # If you are enabling more than one source in falco, than consider to increase
-  # the cpu limits.
-  limits:
-    # cpu: 1000m
-    memory: 1024Mi
+
+vpa:
+  minAllowed:
+    memory: "512Mi"
+    cpu: "100m"
+  maxAllowed:
+    memory: "1Gi"
+    cpu: "200m"
 # -- Selectors used to deploy Falco on a given node/nodes.
 nodeSelector: {}
 

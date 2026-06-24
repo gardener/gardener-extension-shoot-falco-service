@@ -260,6 +260,20 @@ FalcoResources
 <p>Falco container resource settings</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>vpa</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoVPA">
+FalcoVPA
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VPA configuration for Falco pods</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl
@@ -400,6 +414,53 @@ ResourceValues
 </td>
 <td>
 <p>requests</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoVPA">FalcoVPA
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoConfig">FalcoConfig</a>)
+</p>
+<p>
+<p>FalcoVPA holds user-configurable VPA settings for the Falco DaemonSet</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>minAllowed</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.ResourceValues">
+ResourceValues
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Minimum resources VPA can recommend (floor). Overrides operator defaults.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>maxAllowed</code></br>
+<em>
+<a href="#falco.extensions.gardener.cloud/v1alpha1.ResourceValues">
+ResourceValues
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Maximum resources VPA can recommend (ceiling). Overrides operator defaults.</p>
 </td>
 </tr>
 </tbody>
@@ -592,7 +653,8 @@ Webhook
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoResources">FalcoResources</a>)
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoResources">FalcoResources</a>, 
+<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoVPA">FalcoVPA</a>)
 </p>
 <p>
 </p>

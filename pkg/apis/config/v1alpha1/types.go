@@ -57,6 +57,18 @@ type Falco struct {
 	// Additional resources to deploy on the seed
 	// +optional
 	Additional *AdditionalConfig `json:"additional,omitempty"`
+
+	// VPA configuration defaults for Falco DaemonSet
+	// +optional
+	FalcoVPA *FalcoVPAConfig `json:"falcoVPA,omitempty"`
+
+	// Default resource requests for Falco pods
+	// +optional
+	DefaultRequests *FalcoResourceValues `json:"defaultRequests,omitempty"`
+
+	// Default resource limits for Falco pods (none by default)
+	// +optional
+	DefaultLimits *FalcoResourceValues `json:"defaultLimits,omitempty"`
 }
 
 // GlobalDefaultDestination defines an operator-provided Falcosidekick output destination
@@ -136,4 +148,37 @@ type ClusterIdentityTokenConfig struct {
 	// Lifetime of the issued token
 	// +optional
 	TokenLifetime *metav1.Duration `json:"tokenLifetime,omitempty"`
+}
+
+// FalcoVPAConfig holds VPA defaults for the Falco DaemonSet
+type FalcoVPAConfig struct {
+	// Minimum resources VPA can recommend (floor)
+	// +optional
+	MinAllowed FalcoVPAResources `json:"minAllowed,omitempty"`
+
+	// Maximum resources VPA can recommend (ceiling)
+	// +optional
+	MaxAllowed FalcoVPAResources `json:"maxAllowed,omitempty"`
+}
+
+// FalcoVPAResources specifies resource quantities for VPA bounds
+type FalcoVPAResources struct {
+	// Memory resource quantity (e.g. "512Mi")
+	// +optional
+	Memory string `json:"memory,omitempty"`
+
+	// CPU resource quantity (e.g. "100m")
+	// +optional
+	Cpu string `json:"cpu,omitempty"`
+}
+
+// FalcoResourceValues specifies resource quantities for Falco pod requests/limits
+type FalcoResourceValues struct {
+	// Memory resource quantity (e.g. "512Mi")
+	// +optional
+	Memory string `json:"memory,omitempty"`
+
+	// CPU resource quantity (e.g. "100m")
+	// +optional
+	Cpu string `json:"cpu,omitempty"`
 }

@@ -64,6 +64,14 @@ Below is the full configuration, explained in detail:
           requests:
             cpu: 150m
             memory: 512Mi
+        # optional VPA bounds override
+        vpa:
+          minAllowed:
+            memory: "512Mi"
+            cpu: "100m"
+          maxAllowed:
+            memory: "2Gi"
+            cpu: "500m"
       tolerations:
       - key: key1
         effect: NoSchedule
@@ -263,10 +271,10 @@ The `tolerations` option allows Falco pods to be scheduled on nodes with taints,
 
 The `heartbeatEvent` option enables or disables the heartbeat event, which is a periodic event sent by Falco to indicate it is running and healthy. This is useful for monitoring.
 
-The `falcoConfig` option allows to configure the resources section that is 
-configured for the Falco container:
+The `falcoConfig` option allows to configure resources and VPA bounds for
+the Falco container:
 
-```
+```yaml
       falcoConfig:
         # optional resources to be set on Falco pods
         resources:
@@ -276,7 +284,32 @@ configured for the Falco container:
           requests:
             cpu: 150m
             memory: 512Mi
+        # optional VPA bounds override
+        vpa:
+          minAllowed:
+            memory: "512Mi"
+            cpu: "100m"
+          maxAllowed:
+            memory: "2Gi"
+            cpu: "500m"
 ```
+
+#### Resource Requests and Limits
+
+Resource requests are always set on Falco pods. If not explicitly configured, they default to the operator-configured values or the built-in defaults (cpu: 100m, memory: 512Mi). Limits are not set by default — they are only applied when explicitly configured.
+
+If you set `requests` in the shoot manifest, they override the operator defaults. Similarly for `limits`.
+
+#### VPA Bounds Override
+
+A Vertical Pod Autoscaler (VPA) is always deployed alongside the Falco DaemonSet. It automatically adjusts resource requests based on actual usage within the configured bounds:
+
+- **minAllowed**: The floor below which VPA will not scale. Override this if your workload requires more resources than the operator default minimum.
+- **maxAllowed**: The ceiling above which VPA will not scale. Override this if your workload needs more headroom than the operator default maximum.
+
+VPA operates in `RequestsOnly` mode — it adjusts requests but does not touch limits. This means if you set limits, they remain fixed regardless of VPA recommendations.
+
+Values must be valid Kubernetes resource quantities (e.g., "128Mi", "500m", "1Gi", "2"). The admission webhook validates that all specified quantities are parseable.
 
 ## Destinations
 

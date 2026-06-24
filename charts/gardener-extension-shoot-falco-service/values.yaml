@@ -71,3 +71,18 @@ falco:
   #       token: "<<.ServiceAccountToken>>"
   #       checkcert: true
   globalDefaultDestinations: []
+
+  # VPA defaults for Falco DaemonSet in shoot clusters
+  falcoVPA:
+    minAllowed:
+      memory: "512Mi"
+      cpu: "100m"
+    maxAllowed:
+      memory: "1Gi"
+      cpu: "200m"
+  defaultRequests:
+    memory: "512Mi"
+    cpu: "100m"
+  # defaultLimits:
+  #   memory: ""
+  #   cpu: ""

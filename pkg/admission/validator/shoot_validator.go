@@ -182,6 +182,10 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 		allErrs = append(allErrs, err)
 	}
 
+	if err := verifyFalcoVPA(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	if len(allErrs) > 0 {
 		return errors.Join(allErrs...)
 	}
@@ -692,4 +696,60 @@ func isCentralLoggingEnabled(falcoConf *service.FalcoServiceConfig) bool {
 		}
 	}
 	return false
+}
+
+// verifyFalcoVPA validates the VPA field in FalcoServiceConfig
+func verifyFalcoVPA(falcoConf *service.FalcoServiceConfig) error {
+	if falcoConf == nil || falcoConf.FalcoConfig == nil || falcoConf.FalcoConfig.VPA == nil {
+		return nil
+	}
+
+	vpa := falcoConf.FalcoConfig.VPA
+	var allErrs []error
+
+	if vpa.MinAllowed != nil {
+		if vpa.MinAllowed.Memory != nil {
+			if err := validateMemoryQuantity(*vpa.MinAllowed.Memory); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.vpa.minAllowed.memory: %w", err))
+			}
+		}
+		if vpa.MinAllowed.Cpu != nil {
+			if err := validateCPUQuantity(*vpa.MinAllowed.Cpu); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.vpa.minAllowed.cpu: %w", err))
+			}
+		}
+	}
+
+	if vpa.MaxAllowed != nil {
+		if vpa.MaxAllowed.Memory != nil {
+			if err := validateMemoryQuantity(*vpa.MaxAllowed.Memory); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.vpa.maxAllowed.memory: %w", err))
+			}
+		}
+		if vpa.MaxAllowed.Cpu != nil {
+			if err := validateCPUQuantity(*vpa.MaxAllowed.Cpu); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.vpa.maxAllowed.cpu: %w", err))
+			}
+		}
+	}
+
+	// Validate minAllowed <= maxAllowed
+	if vpa.MinAllowed != nil && vpa.MaxAllowed != nil {
+		if vpa.MinAllowed.Memory != nil && vpa.MaxAllowed.Memory != nil {
+			if err := validateRequestNotGreaterThanLimit(*vpa.MinAllowed.Memory, *vpa.MaxAllowed.Memory); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.vpa: minAllowed.memory must be less than or equal to maxAllowed.memory: %w", err))
+			}
+		}
+		if vpa.MinAllowed.Cpu != nil && vpa.MaxAllowed.Cpu != nil {
+			if err := validateRequestNotGreaterThanLimit(*vpa.MinAllowed.Cpu, *vpa.MaxAllowed.Cpu); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("falcoConfig.vpa: minAllowed.cpu must be less than or equal to maxAllowed.cpu: %w", err))
+			}
+		}
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
+	}
+
+	return nil
 }
