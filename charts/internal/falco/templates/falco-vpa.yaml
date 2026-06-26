@@ -1,0 +1,27 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "falco.fullname" . }}
+  namespace: {{ include "falco.namespace" . }}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: {{ include "falco.fullname" . }}
+  updatePolicy:
+    updateMode: "Recreate"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: {{ .Chart.Name }}
+      minAllowed:
+        memory: {{ .Values.vpa.minAllowed.memory }}
+        cpu: {{ .Values.vpa.minAllowed.cpu }}
+      maxAllowed:
+        memory: {{ .Values.vpa.maxAllowed.memory }}
+        cpu: {{ .Values.vpa.maxAllowed.cpu }}
+      controlledResources:
+      - memory
+      - cpu
+      controlledValues: RequestsOnly
+    - containerName: '*'
+      mode: "Off"

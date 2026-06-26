@@ -121,6 +121,21 @@ type FalcoConfig struct {
 	// Falco container resource settings
 	// +optional
 	Resources *FalcoResources `json:"resources,omitempty"`
+
+	// VPA configuration for Falco pods
+	// +optional
+	VPA *FalcoVPA `json:"vpa,omitempty"`
+}
+
+// FalcoVPA holds user-configurable VPA settings for the Falco DaemonSet
+type FalcoVPA struct {
+	// Minimum resources VPA can recommend (floor). Overrides operator defaults.
+	// +optional
+	MinAllowed *ResourceValues `json:"minAllowed,omitempty"`
+
+	// Maximum resources VPA can recommend (ceiling). Overrides operator defaults.
+	// +optional
+	MaxAllowed *ResourceValues `json:"maxAllowed,omitempty"`
 }
 
 type FalcoResources struct {

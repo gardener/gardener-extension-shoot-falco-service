@@ -51,6 +51,15 @@ type Falco struct {
 
 	// Additional resources to deploy on the seed
 	Additional *AdditionalConfig
+
+	// VPA configuration defaults for Falco DaemonSet
+	FalcoVPA *FalcoVPAConfig
+
+	// Default resource requests for Falco pods
+	DefaultRequests *FalcoResourceValues
+
+	// Default resource limits for Falco pods (none by default)
+	DefaultLimits *FalcoResourceValues
 }
 
 // GlobalDefaultDestination defines an operator-provided Falcosidekick output destination
@@ -111,4 +120,25 @@ type ClusterIdentityTokenConfig struct {
 
 	// Lifetime of the issued token
 	TokenLifetime *metav1.Duration
+}
+
+// FalcoVPAConfig holds VPA defaults for the Falco DaemonSet
+type FalcoVPAConfig struct {
+	// Minimum resources VPA can recommend (floor)
+	MinAllowed FalcoVPAResources
+
+	// Maximum resources VPA can recommend (ceiling)
+	MaxAllowed FalcoVPAResources
+}
+
+// FalcoVPAResources specifies resource quantities for VPA bounds
+type FalcoVPAResources struct {
+	Memory string
+	Cpu    string
+}
+
+// FalcoResourceValues specifies resource quantities for Falco pod requests/limits
+type FalcoResourceValues struct {
+	Memory string
+	Cpu    string
 }

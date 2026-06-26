@@ -148,6 +148,21 @@ type FalcoConfig struct {
 	// Falco container resource settings
 	// +optional
 	Resources *FalcoResources
+
+	// VPA configuration for Falco pods
+	// +optional
+	VPA *FalcoVPA
+}
+
+// FalcoVPA holds user-configurable VPA settings for the Falco DaemonSet
+type FalcoVPA struct {
+	// Minimum resources VPA can recommend (floor). Overrides operator defaults.
+	// +optional
+	MinAllowed *ResourceValues
+
+	// Maximum resources VPA can recommend (ceiling). Overrides operator defaults.
+	// +optional
+	MaxAllowed *ResourceValues
 }
 
 type FalcoResources struct {

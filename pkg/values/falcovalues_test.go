@@ -1724,7 +1724,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			Expect(falcoContainer.Resources.Requests.Memory().String()).To(Equal("128Mi"))
 		})
 
-		It("should set only resource limits when only limits are configured", func(ctx SpecContext) {
+		It("should set resource limits and default requests when only limits are configured", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
@@ -1758,14 +1758,18 @@ var _ = Describe("BuildFalcoValues", func() {
 			Expect(values).To(HaveKey("resources"))
 			resources := values["resources"].(map[string]any)
 			Expect(resources).To(HaveKey("limits"))
-			Expect(resources).NotTo(HaveKey("requests"))
+			Expect(resources).To(HaveKey("requests"))
 
 			limits := resources["limits"].(map[string]string)
 			Expect(limits["cpu"]).To(Equal("500m"))
 			Expect(limits["memory"]).To(Equal("512Mi"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal(constants.DefaultFalcoRequestsCPU))
+			Expect(requests["memory"]).To(Equal(constants.DefaultFalcoRequestsMemory))
 		})
 
-		It("should set only resource requests when only requests are configured", func(ctx SpecContext) {
+		It("should use user-configured requests when only requests are configured", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
@@ -1806,7 +1810,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			Expect(requests["memory"]).To(Equal("128Mi"))
 		})
 
-		It("should set only CPU resources when only CPU is configured", func(ctx SpecContext) {
+		It("should use user-configured CPU and fill defaults for memory in requests", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
@@ -1850,10 +1854,10 @@ var _ = Describe("BuildFalcoValues", func() {
 
 			requests := resources["requests"].(map[string]string)
 			Expect(requests["cpu"]).To(Equal("100m"))
-			Expect(requests).NotTo(HaveKey("memory"))
+			Expect(requests["memory"]).To(Equal(constants.DefaultFalcoRequestsMemory))
 		})
 
-		It("should not set resources field when FalcoConfig is nil", func(ctx SpecContext) {
+		It("should set default resources when FalcoConfig is nil", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
@@ -1876,10 +1880,18 @@ var _ = Describe("BuildFalcoValues", func() {
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(values).NotTo(HaveKey("resources"))
+
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).NotTo(HaveKey("limits"))
+			Expect(resources).To(HaveKey("requests"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal(constants.DefaultFalcoRequestsCPU))
+			Expect(requests["memory"]).To(Equal(constants.DefaultFalcoRequestsMemory))
 		})
 
-		It("should not set resources field when FalcoConfig.Resources is nil", func(ctx SpecContext) {
+		It("should set default resources when FalcoConfig.Resources is nil", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
@@ -1904,10 +1916,18 @@ var _ = Describe("BuildFalcoValues", func() {
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(values).NotTo(HaveKey("resources"))
+
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).NotTo(HaveKey("limits"))
+			Expect(resources).To(HaveKey("requests"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal(constants.DefaultFalcoRequestsCPU))
+			Expect(requests["memory"]).To(Equal(constants.DefaultFalcoRequestsMemory))
 		})
 
-		It("should not set resources field when Resources has no values", func(ctx SpecContext) {
+		It("should set default resources when Resources has no values", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
 				FalcoVersion: stringValue("0.38.0"),
 				Rules: &service.Rules{
@@ -1932,7 +1952,15 @@ var _ = Describe("BuildFalcoValues", func() {
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(values).NotTo(HaveKey("resources"))
+
+			Expect(values).To(HaveKey("resources"))
+			resources := values["resources"].(map[string]any)
+			Expect(resources).NotTo(HaveKey("limits"))
+			Expect(resources).To(HaveKey("requests"))
+
+			requests := resources["requests"].(map[string]string)
+			Expect(requests["cpu"]).To(Equal(constants.DefaultFalcoRequestsCPU))
+			Expect(requests["memory"]).To(Equal(constants.DefaultFalcoRequestsMemory))
 		})
 	})
 

@@ -1020,39 +1020,114 @@ func (c *ConfigBuilder) getFalcoRulesFile(rulesFile string, falcoVersion string)
 
 func (c *ConfigBuilder) configureFalcoResources(falcoChartValues map[string]any, falcoServiceConfig *apisservice.FalcoServiceConfig) {
 
+	// Determine VPA minAllowed: shoot VPA config → extension config → hardcoded default
+	minAllowedMemory := constants.DefaultFalcoVPAMinAllowedMemory
+	minAllowedCPU := constants.DefaultFalcoVPAMinAllowedCPU
+	if c.config.Falco != nil && c.config.Falco.FalcoVPA != nil {
+		if c.config.Falco.FalcoVPA.MinAllowed.Memory != "" {
+			minAllowedMemory = c.config.Falco.FalcoVPA.MinAllowed.Memory
+		}
+		if c.config.Falco.FalcoVPA.MinAllowed.Cpu != "" {
+			minAllowedCPU = c.config.Falco.FalcoVPA.MinAllowed.Cpu
+		}
+	}
+	if falcoServiceConfig.FalcoConfig != nil && falcoServiceConfig.FalcoConfig.VPA != nil {
+		if falcoServiceConfig.FalcoConfig.VPA.MinAllowed != nil {
+			if falcoServiceConfig.FalcoConfig.VPA.MinAllowed.Memory != nil {
+				minAllowedMemory = *falcoServiceConfig.FalcoConfig.VPA.MinAllowed.Memory
+			}
+			if falcoServiceConfig.FalcoConfig.VPA.MinAllowed.Cpu != nil {
+				minAllowedCPU = *falcoServiceConfig.FalcoConfig.VPA.MinAllowed.Cpu
+			}
+		}
+	}
+
+	// Determine VPA maxAllowed: shoot VPA config → extension config → hardcoded default
+	maxAllowedMemory := constants.DefaultFalcoVPAMaxAllowedMemory
+	maxAllowedCPU := constants.DefaultFalcoVPAMaxAllowedCPU
+	if c.config.Falco != nil && c.config.Falco.FalcoVPA != nil {
+		if c.config.Falco.FalcoVPA.MaxAllowed.Memory != "" {
+			maxAllowedMemory = c.config.Falco.FalcoVPA.MaxAllowed.Memory
+		}
+		if c.config.Falco.FalcoVPA.MaxAllowed.Cpu != "" {
+			maxAllowedCPU = c.config.Falco.FalcoVPA.MaxAllowed.Cpu
+		}
+	}
+	if falcoServiceConfig.FalcoConfig != nil && falcoServiceConfig.FalcoConfig.VPA != nil {
+		if falcoServiceConfig.FalcoConfig.VPA.MaxAllowed != nil {
+			if falcoServiceConfig.FalcoConfig.VPA.MaxAllowed.Memory != nil {
+				maxAllowedMemory = *falcoServiceConfig.FalcoConfig.VPA.MaxAllowed.Memory
+			}
+			if falcoServiceConfig.FalcoConfig.VPA.MaxAllowed.Cpu != nil {
+				maxAllowedCPU = *falcoServiceConfig.FalcoConfig.VPA.MaxAllowed.Cpu
+			}
+		}
+	}
+
+	// Set VPA chart values
+	falcoChartValues["vpa"] = map[string]any{
+		"minAllowed": map[string]string{
+			"memory": minAllowedMemory,
+			"cpu":    minAllowedCPU,
+		},
+		"maxAllowed": map[string]string{
+			"memory": maxAllowedMemory,
+			"cpu":    maxAllowedCPU,
+		},
+	}
+
+	// Determine requests: user shoot manifest → extension config → hardcoded default
+	requestsMemory := constants.DefaultFalcoRequestsMemory
+	requestsCPU := constants.DefaultFalcoRequestsCPU
+	if c.config.Falco != nil && c.config.Falco.DefaultRequests != nil {
+		if c.config.Falco.DefaultRequests.Memory != "" {
+			requestsMemory = c.config.Falco.DefaultRequests.Memory
+		}
+		if c.config.Falco.DefaultRequests.Cpu != "" {
+			requestsCPU = c.config.Falco.DefaultRequests.Cpu
+		}
+	}
+	if falcoServiceConfig.FalcoConfig != nil && falcoServiceConfig.FalcoConfig.Resources != nil &&
+		falcoServiceConfig.FalcoConfig.Resources.Requests != nil {
+		if falcoServiceConfig.FalcoConfig.Resources.Requests.Memory != nil {
+			requestsMemory = *falcoServiceConfig.FalcoConfig.Resources.Requests.Memory
+		}
+		if falcoServiceConfig.FalcoConfig.Resources.Requests.Cpu != nil {
+			requestsCPU = *falcoServiceConfig.FalcoConfig.Resources.Requests.Cpu
+		}
+	}
+	requestsMap := map[string]string{
+		"memory": requestsMemory,
+		"cpu":    requestsCPU,
+	}
+
+	// Determine limits: user shoot manifest → extension config → none
 	limitMap := map[string]string{}
-	requestsMap := map[string]string{}
-	if falcoServiceConfig.FalcoConfig != nil && falcoServiceConfig.FalcoConfig.Resources != nil {
-		resources := falcoServiceConfig.FalcoConfig.Resources
-		if resources.Limits != nil {
-			limits := resources.Limits
-			if limits.Cpu != nil {
-				limitMap["cpu"] = *limits.Cpu
-			}
-			if limits.Memory != nil {
-				limitMap["memory"] = *limits.Memory
-			}
+	if c.config.Falco != nil && c.config.Falco.DefaultLimits != nil {
+		if c.config.Falco.DefaultLimits.Memory != "" {
+			limitMap["memory"] = c.config.Falco.DefaultLimits.Memory
 		}
-		if resources.Requests != nil {
-			requests := resources.Requests
-			if requests.Cpu != nil {
-				requestsMap["cpu"] = *requests.Cpu
-			}
-			if requests.Memory != nil {
-				requestsMap["memory"] = *requests.Memory
-			}
+		if c.config.Falco.DefaultLimits.Cpu != "" {
+			limitMap["cpu"] = c.config.Falco.DefaultLimits.Cpu
 		}
 	}
-	if len(limitMap) != 0 || len(requestsMap) != 0 {
-		resources := map[string]any{}
-		if len(limitMap) != 0 {
-			resources["limits"] = limitMap
+	if falcoServiceConfig.FalcoConfig != nil && falcoServiceConfig.FalcoConfig.Resources != nil &&
+		falcoServiceConfig.FalcoConfig.Resources.Limits != nil {
+		if falcoServiceConfig.FalcoConfig.Resources.Limits.Memory != nil {
+			limitMap["memory"] = *falcoServiceConfig.FalcoConfig.Resources.Limits.Memory
 		}
-		if len(requestsMap) != 0 {
-			resources["requests"] = requestsMap
+		if falcoServiceConfig.FalcoConfig.Resources.Limits.Cpu != nil {
+			limitMap["cpu"] = *falcoServiceConfig.FalcoConfig.Resources.Limits.Cpu
 		}
-		falcoChartValues["resources"] = resources
 	}
+
+	resources := map[string]any{
+		"requests": requestsMap,
+	}
+	if len(limitMap) > 0 {
+		resources["limits"] = limitMap
+	}
+	falcoChartValues["resources"] = resources
 }
 
 func decompressRulesFile(datagz []byte) (string, error) {

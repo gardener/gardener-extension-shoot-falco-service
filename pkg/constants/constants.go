@@ -109,4 +109,12 @@ var (
 		FalcoEventDestinationSplunk:     "splunk",
 		FalcoEventDestinationCentral:    "webhook",
 	}
+
+	// VPA defaults for Falco DaemonSet
+	DefaultFalcoVPAMinAllowedMemory = "512Mi"
+	DefaultFalcoVPAMinAllowedCPU    = "100m"
+	DefaultFalcoVPAMaxAllowedMemory = "1Gi"
+	DefaultFalcoVPAMaxAllowedCPU    = "200m"
+	DefaultFalcoRequestsMemory      = "512Mi"
+	DefaultFalcoRequestsCPU         = "100m"
 )
