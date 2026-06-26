@@ -11,8 +11,9 @@
     classification: supported
     rulesVersion: 0.42.1
   - version: 0.43.0
-    classification: preview
+    classification: deprecated
     rulesVersion: 0.43.0
-  - version: 0.44.0
+    expirationDate: '2026-07-31T23:59:59Z'
+  - version: 0.44.1
     classification: preview
     rulesVersion: 0.44.0
