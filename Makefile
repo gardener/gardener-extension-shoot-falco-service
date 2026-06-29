@@ -141,7 +141,7 @@ generate-controller-registration:
 	@bash $(HACK_DIR)/generate-controller-registration.sh extension-shoot-falco charts/$(EXTENSION_PREFIX)-$(NAME) 0.0.1 example/ControllerRegistration.yaml
 
 .PHONY: generate
-generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(EXTENSION_GEN) $(HELM) $(MOCKGEN) $(KUSTOMIZE) $(YQ) $(VGOPATH)
+generate: $(CONTROLLER_GEN) $(CRD_REF_DOCS) $(EXTENSION_GEN) $(HELM) $(MOCKGEN) $(KUSTOMIZE) $(YQ) $(VGOPATH)
 	@VGOPATH=$(VGOPATH) REPO_ROOT=$(REPO_ROOT) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) hack/update-codegen.sh
 	@VGOPATH=$(VGOPATH) REPO_ROOT=$(REPO_ROOT) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) bash $(GARDENER_HACK_DIR)/generate-sequential.sh ./charts/... ./cmd/... ./example/... ./pkg/...
 	@$(MAKE) format

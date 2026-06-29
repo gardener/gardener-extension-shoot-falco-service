@@ -4,19 +4,24 @@
 <a href="#falco.extensions.gardener.cloud%2fv1alpha1">falco.extensions.gardener.cloud/v1alpha1</a>
 </li>
 </ul>
+
 <h2 id="falco.extensions.gardener.cloud/v1alpha1">falco.extensions.gardener.cloud/v1alpha1</h2>
 <p>
-<p>Package v1alpha1 contains the Falco extension.</p>
+
 </p>
-Resource Types:
-<ul><li>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>
-</li></ul>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig
+
+<h3 id="customrule">CustomRule
 </h3>
+
+
 <p>
-<p>Falco cluster configuration resource</p>
+(<em>Appears on:</em><a href="#rules">Rules</a>)
 </p>
+
+<p>
+
+</p>
+
 <table>
 <thead>
 <tr>
@@ -25,30 +30,315 @@ Resource Types:
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-falco.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
+<code>resourceName</code></br>
+<em>
 string
+</em>
 </td>
-<td><code>FalcoServiceConfig</code></td>
+<td>
+<p></p>
+</td>
 </tr>
+<tr>
+<td>
+<code>shootConfigMap</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="destination">Destination
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falcoserviceconfig">FalcoServiceConfig</a>)
+</p>
+
+<p>
+
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resourceSecretName</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="falcoconfig">FalcoConfig
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falcoserviceconfig">FalcoServiceConfig</a>)
+</p>
+
+<p>
+
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="#falcoresources">FalcoResources</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Falco container resource settings</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="falcoctl">FalcoCtl
+</h3>
+
+
+<p>
+
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>indexes</code></br>
+<em>
+<a href="#falcoctlindex">FalcoCtlIndex</a> array
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedTypes</code></br>
+<em>
+string array
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>install</code></br>
+<em>
+<a href="#install">Install</a>
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>follow</code></br>
+<em>
+<a href="#follow">Follow</a>
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="falcoctlindex">FalcoCtlIndex
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falcoctl">FalcoCtl</a>)
+</p>
+
+<p>
+
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>url</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p></p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="falcoresources">FalcoResources
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falcoconfig">FalcoConfig</a>)
+</p>
+
+<p>
+
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>limits</code></br>
+<em>
+<a href="#resourcevalues">ResourceValues</a>
+</em>
+</td>
+<td>
+<p>limits</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>requests</code></br>
+<em>
+<a href="#resourcevalues">ResourceValues</a>
+</em>
+</td>
+<td>
+<p>requests</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="falcoserviceconfig">FalcoServiceConfig
+</h3>
+
+
+<p>
+Falco cluster configuration resource
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
 <tr>
 <td>
 <code>falcoConfig</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoConfig">
-FalcoConfig
-</a>
+<a href="#falcoconfig">FalcoConfig</a>
 </em>
 </td>
 <td>
@@ -72,7 +362,7 @@ string
 <td>
 <code>autoUpdate</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
@@ -84,7 +374,7 @@ bool
 <td>
 <code>heartbeatEvent</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
@@ -108,9 +398,7 @@ map[string]string
 <td>
 <code>tolerations</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#toleration-v1-core">
-[]Kubernetes core/v1.Toleration
-</a>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#toleration-v1-core">Toleration</a> array
 </em>
 </td>
 <td>
@@ -122,36 +410,41 @@ map[string]string
 <td>
 <code>rules</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Rules">
-Rules
-</a>
+<a href="#rules">Rules</a>
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
 <td>
 <code>destinations</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Destination">
-[]Destination
-</a>
+<a href="#destination">Destination</a> array
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.CustomRule">CustomRule
+
+
+<h3 id="follow">Follow
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Rules">Rules</a>)
+(<em>Appears on:</em><a href="#falcoctl">FalcoCtl</a>)
 </p>
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -160,274 +453,16 @@ Rules
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>resourceName</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>shootConfigMap</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Destination">Destination
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>enabled</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>resourceSecretName</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoConfig">FalcoConfig
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoResources">
-FalcoResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Falco container resource settings</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl
-</h3>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>indexes</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoCtlIndex">
-[]FalcoCtlIndex
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>allowedTypes</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>install</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Install">
-Install
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>follow</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Follow">
-Follow
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoCtlIndex">FalcoCtlIndex
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>url</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.FalcoResources">FalcoResources
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoConfig">FalcoConfig</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>limits</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.ResourceValues">
-ResourceValues
-</a>
-</em>
-</td>
-<td>
-<p>limits</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>requests</code></br>
-<em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.ResourceValues">
-ResourceValues
-</a>
-</em>
-</td>
-<td>
-<p>requests</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Follow">Follow
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
+
 <tr>
 <td>
 <code>refs</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -438,14 +473,22 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Gardener">Gardener
+
+
+<h3 id="gardener">Gardener
 </h3>
+
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -454,11 +497,12 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>useFalcoRules</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
@@ -470,7 +514,7 @@ bool
 <td>
 <code>useFalcoIncubatingRules</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
@@ -482,7 +526,7 @@ bool
 <td>
 <code>useFalcoSandboxRules</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
@@ -494,7 +538,7 @@ bool
 <td>
 <code>customRules</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
@@ -502,16 +546,23 @@ bool
 <p>References to custom rules files</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Install">Install
+
+
+<h3 id="install">Install
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoCtl">FalcoCtl</a>)
+(<em>Appears on:</em><a href="#falcoctl">FalcoCtl</a>)
 </p>
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -520,32 +571,42 @@ bool
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>refs</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
 <td>
 <code>resolveDeps</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Output">Output
+
+
+<h3 id="output">Output
 </h3>
+
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -554,14 +615,16 @@ bool
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>logFalcoEvents</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -572,30 +635,37 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
 <td>
 <code>customWebhook</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Webhook">
-Webhook
-</a>
+<a href="#webhook">Webhook</a>
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.ResourceValues">ResourceValues
+
+
+<h3 id="resourcevalues">ResourceValues
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoResources">FalcoResources</a>)
+(<em>Appears on:</em><a href="#falcoresources">FalcoResources</a>)
 </p>
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -604,6 +674,7 @@ Webhook
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>cpu</code></br>
@@ -612,6 +683,7 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -622,18 +694,26 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Rules">Rules
+
+
+<h3 id="rules">Rules
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.FalcoServiceConfig">FalcoServiceConfig</a>)
+(<em>Appears on:</em><a href="#falcoserviceconfig">FalcoServiceConfig</a>)
 </p>
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -642,38 +722,46 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>standard</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
 <td>
 <code>custom</code></br>
 <em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.CustomRule">
-[]CustomRule
-</a>
+<a href="#customrule">CustomRule</a> array
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.extensions.gardener.cloud/v1alpha1.Webhook">Webhook
+
+
+<h3 id="webhook">Webhook
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.extensions.gardener.cloud/v1alpha1.Output">Output</a>)
+(<em>Appears on:</em><a href="#output">Output</a>)
 </p>
+
 <p>
+
 </p>
+
 <table>
 <thead>
 <tr>
@@ -682,14 +770,16 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>enabled</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -700,6 +790,7 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -710,6 +801,7 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -720,16 +812,18 @@ map[string]string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
 <td>
 <code>checkcerts</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -740,11 +834,11 @@ string
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<hr/>
-<p><em>
-Generated with <a href="https://github.com/ahmetb/gen-crd-api-reference-docs">gen-crd-api-reference-docs</a>
-</em></p>
+
+

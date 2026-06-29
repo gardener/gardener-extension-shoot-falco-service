@@ -1,21 +1,27 @@
 <p>Packages:</p>
 <ul>
 <li>
-<a href="#falco.gardener.cloud%2fv1alpha1">falco.gardener.cloud/v1alpha1</a>
+<a href="#falco.extensions.config.gardener.cloud%2fv1alpha1">falco.extensions.config.gardener.cloud/v1alpha1</a>
 </li>
 </ul>
-<h2 id="falco.gardener.cloud/v1alpha1">falco.gardener.cloud/v1alpha1</h2>
+
+<h2 id="falco.extensions.config.gardener.cloud/v1alpha1">falco.extensions.config.gardener.cloud/v1alpha1</h2>
 <p>
-<p>Package v1alpha1 contains the falco extension configuration.</p>
+
 </p>
-Resource Types:
-<ul><li>
-<a href="#falco.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile</a>
-</li></ul>
-<h3 id="falco.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile
+
+<h3 id="additionalconfig">AdditionalConfig
 </h3>
+
+
 <p>
+(<em>Appears on:</em><a href="#falco">Falco</a>)
 </p>
+
+<p>
+AdditionalConfig holds configuration for additional seed-level resources.
+</p>
+
 <table>
 <thead>
 <tr>
@@ -24,87 +30,36 @@ Resource Types:
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-falco.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>FalcoProfile</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
+<code>seedManagedResources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
+<a href="#additionalseedmanagedresource">AdditionalSeedManagedResource</a> array
 </em>
 </td>
 <td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
+<em>(Optional)</em>
+<p>SeedManagedResources is a list of Helm charts to deploy as ManagedResources on the seed.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>spec</code></br>
-<em>
-<a href="#falco.gardener.cloud/v1alpha1.Spec">
-Spec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table>
-<tr>
-<td>
-<code>versions</code></br>
-<em>
-<a href="#falco.gardener.cloud/v1alpha1.Versions">
-Versions
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>images</code></br>
-<em>
-<a href="#falco.gardener.cloud/v1alpha1.Images">
-Images
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</table>
-</td>
-</tr>
+
 </tbody>
 </table>
-<h3 id="falco.gardener.cloud/v1alpha1.FalcoVersion">FalcoVersion
+
+
+<h3 id="additionalseedmanagedresource">AdditionalSeedManagedResource
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.Versions">Versions</a>)
+(<em>Appears on:</em><a href="#additionalconfig">AdditionalConfig</a>)
 </p>
+
 <p>
+AdditionalSeedManagedResource describes a Helm chart to deploy as a ManagedResource on the seed.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -113,56 +68,46 @@ Images
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>classification</code></br>
+<code>name</code></br>
 <em>
 string
 </em>
 </td>
 <td>
+<p>Name is the name of the ManagedResource.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>expirationDate</code></br>
+<code>helm</code></br>
 <em>
-string
+<a href="#helmconfig">HelmConfig</a>
 </em>
 </td>
 <td>
+<p>Helm specifies the chart to pull and render.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>version</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>rulesVersion</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
+
 </tbody>
 </table>
-<h3 id="falco.gardener.cloud/v1alpha1.FalcoctlVersion">FalcoctlVersion
+
+
+<h3 id="centralstorageconfig">CentralStorageConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.Versions">Versions</a>)
+(<em>Appears on:</em><a href="#falco">Falco</a>)
 </p>
+
 <p>
+Central storage configuration
 </p>
+
 <table>
 <thead>
 <tr>
@@ -171,46 +116,73 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>classification</code></br>
+<code>tokenLifetime</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#duration-v1-meta">Duration</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Token lifetime</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tokenIssuerPrivateKey</code></br>
 <em>
 string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Private key for token issuer</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>expirationDate</code></br>
+<code>url</code></br>
 <em>
 string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Ingestor URL</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>version</code></br>
+<code>enabled</code></br>
 <em>
-string
+boolean
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Central storage configuration enabled</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="falco.gardener.cloud/v1alpha1.FalcosidekickVersion">FalcosidekickVersion
+
+
+<h3 id="clusteridentitytokenconfig">ClusterIdentityTokenConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.Versions">Versions</a>)
+(<em>Appears on:</em><a href="#falco">Falco</a>)
 </p>
+
 <p>
+ClusterIdentityTokenConfig holds configuration for issuing per-shoot JWT tokens
+used as template variable in global default destinations
 </p>
+
 <table>
 <thead>
 <tr>
@@ -219,46 +191,44 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>classification</code></br>
+<code>tokenIssuerPrivateKey</code></br>
 <em>
 string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Private key (PEM-encoded RSA) for signing cluster identity tokens</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>expirationDate</code></br>
+<code>tokenLifetime</code></br>
 <em>
-string
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#duration-v1-meta">Duration</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Lifetime of the issued token</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>version</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
+
 </tbody>
 </table>
-<h3 id="falco.gardener.cloud/v1alpha1.ImageSpec">ImageSpec
+
+
+<h3 id="configuration">Configuration
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.Images">Images</a>)
+Configuration contains information about the falco extension configuration
 </p>
-<p>
-</p>
+
 <table>
 <thead>
 <tr>
@@ -267,100 +237,47 @@ string
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>version</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>repository</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>tag</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="falco.gardener.cloud/v1alpha1.Images">Images
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.Spec">Spec</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
+
 <tr>
 <td>
 <code>falco</code></br>
 <em>
-<a href="#falco.gardener.cloud/v1alpha1.ImageSpec">
-[]ImageSpec
-</a>
+<a href="#falco">Falco</a>
 </em>
 </td>
 <td>
+<p>Falco extension configuration</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>falcosidekick</code></br>
+<code>healthCheckConfig</code></br>
 <em>
-<a href="#falco.gardener.cloud/v1alpha1.ImageSpec">
-[]ImageSpec
-</a>
+<a href="#healthcheckconfig">HealthCheckConfig</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>HealthCheckConfig is the config for the health check controller.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>falcoctl</code></br>
-<em>
-<a href="#falco.gardener.cloud/v1alpha1.ImageSpec">
-[]ImageSpec
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
+
 </tbody>
 </table>
-<h3 id="falco.gardener.cloud/v1alpha1.Spec">Spec
+
+
+<h3 id="falco">Falco
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.FalcoProfile">FalcoProfile</a>)
+(<em>Appears on:</em><a href="#configuration">Configuration</a>)
 </p>
+
 <p>
+Falco extension configuration
 </p>
+
 <table>
 <thead>
 <tr>
@@ -369,44 +286,117 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>versions</code></br>
+<code>priorityClassName</code></br>
 <em>
-<a href="#falco.gardener.cloud/v1alpha1.Versions">
-Versions
-</a>
+string
 </em>
 </td>
 <td>
+<p>PriorityClass to use for Falco shoot deployment</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>images</code></br>
+<code>centralStorage</code></br>
 <em>
-<a href="#falco.gardener.cloud/v1alpha1.Images">
-Images
-</a>
+<a href="#centralstorageconfig">CentralStorageConfig</a>
 </em>
 </td>
 <td>
+<p>Central storage configuration</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>clusterIdentityToken</code></br>
+<em>
+<a href="#clusteridentitytokenconfig">ClusterIdentityTokenConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Cluster identity token configuration for global default destinations</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certificateLifetime</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#duration-v1-meta">Duration</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Lifetime of the CA certificates</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certificateRenewAfter</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#duration-v1-meta">Duration</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Renew CA certificates after this duration</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>defaultEventDestination</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Default event logger<br />possible values are: "none", "central", "cluster", "webhook"</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>globalDefaultDestinations</code></br>
+<em>
+<a href="#globaldefaultdestination">GlobalDefaultDestination</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Global default destinations applied to all shoots unless opted out</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>additional</code></br>
+<em>
+<a href="#additionalconfig">AdditionalConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Additional resources to deploy on the seed</p>
+</td>
+</tr>
+
 </tbody>
 </table>
-<h3 id="falco.gardener.cloud/v1alpha1.Version">Version
+
+
+<h3 id="falcosidekickoutput">FalcosidekickOutput
 </h3>
+
+
 <p>
+(<em>Appears on:</em><a href="#globaldefaultdestination">GlobalDefaultDestination</a>)
 </p>
-<h3 id="falco.gardener.cloud/v1alpha1.Versions">Versions
-</h3>
+
 <p>
-(<em>Appears on:</em>
-<a href="#falco.gardener.cloud/v1alpha1.Spec">Spec</a>)
+FalcosidekickOutput holds the Falcosidekick output key and value configuration
 </p>
-<p>
-</p>
+
 <table>
 <thead>
 <tr>
@@ -415,45 +405,128 @@ Images
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
-<code>falco</code></br>
+<code>key</code></br>
 <em>
-<a href="#falco.gardener.cloud/v1alpha1.FalcoVersion">
-[]FalcoVersion
-</a>
+string
 </em>
 </td>
 <td>
+<p>Falcosidekick output key (e.g., "splunk", "webhook", "elasticsearch")</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>falcosidekick</code></br>
+<code>value</code></br>
 <em>
-<a href="#falco.gardener.cloud/v1alpha1.FalcosidekickVersion">
-[]FalcosidekickVersion
-</a>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#rawextension-runtime-pkg">RawExtension</a>
 </em>
 </td>
 <td>
+<p>Configuration values for the output (may contain template variables)</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>falcoctl</code></br>
-<em>
-<a href="#falco.gardener.cloud/v1alpha1.FalcoctlVersion">
-[]FalcoctlVersion
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
+
 </tbody>
 </table>
-<hr/>
-<p><em>
-Generated with <a href="https://github.com/ahmetb/gen-crd-api-reference-docs">gen-crd-api-reference-docs</a>
-</em></p>
+
+
+<h3 id="globaldefaultdestination">GlobalDefaultDestination
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falco">Falco</a>)
+</p>
+
+<p>
+GlobalDefaultDestination defines an operator-provided Falcosidekick output destination
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Unique name for this destination</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>falcosidekickOutput</code></br>
+<em>
+<a href="#falcosidekickoutput">FalcosidekickOutput</a>
+</em>
+</td>
+<td>
+<p>Falcosidekick output configuration</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="helmconfig">HelmConfig
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#additionalseedmanagedresource">AdditionalSeedManagedResource</a>)
+</p>
+
+<p>
+HelmConfig specifies a Helm chart to pull from an OCI repository and render with values.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>ociRepository</code></br>
+<em>
+<a href="#ocirepository">OCIRepository</a>
+</em>
+</td>
+<td>
+<p>OCIRepository defines where to pull the chart from.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>values</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#rawextension-runtime-pkg">RawExtension</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Values are the Helm values to use when rendering the chart.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
