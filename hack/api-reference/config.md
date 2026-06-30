@@ -490,7 +490,8 @@ string
 </p>
 
 <p>
-HelmConfig specifies a Helm chart to pull from an OCI repository and render with values.
+HelmConfig specifies a Helm chart source and render values.
+Exactly one of OCIRepository or Chart must be set.
 </p>
 
 <table>
@@ -510,7 +511,20 @@ HelmConfig specifies a Helm chart to pull from an OCI repository and render with
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>OCIRepository defines where to pull the chart from.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>chart</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Chart is a base64-encoded, gzipped tar archive of the Helm chart.</p>
 </td>
 </tr>
 <tr>
