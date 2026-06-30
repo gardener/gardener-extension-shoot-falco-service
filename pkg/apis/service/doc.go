@@ -5,6 +5,4 @@
 // +k8s:deepcopy-gen=package
 // +groupName="falco.extensions.gardener.cloud"
 
-//go:generate ../../../hack/update-codegen.sh
-
 package service // import "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"

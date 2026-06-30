@@ -7,7 +7,7 @@
 // +k8s:defaulter-gen=TypeMeta
 // +k8s:openapi-gen=true
 
-//go:generate sh -c "gen-crd-api-reference-docs -api-dir . -config ../../../../hack/api-reference/config.json -template-dir ${GARDENER_HACK_DIR}/api-reference/template -out-file ../../../../hack/api-reference/config.md"
+//go:generate crd-ref-docs --source-path=. --config=../../../../hack/api-reference/config-config.yaml --renderer=markdown --templates-dir=$GARDENER_HACK_DIR/api-reference/template --log-level=ERROR --output-path=../../../../hack/api-reference/config.md
 
 // Package v1alpha1 contains the falco extension configuration.
 // +groupName=falco.extensions.config.gardener.cloud

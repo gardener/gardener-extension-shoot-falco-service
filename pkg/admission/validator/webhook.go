@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
 const (
@@ -29,9 +28,8 @@ func New(mgr manager.Manager, globalDefaults []config.GlobalDefaultDestination) 
 	loggerInstance.Info("Setting up webhook", "name", ValidatorName)
 
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider: constants.ExtensionType,
-		Name:     ValidatorName,
-		Path:     ValidatorPath,
+		Name: ValidatorName,
+		Path: ValidatorPath,
 		Validators: map[extensionswebhook.Validator][]extensionswebhook.Type{
 			NewShootValidatorWithOption(mgr, &DefaultFalcoWebhookOptions, globalDefaults): {
 				{Obj: &core.Shoot{}},
