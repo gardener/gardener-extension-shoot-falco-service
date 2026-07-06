@@ -1,38 +1,38 @@
 #!/usr/bin/env python3
 
+import subprocess
 import sys
 import yaml
-import urllib.request
-
-"""
-Verify whehter images are available on docker hub
-"""
 
 
-def check_image(repository: str, tag: str, name: str) -> bool:
-    url = f"https://hub.docker.com/v2/repositories/{repository}/tags/{tag}/"
-    try:
-        response = urllib.request.urlopen(url)
-        return response.status == 200
-    except urllib.error.HTTPError as e:
-        sys.stderr.write(f"Error checking image {repository}:{tag}: {e}\n")
+def check_image(repository: str, tag: str) -> bool:
+    image_ref = f"{repository}:{tag}"
+    result = subprocess.run(
+        ["crane", "manifest", image_ref],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(f"Error checking image {image_ref}: {result.stderr.decode().strip()}\n")
         return False
+    return True
 
 
 def check_images(images: dict):
     has_error = False
     for image in images:
-        if not check_image(image["repository"], image["tag"], image["name"]):
-            print(f"Image {image['repository']}:{image['tag']} not found")
+        image_ref = f"{image['repository']}:{image['tag']}"
+        if not check_image(image["repository"], image["tag"]):
+            print(f"Image {image_ref} not found")
             has_error = True
         else:
-            print(f"Image {image['repository']}:{image['tag']} found")
+            print(f"Image {image_ref} found")
     return has_error
 
 
 def main():
     if len(sys.argv) != 2:
-        sys.stderr.write("usage: verify-falco-images.py <imagevector>")
+        sys.stderr.write("usage: validate-imagevector.py <imagevector>\n")
         sys.exit(1)
     with open(sys.argv[1], "r") as f:
         iv = yaml.safe_load(f)
