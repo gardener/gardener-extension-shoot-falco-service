@@ -1,6 +1,6 @@
 images:
 - name: falcosidekick
-  sourceRepository: https://github.com/falcosecurity/falcosidekick
+  sourceRepository: github.com/falcosecurity/falcosidekick
   repository: falcosecurity/falcosidekick
   tag: 2.32.0
   version: 2.32.0
@@ -14,7 +14,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falcosidekick
-  sourceRepository: https://github.com/falcosecurity/falcosidekick
+  sourceRepository: github.com/falcosecurity/falcosidekick
   repository: falcosecurity/falcosidekick
   tag: 2.34.0
   version: 2.34.0
@@ -28,7 +28,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falcosidekick
-  sourceRepository: https://github.com/falcosecurity/falcosidekick
+  sourceRepository: github.com/falcosecurity/falcosidekick
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/falcosidekick-fork
   tag: v2.35.0
   version: 2.35.0
@@ -42,7 +42,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falco
-  sourceRepository: https://github.com/falcosecurity/falco
+  sourceRepository: github.com/falcosecurity/falco
   repository: falcosecurity/falco
   tag: 0.40.0
   version: 0.40.0
@@ -56,7 +56,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falco
-  sourceRepository: https://github.com/falcosecurity/falco
+  sourceRepository: github.com/falcosecurity/falco
   repository: falcosecurity/falco
   tag: 0.41.3
   version: 0.41.3
@@ -70,7 +70,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falco
-  sourceRepository: https://github.com/falcosecurity/falco
+  sourceRepository: github.com/falcosecurity/falco
   repository: falcosecurity/falco
   tag: 0.42.1
   version: 0.42.1
@@ -84,7 +84,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falco
-  sourceRepository: https://github.com/falcosecurity/falco
+  sourceRepository: github.com/falcosecurity/falco
   repository: falcosecurity/falco
   tag: 0.43.0
   version: 0.43.0
@@ -98,7 +98,7 @@ images:
       integrity_requirement: 'low'
       availability_requirement: 'low'
 - name: falco
-  sourceRepository: https://github.com/falcosecurity/falco
+  sourceRepository: github.com/falcosecurity/falco
   repository: falcosecurity/falco
   tag: 0.44.1
   version: 0.44.1
