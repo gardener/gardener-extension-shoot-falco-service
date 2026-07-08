@@ -8,6 +8,7 @@ TEMPLATES_DIR="$SCRIPT_DIR/templates"
 RETENTION=180
 MODE=""
 PREFIX=""
+BACKEND_ROLE_PREFIX=""
 LANDSCAPE=""
 HOST=""
 DASHBOARDS_HOST=""
@@ -20,10 +21,12 @@ usage() {
     cat <<'EOF'
 Usage:
   deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
-            --landscape <name> [--dashboards-host <host>] [--retention <days>]
+            --landscape <name> --backend-role-prefix <brp> \
+            [--dashboards-host <host>] [--retention <days>]
 
   deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
-            --combined [--dashboards-host <host>] [--retention <days>]
+            --combined --backend-role-prefix <brp> \
+            [--dashboards-host <host>] [--retention <days>]
 
   deploy.sh --host <host> --user <user> --pass-file <file> --prefix <prefix> \
             --shared-only [--retention <days>]
@@ -32,17 +35,26 @@ Usage:
             --setup-alerting --landscape <name> --slack-webhook-file <file>
 
 Options:
-  --host              OpenSearch backend endpoint (required)
-  --dashboards-host   OpenSearch Dashboards endpoint (required for dashboard deployment)
-  --user              Admin username (required)
-  --pass-file         Path to file containing the password (required)
-  --prefix            Index prefix, e.g. 'falco' or 'oclaf' (required)
-  --landscape         Landscape name, e.g. 'staging', 'production' (per-landscape mode)
-  --combined          Deploy combined tenant with access to all landscapes
-  --shared-only       Deploy only shared resources (pipeline, template, ISM, writer role)
-  --setup-alerting    Create Slack notification channel and heartbeat monitor for a landscape
-  --slack-webhook-file Path to file containing the Slack incoming webhook URL (required for --setup-alerting)
-  --retention         Days before index deletion (default: 180)
+  --host                  OpenSearch backend endpoint (required)
+  --dashboards-host       OpenSearch Dashboards endpoint (required for dashboard deployment)
+  --user                  Admin username (required)
+  --pass-file             Path to file containing the password (required)
+  --prefix                Resource prefix used for index names, role names, and tenant names,
+                          e.g. 'falco' or 'oclaf' (required)
+  --backend-role-prefix   Prefix for OIDC backend role names as issued by the identity provider,
+                          e.g. 'btp-falco-storage'. Maps to roles '<brp>-viewer' and '<brp>-admin'.
+                          Defaults to --prefix if not provided. (required for --landscape and --combined)
+  --landscape             Landscape name, e.g. 'dev', 'staging', 'production' (per-landscape mode)
+  --combined              Deploy combined tenant with read access to all landscapes
+  --shared-only           Deploy only shared resources (ingest pipeline, index template, ISM policy)
+  --setup-alerting        Create Slack notification channel and heartbeat monitor for a landscape
+  --slack-webhook-file    Path to file containing the Slack incoming webhook URL (required for --setup-alerting)
+  --retention             Days before index deletion (default: 180)
+
+Roles created per landscape:
+  <prefix>_<landscape>_viewer  Read-only access for OIDC users with backend role '<brp>-viewer'
+  <prefix>_<landscape>_admin   Full tenant+index access for OIDC users with backend role '<brp>-admin'
+  <prefix>_<landscape>_writer  Index write access for falcosidekick internal users (see manage-writer-users.sh)
 EOF
     exit 1
 }
@@ -55,6 +67,7 @@ while [[ $# -gt 0 ]]; do
         --user) USER="$2"; shift 2 ;;
         --pass-file) PASS_FILE="$2"; shift 2 ;;
         --prefix) PREFIX="$2"; shift 2 ;;
+        --backend-role-prefix) BACKEND_ROLE_PREFIX="$2"; shift 2 ;;
         --landscape) LANDSCAPE="$2"; if [[ -z "$MODE" ]]; then MODE="landscape"; fi; shift 2 ;;
         --combined) MODE="combined"; shift ;;
         --shared-only) MODE="shared"; shift ;;
@@ -77,6 +90,11 @@ done
 if [[ "$MODE" == "landscape" && -z "$LANDSCAPE" ]]; then
     echo "ERROR: --landscape requires a landscape name"
     usage
+fi
+
+# Default backend role prefix to resource prefix if not provided
+if [[ -z "$BACKEND_ROLE_PREFIX" ]]; then
+    BACKEND_ROLE_PREFIX="$PREFIX"
 fi
 
 if [[ "$MODE" == "alerting" ]]; then
@@ -192,29 +210,14 @@ render_template() {
 deploy_shared() {
     echo "=== Deploying shared resources for prefix: $PREFIX ==="
 
-    # 1. Ingest pipeline
-    echo -n "  Creating ingest pipeline '$PREFIX-ingest'..."
-    local grok_patterns_file="$SCRIPT_DIR/grok-patterns.json"
-    if [[ ! -f "$grok_patterns_file" ]]; then
-        echo "ERROR: $grok_patterns_file not found"
-        exit 1
-    fi
-    local grok_pattern
-    grok_pattern=$(jq -r '.cluster_id_pattern' "$grok_patterns_file")
-    local pipeline_body
-    pipeline_body=$(render_template "$TEMPLATES_DIR/pipeline.json.tmpl" \
-        "GROK_PATTERN" "$grok_pattern" \
-        "PREFIX" "$PREFIX")
-    os_api PUT "_ingest/pipeline/${PREFIX}-ingest" "$pipeline_body"
-
-    # 2. Index template
+    # 1. Index template
     echo -n "  Creating index template '$PREFIX-template'..."
     local template_body
     template_body=$(render_template "$TEMPLATES_DIR/index-template.json.tmpl" \
         "PREFIX" "$PREFIX")
     os_api PUT "_index_template/${PREFIX}-template" "$template_body"
 
-    # 3. ISM policy (requires seq_no/primary_term for updates)
+    # 2. ISM policy (requires seq_no/primary_term for updates)
     echo -n "  Creating ISM policy '$PREFIX-rollover'..."
     local ism_body
     ism_body=$(render_template "$TEMPLATES_DIR/ism-policy.json.tmpl" \
@@ -233,50 +236,30 @@ deploy_shared() {
         os_api PUT "_plugins/_ism/policies/${PREFIX}-rollover" "$ism_body"
     fi
 
-    # 4. Shared writer role
-    echo -n "  Creating shared writer role '${PREFIX}_writer'..."
-    local writer_body
-    writer_body=$(render_template "$TEMPLATES_DIR/role-writer.json.tmpl" \
-        "INDEX_PATTERN" "${PREFIX}-*")
-    os_api PUT "_plugins/_security/api/roles/${PREFIX}_writer" "$writer_body"
-
-    # 5. Shared writer role mapping
-    echo -n "  Creating role mapping '${PREFIX}_writer'..."
-    local mapping_body
-    mapping_body=$(render_template "$TEMPLATES_DIR/role-mapping.json.tmpl" \
-        "BACKEND_ROLE" "${PREFIX}-writer")
-    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_writer" "$mapping_body"
-
     echo "=== Shared resources deployed ==="
     echo ""
 }
 
 deploy_landscape() {
-    echo "=== Deploying landscape: $LANDSCAPE (prefix: $PREFIX) ==="
+    echo "=== Deploying landscape: $LANDSCAPE (prefix: $PREFIX, backend-role-prefix: $BACKEND_ROLE_PREFIX) ==="
 
-    # 1. Bootstrap index (only if alias doesn't exist)
-    echo -n "  Checking alias '$PREFIX-$LANDSCAPE'..."
-    if os_api GET "_alias/${PREFIX}-${LANDSCAPE}" >/dev/null 2>&1; then
-        echo "  Alias already exists, skipping bootstrap"
-    else
-        echo " not found, bootstrapping..."
-        echo -n "  Creating index '${PREFIX}-${LANDSCAPE}-000001' with write alias..."
-        local bootstrap_body
-        bootstrap_body=$(render_template "$TEMPLATES_DIR/bootstrap-index.json.tmpl" \
-            "PREFIX" "$PREFIX" \
-            "LANDSCAPE" "$LANDSCAPE")
-        os_api PUT "${PREFIX}-${LANDSCAPE}-000001" "$bootstrap_body"
-    fi
-
-    # 2. Reader role
-    echo -n "  Creating reader role '${PREFIX}_${LANDSCAPE}_reader'..."
-    local reader_body
-    reader_body=$(render_template "$TEMPLATES_DIR/role-reader.json.tmpl" \
+    # 1. Viewer role (OIDC users with read access)
+    echo -n "  Creating viewer role '${PREFIX}_${LANDSCAPE}_viewer'..."
+    local viewer_body
+    viewer_body=$(render_template "$TEMPLATES_DIR/role-viewer.json.tmpl" \
         "INDEX_PATTERN" "${PREFIX}-${LANDSCAPE}-*" \
         "TENANT" "${PREFIX}_${LANDSCAPE}")
-    os_api PUT "_plugins/_security/api/roles/${PREFIX}_${LANDSCAPE}_reader" "$reader_body"
+    os_api PUT "_plugins/_security/api/roles/${PREFIX}_${LANDSCAPE}_viewer" "$viewer_body"
 
-    # 3. Writer role
+    # 2. Admin role (OIDC users with full tenant+index access)
+    echo -n "  Creating admin role '${PREFIX}_${LANDSCAPE}_admin'..."
+    local admin_body
+    admin_body=$(render_template "$TEMPLATES_DIR/role-admin.json.tmpl" \
+        "INDEX_PATTERN" "${PREFIX}-${LANDSCAPE}-*" \
+        "TENANT" "${PREFIX}_${LANDSCAPE}")
+    os_api PUT "_plugins/_security/api/roles/${PREFIX}_${LANDSCAPE}_admin" "$admin_body"
+
+    # 3. Writer role (falcosidekick internal users, index write only)
     echo -n "  Creating writer role '${PREFIX}_${LANDSCAPE}_writer'..."
     local writer_body
     writer_body=$(render_template "$TEMPLATES_DIR/role-writer.json.tmpl" \
@@ -290,20 +273,20 @@ deploy_landscape() {
         "DESCRIPTION" "Falco events for landscape: $LANDSCAPE")
     os_api PUT "_plugins/_security/api/tenants/${PREFIX}_${LANDSCAPE}" "$tenant_body"
 
-    # 5. Role mappings
-    echo -n "  Creating role mapping '${PREFIX}_${LANDSCAPE}_reader'..."
-    local reader_mapping
-    reader_mapping=$(render_template "$TEMPLATES_DIR/role-mapping.json.tmpl" \
-        "BACKEND_ROLE" "${PREFIX}-${LANDSCAPE}-reader")
-    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_${LANDSCAPE}_reader" "$reader_mapping"
+    # 5. OIDC role mappings
+    echo -n "  Creating role mapping '${PREFIX}_${LANDSCAPE}_viewer' -> '${BACKEND_ROLE_PREFIX}-viewer'..."
+    local viewer_mapping
+    viewer_mapping=$(render_template "$TEMPLATES_DIR/role-mapping.json.tmpl" \
+        "BACKEND_ROLE" "${BACKEND_ROLE_PREFIX}-viewer")
+    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_${LANDSCAPE}_viewer" "$viewer_mapping"
 
-    echo -n "  Creating role mapping '${PREFIX}_${LANDSCAPE}_writer'..."
-    local writer_mapping
-    writer_mapping=$(render_template "$TEMPLATES_DIR/role-mapping.json.tmpl" \
-        "BACKEND_ROLE" "${PREFIX}-${LANDSCAPE}-writer")
-    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_${LANDSCAPE}_writer" "$writer_mapping"
+    echo -n "  Creating role mapping '${PREFIX}_${LANDSCAPE}_admin' -> '${BACKEND_ROLE_PREFIX}-admin'..."
+    local admin_mapping
+    admin_mapping=$(render_template "$TEMPLATES_DIR/role-mapping.json.tmpl" \
+        "BACKEND_ROLE" "${BACKEND_ROLE_PREFIX}-admin")
+    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_${LANDSCAPE}_admin" "$admin_mapping"
 
-    # 6. Dashboard deployment
+    # 7. Dashboard deployment
     deploy_dashboards "${PREFIX}_${LANDSCAPE}" "${PREFIX}-${LANDSCAPE}-*" "$LANDSCAPE"
 
     echo "=== Landscape '$LANDSCAPE' deployed ==="
@@ -311,15 +294,15 @@ deploy_landscape() {
 }
 
 deploy_combined() {
-    echo "=== Deploying combined tenant (prefix: $PREFIX) ==="
+    echo "=== Deploying combined tenant (prefix: $PREFIX, backend-role-prefix: $BACKEND_ROLE_PREFIX) ==="
 
-    # 1. Combined reader role
-    echo -n "  Creating combined reader role '${PREFIX}_combined_reader'..."
-    local reader_body
-    reader_body=$(render_template "$TEMPLATES_DIR/role-reader.json.tmpl" \
+    # 1. Combined viewer role
+    echo -n "  Creating combined viewer role '${PREFIX}_combined_viewer'..."
+    local viewer_body
+    viewer_body=$(render_template "$TEMPLATES_DIR/role-viewer.json.tmpl" \
         "INDEX_PATTERN" "${PREFIX}-*" \
         "TENANT" "${PREFIX}_combined")
-    os_api PUT "_plugins/_security/api/roles/${PREFIX}_combined_reader" "$reader_body"
+    os_api PUT "_plugins/_security/api/roles/${PREFIX}_combined_viewer" "$viewer_body"
 
     # 2. Tenant
     echo -n "  Creating tenant '${PREFIX}_combined'..."
@@ -329,11 +312,11 @@ deploy_combined() {
     os_api PUT "_plugins/_security/api/tenants/${PREFIX}_combined" "$tenant_body"
 
     # 3. Role mapping
-    echo -n "  Creating role mapping '${PREFIX}_combined_reader'..."
+    echo -n "  Creating role mapping '${PREFIX}_combined_viewer' -> '${BACKEND_ROLE_PREFIX}-viewer'..."
     local mapping_body
     mapping_body=$(render_template "$TEMPLATES_DIR/role-mapping.json.tmpl" \
-        "BACKEND_ROLE" "${PREFIX}-combined-reader")
-    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_combined_reader" "$mapping_body"
+        "BACKEND_ROLE" "${BACKEND_ROLE_PREFIX}-viewer")
+    os_api PUT "_plugins/_security/api/rolesmapping/${PREFIX}_combined_viewer" "$mapping_body"
 
     # 4. Dashboard deployment
     deploy_dashboards "${PREFIX}_combined" "${PREFIX}-*" "combined"

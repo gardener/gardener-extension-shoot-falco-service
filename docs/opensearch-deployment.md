@@ -7,27 +7,27 @@ This document describes how to set up OpenSearch for multi-landscape Falco event
 Multiple Gardener landscapes (e.g. staging, production) report Falco events into the same OpenSearch instance. The setup provides:
 
 - **Per-landscape indices** with ISM-managed daily rollover and automatic retention
-- **Ingest pipeline** that extracts `project`, `cluster`, and `landscape` from the Gardener `cluster_id` and routes documents to the correct landscape index
-- **Write aliases** that allow ISM to create new rollover indices without requiring `auto_create_index: true`
+- **Runtime fields** that extract `project`, `cluster`, and `landscape` from the Gardener `cluster_id` at query time (no ingest pipeline required)
 - **Per-landscape tenants** in OpenSearch Dashboards with read-only dashboards
 - **Combined tenant** for cross-landscape aggregated views
-- **RBAC roles** with convention-based OIDC backend role mappings
+- **RBAC roles** with OIDC backend role mappings for human viewers and admins, and internal users for falcosidekick ingest
 
 ### Data Flow
 
 ```
-falcosidekick → landing index (e.g. "falco-events")
-  → index template matches → attaches ingest pipeline
-  → pipeline grok extracts landscape from cluster_id
-  → pipeline sets _index to write alias (e.g. "falco-staging")
-  → alias resolves to current write index (e.g. "falco-staging-000001")
-  → ISM rolls over daily → creates "falco-staging-000002", etc.
+falcosidekick (configured with index: falco-<landscape>, suffix: daily)
+  → writes directly to falco-<landscape>-<date> (e.g. "falco-staging-2026.07.08")
+  → index template matches falco-* → applies field mappings
+  → ISM policy matches falco-*-* → daily rollover + 180d retention
+  → runtime fields compute project/cluster/landscape from output_fields.cluster_id at query time
 ```
+
+> **Note:** This setup does not use an OpenSearch ingest pipeline. `project`, `cluster`, and `landscape` are exposed as runtime fields computed via Painless script from `output_fields.cluster_id`. They are fully available in Discover, dashboards, and aggregations.
 
 ## Prerequisites
 
 - OpenSearch cluster with ISM plugin enabled
-- Admin credentials with permissions to create pipelines, templates, indices, roles, and tenants
+- Admin credentials with permissions to create index templates, indices, roles, and tenants
 - `curl` and `jq` installed
 - The `dashboard.ndjson` file (exported from OpenSearch Dashboards)
 
@@ -39,16 +39,18 @@ falcosidekick → landing index (e.g. "falco-events")
     --host opensearch.example.com \
     --dashboards-host dashboards.example.com \
     --user admin --pass-file ./secret.txt \
-    --prefix falco --landscape staging
+    --prefix falco --landscape staging \
+    --backend-role-prefix btp-falco-storage
 
 # Deploy combined tenant (read access across all landscapes):
 ./opensearch/deploy.sh \
     --host opensearch.example.com \
     --dashboards-host dashboards.example.com \
     --user admin --pass-file ./secret.txt \
-    --prefix falco --combined
+    --prefix falco --combined \
+    --backend-role-prefix btp-falco-storage
 
-# Deploy shared resources only (pipeline, template, ISM policy, shared writer role):
+# Deploy shared resources only (index template, ISM policy):
 ./opensearch/deploy.sh \
     --host opensearch.example.com \
     --user admin --pass-file ./secret.txt \
@@ -63,8 +65,9 @@ falcosidekick → landing index (e.g. "falco-events")
 | `--dashboards-host` | For dashboards | — | OpenSearch Dashboards endpoint |
 | `--user` | Yes | — | Admin username |
 | `--pass-file` | Yes | — | Path to file containing the password |
-| `--prefix` | Yes | — | Index prefix (e.g. `falco`, `oclaf`) |
-| `--landscape` | For per-landscape | — | Landscape name (e.g. `staging`, `production`) |
+| `--prefix` | Yes | — | Resource prefix for index names, role names, and tenant names (e.g. `falco`, `oclaf`) |
+| `--backend-role-prefix` | For landscape/combined | `--prefix` | Prefix for OIDC group names as issued by the identity provider (e.g. `btp-falco-storage`). Maps to `<brp>-viewer` and `<brp>-admin`. |
+| `--landscape` | For per-landscape | — | Landscape name (e.g. `dev`, `staging`, `production`) |
 | `--combined` | Flag | — | Deploy combined tenant (uses `<prefix>-*`) |
 | `--shared-only` | Flag | — | Deploy only shared resources |
 | `--retention` | No | 180 | Days before index deletion |
@@ -75,50 +78,49 @@ falcosidekick → landing index (e.g. "falco-events")
 
 | Resource | Name | Purpose |
 |----------|------|---------|
-| Ingest pipeline | `<prefix>-ingest` | Grok + index routing |
-| Index template | `<prefix>-template` | Mappings + pipeline attachment |
+| Index template | `<prefix>-template` | Mappings + runtime fields |
 | ISM policy | `<prefix>-rollover` | Daily rollover + retention |
-| Role | `<prefix>_writer` | Write access to all `<prefix>-*` |
-| Role mapping | `<prefix>_writer` | Maps backend role `<prefix>-writer` |
 
 ### Per-Landscape Resources
 
 | Resource | Name |
 |----------|------|
-| Bootstrap index | `<prefix>-<landscape>-000001` |
-| Write alias | `<prefix>-<landscape>` |
-| Reader role | `<prefix>_<landscape>_reader` |
+| Viewer role | `<prefix>_<landscape>_viewer` |
+| Admin role | `<prefix>_<landscape>_admin` |
 | Writer role | `<prefix>_<landscape>_writer` |
 | Tenant | `<prefix>_<landscape>` |
 | Dashboards | Imported into tenant |
-| Role mappings | For reader and writer |
+| Role mappings | For viewer and admin (OIDC); writer mapped to internal users via `manage-writer-users.sh` |
 
 ### Combined Resources
 
 | Resource | Name |
 |----------|------|
-| Reader role | `<prefix>_combined_reader` |
+| Viewer role | `<prefix>_combined_viewer` |
 | Tenant | `<prefix>_combined` |
 | Dashboards | Index pattern = `<prefix>-*` |
-| Role mapping | For combined reader |
+| Role mapping | For combined viewer |
 
-## OIDC Backend Role Convention
+## OIDC Backend Role Mapping
 
-The script creates role mappings using this naming convention. Your OIDC provider must issue matching group claims:
+Human users authenticate via OIDC. OpenSearch extracts their group claims as backend roles and maps them to OpenSearch roles via the role mappings created by `deploy.sh`.
+
+The backend role names are controlled by your identity provider — use `--backend-role-prefix` to specify the prefix your IdP uses. The script expects exactly two group names:
 
 | OpenSearch Role | Expected OIDC Backend Role | Access |
 |----------------|---------------------------|--------|
-| `<prefix>_<landscape>_reader` | `<prefix>-<landscape>-reader` | Read one landscape |
-| `<prefix>_<landscape>_writer` | `<prefix>-<landscape>-writer` | Write one landscape |
-| `<prefix>_combined_reader` | `<prefix>-combined-reader` | Read all landscapes |
-| `<prefix>_writer` | `<prefix>-writer` | Write all landscapes |
+| `<prefix>_<landscape>_viewer` | `<backend-role-prefix>-viewer` | Read Falco events and dashboards for this landscape |
+| `<prefix>_<landscape>_admin` | `<backend-role-prefix>-admin` | Full index and tenant access for this landscape |
+| `<prefix>_combined_viewer` | `<backend-role-prefix>-viewer` | Read Falco events across all landscapes |
+
+The `_writer` role (`<prefix>_<landscape>_writer`) is used exclusively by falcosidekick internal users and has no OIDC mapping. These users are managed separately via `manage-writer-users.sh`.
 
 ## Tenants and Dashboards
 
 Tenants serve as environment selectors in OpenSearch Dashboards. Users switch between tenants via the tenant dropdown to view different landscapes.
 
-- Dashboards are **read-only** for users (`kibana_all_read` permission)
-- Users can still interact (filter, drill down, change time range) without modifying dashboard definitions
+- **Viewers** get `kibana_all_read` permission — they can filter, drill down, and change time ranges but cannot modify dashboard definitions
+- **Admins** get `kibana_all_write` permission — full tenant access including creating, modifying, and deleting dashboards and saved objects
 - Each tenant gets the same dashboard structure, pointed at a different index pattern
 - The combined tenant uses `<prefix>-*` to show events from all landscapes
 
@@ -126,7 +128,7 @@ Tenants serve as environment selectors in OpenSearch Dashboards. Users switch be
 
 The script is safe to run multiple times:
 
-- Pipelines, templates, roles, and tenants are overwritten via PUT
+- Templates, roles, and tenants are overwritten via PUT
 - The bootstrap index is only created if the write alias doesn't already exist
 - Dashboards are imported with `?overwrite=true`
 
@@ -138,35 +140,37 @@ Simply run the script with the new landscape name:
 ./opensearch/deploy.sh \
     --host ... --user ... --pass-file ... \
     --prefix falco --landscape newenv \
-    --dashboards-host ... --landing-index falco-events
+    --backend-role-prefix btp-falco-storage \
+    --dashboards-host ...
 ```
 
-The ISM policy and ingest pipeline already handle any landscape that appears in the `cluster_id` field.
+The ISM policy handles any landscape — falcosidekick simply needs to be configured with `index: <prefix>-<landscape>` and `suffix: daily` for the target landscape.
 
 ## Verification
 
 After deployment, verify:
 
-1. Pipeline: `GET _ingest/pipeline/<prefix>-ingest`
-2. Alias: `GET _alias/<prefix>-<landscape>`
-3. ISM: `GET _plugins/_ism/explain/<prefix>-<landscape>-000001`
-4. Test routing: index a document to the landing index with a valid `cluster_id` and confirm it appears in the correct landscape index
-5. Dashboards: log in, switch to the landscape tenant, confirm the dashboard loads
+1. Template: `GET _index_template/<prefix>-template`
+2. ISM: `GET _plugins/_ism/policies/<prefix>-rollover`
+3. Runtime fields: index a document with a valid `cluster_id` and confirm `project`, `cluster`, `landscape` are returned in a search
+4. Dashboards: log in, switch to the landscape tenant, confirm the dashboard loads
 
 ## File Structure
 
 ```
 opensearch/
 ├── deploy.sh                       # Main deployment script
-├── grok-patterns.json              # Grok pattern for cluster_id parsing
+├── manage-writer-users.sh          # Manages falcosidekick internal users per landscape
+├── grok-patterns.json              # Cluster_id regex (used by runtime fields in index template)
 └── templates/
     ├── dashboard.ndjson            # Source dashboard export (template)
-    ├── pipeline.json.tmpl          # Ingest pipeline
-    ├── index-template.json.tmpl    # Index template with mappings
+    ├── pipeline.json.tmpl          # Ingest pipeline (no longer used, kept for reference)
+    ├── index-template.json.tmpl    # Index template with mappings and runtime fields
     ├── ism-policy.json.tmpl        # ISM rollover + retention policy
     ├── bootstrap-index.json.tmpl   # Initial index with write alias
-    ├── role-reader.json.tmpl       # Reader role
-    ├── role-writer.json.tmpl       # Writer role
+    ├── role-viewer.json.tmpl       # Viewer role (OIDC, read-only)
+    ├── role-admin.json.tmpl        # Admin role (OIDC, full tenant+index access)
+    ├── role-writer.json.tmpl       # Writer role (falcosidekick internal users)
     ├── role-mapping.json.tmpl      # OIDC backend role mapping
     ├── tenant.json.tmpl            # Tenant definition
     ├── notification-channel.json.tmpl  # Slack notification channel
