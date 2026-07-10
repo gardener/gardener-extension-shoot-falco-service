@@ -165,7 +165,12 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				seedIngressDomain = seed.Spec.Ingress.Domain
 			}
 
-			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig, seedIngressDomain); err != nil {
+			ingressWildcardCertName, err := getIngressWildcardCertificateName(ctx, mgr.GetClient())
+			if err != nil {
+				return fmt.Errorf("could not get ingress wildcard certificate name: %w", err)
+			}
+
+			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig, seedIngressDomain, ingressWildcardCertName); err != nil {
 				return fmt.Errorf("could not add additional seed resources controller: %w", err)
 			}
 
@@ -188,4 +193,18 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	aggOption.AddFlags(cmd.Flags())
 
 	return cmd
+}
+
+func getIngressWildcardCertificateName(ctx context.Context, c client.Client) (string, error) {
+	secretList := &corev1.SecretList{}
+	if err := c.List(ctx, secretList,
+		client.InNamespace("garden"),
+		client.MatchingLabels{"gardener.cloud/role": "controlplane-cert"},
+	); err != nil {
+		return "", fmt.Errorf("failed to list controlplane-cert secrets: %w", err)
+	}
+	if len(secretList.Items) == 0 {
+		return "", nil
+	}
+	return secretList.Items[0].Name, nil
 }

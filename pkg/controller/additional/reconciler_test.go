@@ -48,7 +48,7 @@ var _ = Describe("Reconciler", func() {
 	Describe("Reconcile", func() {
 		It("should requeue after the reconcile interval on success", func() {
 			fakeClient := crfake.NewClientBuilder().WithScheme(scheme).Build()
-			r, err := additional.NewReconciler(fakeClient, nil, namespace, nil, "", zap.New(zap.WriteTo(GinkgoWriter)))
+			r, err := additional.NewReconciler(fakeClient, nil, namespace, nil, "", "", zap.New(zap.WriteTo(GinkgoWriter)))
 			Expect(err).NotTo(HaveOccurred())
 
 			result, reconcileErr := r.Reconcile(ctx, reconcile.Request{})
@@ -76,7 +76,7 @@ var _ = Describe("Reconciler", func() {
 		BeforeEach(func() {
 			fakeClient = crfake.NewClientBuilder().WithScheme(scheme).Build()
 			var err error
-			r, err = additional.NewReconciler(fakeClient, nil, namespace, nil, "", zap.New(zap.WriteTo(GinkgoWriter)))
+			r, err = additional.NewReconciler(fakeClient, nil, namespace, nil, "", "", zap.New(zap.WriteTo(GinkgoWriter)))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -89,7 +89,7 @@ var _ = Describe("Reconciler", func() {
 				SeedManagedResources: []config.AdditionalSeedManagedResource{
 					{Name: "old-nginx"},
 				},
-			}, "", zap.New(zap.WriteTo(GinkgoWriter)))
+			}, "", "", zap.New(zap.WriteTo(GinkgoWriter)))
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(r.Cleanup(ctx)).To(Succeed())
@@ -129,13 +129,13 @@ var _ = Describe("Reconciler", func() {
 
 	Describe("Deploy", func() {
 		It("should return nil when additional config is nil", func() {
-			r, err := additional.NewReconciler(nil, nil, namespace, nil, "", zap.New(zap.WriteTo(GinkgoWriter)))
+			r, err := additional.NewReconciler(nil, nil, namespace, nil, "", "", zap.New(zap.WriteTo(GinkgoWriter)))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(r.Deploy(ctx)).To(Succeed())
 		})
 
 		It("should return nil when seed managed resources list is empty", func() {
-			r, err := additional.NewReconciler(nil, nil, namespace, &config.AdditionalConfig{}, "", zap.New(zap.WriteTo(GinkgoWriter)))
+			r, err := additional.NewReconciler(nil, nil, namespace, &config.AdditionalConfig{}, "", "", zap.New(zap.WriteTo(GinkgoWriter)))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(r.Deploy(ctx)).To(Succeed())
 		})
