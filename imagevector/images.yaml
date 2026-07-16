@@ -30,8 +30,8 @@ images:
 - name: falcosidekick
   sourceRepository: github.com/gardener/falcosidekick
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/falcosidekick-fork
-  tag: v2.35.0
-  version: 2.35.0
+  tag: v2.35.1
+  version: 2.35.1
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
