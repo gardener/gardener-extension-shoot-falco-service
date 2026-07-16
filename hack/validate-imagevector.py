@@ -73,6 +73,8 @@ def check_image(repository: str, tag: str) -> bool:
 def check_images(images: list) -> bool:
     has_error = False
     for image in images:
+        if "tag" not in image:
+            continue
         image_ref = f"{image['repository']}:{image['tag']}"
         if not check_image(image["repository"], image["tag"]):
             print(f"Image {image_ref} not found")
