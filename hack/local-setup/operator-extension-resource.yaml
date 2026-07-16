@@ -60,6 +60,9 @@ spec:
             repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
             tag: sha256:1e5a3275b12987e95b3be993c1d1a357fc9461081cfce8e2981ac9e23554470c
             version: 0.41.3
+          - name: falco-ops
+            repository: registry.local.gardener.cloud:5001/local-skaffold/falco-ops
+            tag: latest
         replicaCount: 1
         resources:
           requests:
@@ -100,6 +103,9 @@ spec:
             repository: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-public/registry-1_docker_io/falcosecurity/falco
             tag: sha256:1e5a3275b12987e95b3be993c1d1a357fc9461081cfce8e2981ac9e23554470c
             version: 0.41.3
+          - name: falco-ops
+            repository: registry.local.gardener.cloud:5001/local-skaffold/falco-ops
+            tag: latest
         replicaCount: 1
         resources:
           requests:

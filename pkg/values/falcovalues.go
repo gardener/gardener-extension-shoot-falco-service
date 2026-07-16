@@ -23,9 +23,11 @@ import (
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
+	"github.com/gardener/gardener-extension-shoot-falco-service/imagevector"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -103,6 +105,12 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	if err != nil {
 		return nil, err
 	}
+
+	falcoOpsImage, err := imagevector.ImageVector().FindImage("falco-ops")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find falco-ops image: %w", err)
+	}
+	falcoOpsImage.WithOptionalTag(version.Get().GitVersion)
 
 	falcoOutputConfigs := make([]falcoOutputConfig, 0)
 	falcoStdoutLog := false
@@ -474,6 +482,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"create": false,
 		},
 		"falcosidekick": falcosidekickConfig,
+		"falcoOps": map[string]any{
+			"image": falcoOpsImage.String(),
+		},
 		"gardenerExtensionShootFalcoService": map[string]any{
 			"output": map[string]string{
 				"eventCollector": destination,

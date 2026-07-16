@@ -114,7 +114,7 @@ Return the proper Falcoctl image name
 Return the proper Falcoheartbeat image name
 */}}
 {{- define "falcoheartbeat.image" -}}
-{{ .Values.falcosidekick.image.image }}
+{{ .Values.falcoOps.image }}
 {{- end -}}
 
 {{/*
