@@ -28,8 +28,8 @@ spec:
       tag: 2.34.0
       version: 2.34.0
     - repository: europe-docker.pkg.dev/gardener-project/releases/gardener/falcosidekick-fork
-      tag: v2.35.0
-      version: 2.35.0
+      tag: v2.35.1
+      version: 2.35.1
   versions:
     falco:
     - classification: deprecated
@@ -56,5 +56,4 @@ spec:
     - classification: supported
       version: 2.34.0
     - classification: supported
-      version: 2.35.0
-
+      version: 2.35.1
