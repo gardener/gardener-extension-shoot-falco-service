@@ -234,16 +234,18 @@ spec:
       command: ["sh", "-c"]
       args: 
         - |
-          until wget -qO- http://127.0.0.1:8765/versions 2>/dev/null; do
+          until wget -qO- http://127.0.0.1:8765/healthz 2>/dev/null; do
             sleep 10
           done
+          sleep 60
+          FALCO_VERSION=$(
+            wget -qO- http://127.0.0.1:8765/versions 2>/dev/null |
+            grep -o '"falco_version":"[^"]*"' |
+            sed 's/"falco_version":"//;s/"//'
+          )
           while true; do
-            export FALCO_VERSION=$(
-              wget -qO- http://127.0.0.1:8765/versions 2>/dev/null |
-              grep -o '"falco_version":"[^"]*"' |
-              sed 's/"falco_version":"//;s/"//'
-            )
-            export HEARTBEAT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            HEARTBEAT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+            FALCO_VERSION="$FALCO_VERSION" \
             /bin/echo "Falco heartbeat" > /dev/null
             seconds_until_next_hour=$((3600 - $(date +%s) % 3600))
             sleep $seconds_until_next_hour
