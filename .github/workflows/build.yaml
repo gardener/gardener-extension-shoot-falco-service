@@ -39,6 +39,18 @@ jobs:
           - name: gardener-extension-admission-shoot-falco-service
             target: gardener-extension-admission-shoot-falco-service
             oci-repository: gardener/extensions/admission-shoot-falco-service
+          - name: falco-ops
+            target: falco-ops
+            oci-repository: gardener/falco-ops
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: private
+                authentication_enforced: false
+                user_interaction: end-user
+                confidentiality_requirement: none
+                integrity_requirement: high
+                availability_requirement: none
     with:
       name: ${{ matrix.args.name }}
       version: ${{ needs.prepare.outputs.version }}

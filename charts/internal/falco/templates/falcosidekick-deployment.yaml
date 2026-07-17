@@ -49,7 +49,7 @@ spec:
       {{- end }}
       initContainers:
         - name: configure
-          image: {{ .Values.falcosidekick.image.image }}
+          image: {{ .Values.falcoOps.image }}
           command:
             - sh
           args:

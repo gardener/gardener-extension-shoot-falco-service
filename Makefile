@@ -9,6 +9,7 @@ GARDENER_HACK_DIR           := $(shell go list -m -f "{{.Dir}}" github.com/garde
 EXTENSION_PREFIX            := gardener-extension
 NAME                        := shoot-falco-service
 ADMISSION_NAME              := admission-shoot-falco-service
+OPS_NAME					:= falco-ops
 REGISTRY                    := europe-docker.pkg.dev/gardener-project/public/gardener
 IMAGE_PREFIX                := $(REGISTRY)/extensions
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -99,6 +100,7 @@ docker-login:
 docker-images:
 	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(EXTENSION_PREFIX)-$(NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME) .
 	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
+	@docker build -t $(REGISTRY)/$(OPS_NAME):$(VERSION) -t $(REGISTRY)/$(OPS_NAME):latest -f Dockerfile -m 6g --target $(OPS_NAME) .
 
 .PHONY: docker-push
 docker-push:
@@ -196,6 +198,8 @@ extension-up: export SKAFFOLD_PUSH = true
 extension-up: export LD_FLAGS = $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION gardener-extension-shoot-falco-service)
 extension-up: export EXTENSION_GARDENER_HACK_DIR = $(GARDENER_HACK_DIR)
 extension-up: $(SKAFFOLD) $(HELM) $(KUBECTL)
+	@docker build -t registry.local.gardener.cloud:5001/local-skaffold/$(OPS_NAME):latest -f Dockerfile --target $(OPS_NAME) .
+	@docker push registry.local.gardener.cloud:5001/local-skaffold/$(OPS_NAME):latest
 	$(SKAFFOLD) run --cache-artifacts=true
 
 extension-debug-up: $(SKAFFOLD) $(HELM) $(KUBECTL)

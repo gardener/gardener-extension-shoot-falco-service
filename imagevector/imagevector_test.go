@@ -52,6 +52,9 @@ var _ = Describe("Imagevector", func() {
 
 	It("should have a maintained version for every image", func() {
 		for _, image := range iv {
+			if image.Name == "falco-ops" {
+				continue
+			}
 			found := false
 			for _, fv := range versions.Falco.FalcoVersions {
 				if *image.Version == fv.Version && image.Name == "falco" {
