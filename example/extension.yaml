@@ -10,15 +10,15 @@ spec:
       runtimeCluster:
         helm:
           ociRepository:
-            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-runtime:v0.94.4-dev
+            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-runtime:v0.94.4
       virtualCluster:
         helm:
           ociRepository:
-            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-application:v0.94.4-dev
+            ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/admission-shoot-falco-service-application:v0.94.4
     extension:
       helm:
         ociRepository:
-          ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/shoot-falco-service:v0.94.4-dev
+          ref: europe-docker.pkg.dev/gardener-project/public/charts/gardener/extensions/shoot-falco-service:v0.94.4
       injectGardenKubeconfig: true
   resources:
   - kind: Extension
