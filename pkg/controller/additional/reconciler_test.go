@@ -5,9 +5,14 @@
 package additional_test
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -19,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -138,6 +144,48 @@ var _ = Describe("Reconciler", func() {
 			r, err := additional.NewReconciler(nil, nil, namespace, &config.AdditionalConfig{}, "", "", zap.New(zap.WriteTo(GinkgoWriter)))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(r.Deploy(ctx)).To(Succeed())
+		})
+
+		It("should pass ingressWildcardCertificateName in rendered chart values", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+			}))
+			defer server.Close()
+
+			restConfig := &rest.Config{Host: server.URL}
+			chartArchive := buildTestChart()
+			chartB64 := base64.StdEncoding.EncodeToString(chartArchive)
+
+			fakeClient := crfake.NewClientBuilder().WithScheme(scheme).Build()
+			r, err := additional.NewReconciler(fakeClient, restConfig, namespace, &config.AdditionalConfig{
+				SeedManagedResources: []config.AdditionalSeedManagedResource{
+					{
+						Name: "test-chart",
+						Helm: config.HelmConfig{
+							Chart: &chartB64,
+						},
+					},
+				},
+			}, "", "my-wildcard-cert", zap.New(zap.WriteTo(GinkgoWriter)))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(r.Deploy(ctx)).To(Succeed())
+
+			secretList := &corev1.SecretList{}
+			Expect(fakeClient.List(ctx, secretList, client.InNamespace(namespace))).To(Succeed())
+			Expect(secretList.Items).NotTo(BeEmpty())
+
+			var found bool
+			for _, secret := range secretList.Items {
+				for _, v := range secret.Data {
+					if strings.Contains(string(v), "my-wildcard-cert") {
+						found = true
+						break
+					}
+				}
+			}
+			Expect(found).To(BeTrue(), "expected rendered manifests to contain ingressWildcardCertificateName value")
 		})
 	})
 })
@@ -378,3 +426,30 @@ type: Opaque
 		Expect(validDocs).To(Equal(2))
 	})
 })
+
+func buildTestChart() []byte {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	chartYaml := "apiVersion: v2\nname: test-chart\nversion: 0.1.0\n"
+	tmpl := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test-cm\ndata:\n  certName: {{ .Values.ingressWildcardCertificateName }}\n"
+
+	addFile(tw, "test-chart/Chart.yaml", chartYaml)
+	addFile(tw, "test-chart/templates/configmap.yaml", tmpl)
+
+	tw.Close()
+	gw.Close()
+	return buf.Bytes()
+}
+
+func addFile(tw *tar.Writer, name, content string) {
+	hdr := &tar.Header{
+		Name: name,
+		Mode: 0644,
+		Size: int64(len(content)),
+	}
+	ExpectWithOffset(1, tw.WriteHeader(hdr)).To(Succeed())
+	_, err := tw.Write([]byte(content))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+}
