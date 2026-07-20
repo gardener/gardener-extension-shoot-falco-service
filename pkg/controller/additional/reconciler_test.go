@@ -149,7 +149,8 @@ var _ = Describe("Reconciler", func() {
 		It("should pass ingressWildcardCertificateName in rendered chart values", func() {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+				_, err := w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+				Expect(err).NotTo(HaveOccurred())
 			}))
 			defer server.Close()
 
