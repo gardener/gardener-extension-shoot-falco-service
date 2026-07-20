@@ -14,8 +14,10 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/heartbeat"
 	heartbeatcmd "github.com/gardener/gardener/extensions/pkg/controller/heartbeat/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/logger"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
@@ -165,7 +167,12 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				seedIngressDomain = seed.Spec.Ingress.Domain
 			}
 
-			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig, seedIngressDomain); err != nil {
+			ingressWildcardCertName, err := getIngressWildcardCertificateName(ctx, mgr.GetClient(), log)
+			if err != nil {
+				return fmt.Errorf("could not get ingress wildcard certificate name: %w", err)
+			}
+
+			if err := additional.AddToManager(mgr, log, restOpts.Completed().Config, completedMgrOpts.LeaderElectionNamespace, additionalConfig, seedIngressDomain, ingressWildcardCertName); err != nil {
 				return fmt.Errorf("could not add additional seed resources controller: %w", err)
 			}
 
@@ -188,4 +195,22 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	aggOption.AddFlags(cmd.Flags())
 
 	return cmd
+}
+
+func getIngressWildcardCertificateName(ctx context.Context, c client.Client, log logr.Logger) (string, error) {
+	secretList := &corev1.SecretList{}
+	if err := c.List(ctx, secretList,
+		client.InNamespace(v1beta1constants.GardenNamespace),
+		client.MatchingLabels{v1beta1constants.GardenRole: v1beta1constants.GardenRoleControlPlaneWildcardCert},
+	); err != nil {
+		return "", fmt.Errorf("failed to list controlplane-cert secrets: %w", err)
+	}
+	if len(secretList.Items) == 0 {
+		log.Info("no controlplane-cert secret found in garden namespace")
+		return "", nil
+	}
+	if len(secretList.Items) > 1 {
+		log.Info("multiple controlplane-cert secrets found, using the first one")
+	}
+	return secretList.Items[0].Name, nil
 }
