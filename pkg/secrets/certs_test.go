@@ -198,12 +198,9 @@ var _ = Describe("Certificate", func() {
 			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", leafLifetime)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(certs.ServerCert.NotAfter).To(BeTemporally("<=", cas.ServerCaCert.NotAfter))
-			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", cas.ClientCaCert.NotAfter))
-
-			// leaf should be roughly 30 minutes, not 24 hours
-			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", time.Now().Add(caLifetime), time.Second))
-			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", time.Now().Add(caLifetime), time.Second))
+			// leaf should be capped to CA expiry, not 24 hours
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", cas.ServerCaCert.NotAfter, time.Second))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", cas.ClientCaCert.NotAfter, time.Second))
 		})
 
 		It("should cap leaf cert exactly at CA expiry boundary", func() {
