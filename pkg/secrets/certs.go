@@ -160,6 +160,10 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duratio
 		return nil, err
 	}
 	serverCaUsage := x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+	serverNotAfter := time.Now().Add(lifetime)
+	if cas.ServerCaCert.NotAfter.Before(serverNotAfter) {
+		serverNotAfter = cas.ServerCaCert.NotAfter
+	}
 	serverCrtTemplate := x509.Certificate{
 		SerialNumber: serverCrtSerialNumber,
 		Subject: pkix.Name{
@@ -167,7 +171,7 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duratio
 		},
 		SignatureAlgorithm: x509.SHA384WithRSA,
 		NotBefore:          time.Now(),
-		NotAfter:           time.Now().Add(lifetime),
+		NotAfter:           serverNotAfter,
 
 		KeyUsage:              serverCaUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -190,6 +194,10 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duratio
 		return nil, err
 	}
 	clientCaUsage := x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+	clientNotAfter := time.Now().Add(lifetime)
+	if cas.ClientCaCert.NotAfter.Before(clientNotAfter) {
+		clientNotAfter = cas.ClientCaCert.NotAfter
+	}
 	clientCrtTemplate := x509.Certificate{
 		SerialNumber: clientCrtSerialNumber,
 		Subject: pkix.Name{
@@ -197,7 +205,7 @@ func GenerateKeysAndCerts(cas *FalcoCas, namespace string, lifetime time.Duratio
 		},
 		SignatureAlgorithm: x509.SHA384WithRSA,
 		NotBefore:          time.Now(),
-		NotAfter:           time.Now().Add(lifetime),
+		NotAfter:           clientNotAfter,
 
 		KeyUsage:              clientCaUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
