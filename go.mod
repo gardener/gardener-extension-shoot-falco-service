@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/elastic/crd-ref-docs v0.3.0
 	github.com/gardener/gardener v1.145.0
-	github.com/gardener/gardener/pkg/apis v1.145.0
+	github.com/gardener/gardener/pkg/apis v1.147.1
 	github.com/go-logr/logr v1.4.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hashicorp/go-version v1.9.0
@@ -75,7 +75,7 @@ require (
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/fluent/fluent-operator/v3 v3.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
 	github.com/gardener/cert-management v0.23.0 // indirect
 	github.com/gardener/etcd-druid/api v0.36.4 // indirect
 	github.com/gardener/machine-controller-manager v0.61.3 // indirect
@@ -187,12 +187,12 @@ require (
 	helm.sh/helm/v4 v4.1.4 // indirect
 	istio.io/api v1.29.4 // indirect
 	istio.io/client-go v1.29.2 // indirect
-	k8s.io/apiextensions-apiserver v0.36.0 // indirect
+	k8s.io/apiextensions-apiserver v0.36.2 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.6.0 // indirect
 	k8s.io/gengo/v2 v2.0.0-20251215205346-5ee0d033ba5b // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-aggregator v0.35.5 // indirect
-	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
+	k8s.io/kube-openapi v0.0.0-20260603220949-865597e52e25 // indirect
 	k8s.io/kubelet v0.35.5 // indirect
 	k8s.io/metrics v0.35.5 // indirect
 	k8s.io/pod-security-admission v0.35.5 // indirect
@@ -201,5 +201,5 @@ require (
 	sigs.k8s.io/gateway-api v1.5.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 )
