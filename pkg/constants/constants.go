@@ -57,10 +57,10 @@ const (
 	FalcoEventDestinationSplunk     = "splunk"
 
 	DefaultCALifetime   = time.Hour * 24 * 365 * 2
-	DefaultCARenewAfter = DefaultCALifetime - 60
+	DefaultCARenewAfter = DefaultCALifetime - 60*24*time.Hour
 
 	DefaultCertificateLifetime   = time.Hour * 24 * 180
-	DefaultCertificateRenewAfter = DefaultCertificateLifetime - 30
+	DefaultCertificateRenewAfter = DefaultCertificateLifetime - 30*24*time.Hour
 
 	DefaultTokenLifetime = time.Hour * 24 * 7
 

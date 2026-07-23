@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 )
 
@@ -140,6 +141,82 @@ var _ = Describe("Certificate", func() {
 			Expect(secrets.CertsNeedRegeneration(certs, "kube-system")).To(BeTrue())
 		})
 	})
+
+	Describe("Renewal constants sanity", func() {
+		It("CA renewal threshold should be meaningfully before expiry", func() {
+			Expect(constants.DefaultCALifetime-constants.DefaultCARenewAfter).
+				To(BeNumerically(">=", 24*time.Hour),
+					"DefaultCARenewAfter must be at least 1 day before DefaultCALifetime")
+		})
+
+		It("certificate renewal threshold should be meaningfully before expiry", func() {
+			Expect(constants.DefaultCertificateLifetime-constants.DefaultCertificateRenewAfter).
+				To(BeNumerically(">=", 24*time.Hour),
+					"DefaultCertificateRenewAfter must be at least 1 day before DefaultCertificateLifetime")
+		})
+	})
+
+	Describe("Leaf cert lifetime capping", func() {
+		It("should not cap leaf cert when lifetime is shorter than CA remaining life", func() {
+			caLifetime := time.Hour * 24 * 10
+			cas, err := secrets.GenerateFalcoCas("dummy", caLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			leafLifetime := time.Hour * 24 * 5
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", leafLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			// leaf must not outlive CA
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("<=", cas.ServerCaCert.NotAfter))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", cas.ClientCaCert.NotAfter))
+
+			// leaf should be close to the requested lifetime (within a second of clock skew)
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", time.Now().Add(leafLifetime), time.Second))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", time.Now().Add(leafLifetime), time.Second))
+		})
+
+		It("should cap leaf cert to CA expiry when requested lifetime exceeds CA remaining life", func() {
+			caLifetime := time.Hour * 2
+			cas, err := secrets.GenerateFalcoCas("dummy", caLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			leafLifetime := time.Hour * 24 * 365
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", leafLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			// leaf must be capped to CA expiry
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", cas.ServerCaCert.NotAfter, time.Second))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", cas.ClientCaCert.NotAfter, time.Second))
+		})
+
+		It("should cap leaf cert when CA has very little time remaining", func() {
+			caLifetime := time.Minute * 30
+			cas, err := secrets.GenerateFalcoCas("dummy", caLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			leafLifetime := time.Hour * 24
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", leafLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			// leaf should be capped to CA expiry, not 24 hours
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", cas.ServerCaCert.NotAfter, time.Second))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", cas.ClientCaCert.NotAfter, time.Second))
+		})
+
+		It("should cap leaf cert exactly at CA expiry boundary", func() {
+			caLifetime := time.Hour * 24
+			cas, err := secrets.GenerateFalcoCas("dummy", caLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			// request exactly the same lifetime as the CA — leaf must not exceed it
+			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", caLifetime)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("<=", cas.ServerCaCert.NotAfter))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", cas.ClientCaCert.NotAfter))
+		})
+	})
+
 })
 
 func verifyCertAgainstCA(cert *x509.Certificate, ca *x509.Certificate) error {
