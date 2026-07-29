@@ -23,7 +23,7 @@ with open(sys.argv[1]) as f:
     for im in image_vector["images"]:
         if im["name"] == "falco":
             falco_image_vector_map[im["version"]] = im
-        if im["name"] == "falcosidekick":
+        if im["name"] == "falcosidekick" or im["name"] == "falcosidekick-fork":
             falcosidekick_image_vector_map[im["version"]] = im
         if im["name"] == "falcoctl":
             falcoctl_image_vector_map[im["version"]] = im
@@ -77,7 +77,7 @@ for im in image_vector["images"]:
             "tag": im["tag"],
             "version": im["version"],
         })
-    if im["name"] == "falcosidekick":
+    if im["name"] == "falcosidekick" or im["name"] == "falcosidekick-fork":
         falcosidekick_images.append({
             "repository": im["repository"],
             "tag": im["tag"],
@@ -112,5 +112,4 @@ if has_falcoctl:
     falco_profile["spec"]["images"]["falcoctl"] = falcoctl_images
     falco_profile["spec"]["versions"]["falcoctl"] = falcoctl_versions["falcoctlVersions"]
 
-print(yaml.dump(falco_profile))
-
+print(yaml.dump(falco_profile), end='')
