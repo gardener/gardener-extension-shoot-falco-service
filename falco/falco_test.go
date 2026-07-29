@@ -34,6 +34,9 @@ var _ = Describe("Falco", func() {
 			images := imagevector.ImageVector()
 			for _, fv := range versions.FalcoSidekickVersions.FalcosidekickVersions {
 				img := falcoversions.GetImageForVersion(images, "falcosidekick", fv.Version)
+				if img == nil {
+					img = falcoversions.GetImageForVersion(images, "falcosidekick-fork", fv.Version)
+				}
 				Expect(img).NotTo(BeNil(), "No image for falcosidekick version %s", fv.Version)
 			}
 		})
