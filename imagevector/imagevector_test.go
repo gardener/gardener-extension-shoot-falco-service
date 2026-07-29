@@ -41,7 +41,7 @@ var _ = Describe("Imagevector", func() {
 		for _, fv := range versions.FalcoSidekickVersions.FalcosidekickVersions {
 			found := false
 			for _, image := range iv {
-				if *image.Version == fv.Version && image.Name == "falcosidekick" {
+				if *image.Version == fv.Version && (image.Name == "falcosidekick" || image.Name == "falcosidekick-fork") {
 					found = true
 					break
 				}
@@ -63,7 +63,7 @@ var _ = Describe("Imagevector", func() {
 				}
 			}
 			for _, fv := range versions.FalcoSidekickVersions.FalcosidekickVersions {
-				if *image.Version == fv.Version && image.Name == "falcosidekick" {
+				if *image.Version == fv.Version && (image.Name == "falcosidekick" || image.Name == "falcosidekick-fork") {
 					found = true
 					break
 				}
