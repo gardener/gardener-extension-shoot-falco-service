@@ -1,0 +1,15 @@
+{
+  "cluster_permissions": ["cluster_composite_ops"],
+  "index_permissions": [
+    {
+      "index_patterns": ["{{INDEX_PATTERN}}"],
+      "allowed_actions": ["crud", "create_index", "manage"]
+    }
+  ],
+  "tenant_permissions": [
+    {
+      "tenant_patterns": ["{{TENANT}}"],
+      "allowed_actions": ["kibana_all_write"]
+    }
+  ]
+}

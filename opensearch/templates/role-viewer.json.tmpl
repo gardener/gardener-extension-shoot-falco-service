@@ -1,0 +1,15 @@
+{
+  "cluster_permissions": ["cluster_composite_ops_ro"],
+  "index_permissions": [
+    {
+      "index_patterns": ["{{INDEX_PATTERN}}"],
+      "allowed_actions": ["read", "search"]
+    }
+  ],
+  "tenant_permissions": [
+    {
+      "tenant_patterns": ["{{TENANT}}"],
+      "allowed_actions": ["kibana_all_read"]
+    }
+  ]
+}
