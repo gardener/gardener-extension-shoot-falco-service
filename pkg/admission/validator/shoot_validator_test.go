@@ -13,8 +13,10 @@ import (
 	. "github.com/onsi/gomega"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	sigsmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	service "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -907,29 +909,45 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 	})
 
 	It("verify namespace eligibility", func(ctx SpecContext) {
-		otherNamespace := v1.Namespace{}
-		otherNamespace.Name = "testNamespace"
-
-		gardenNamespace := v1.Namespace{}
-		gardenNamespace.Name = "garden"
-
-		NamespacesInstance = &Namespaces{}
-		NamespacesInstance.namespaces = map[string]*v1.Namespace{
-			otherNamespace.Name:                  &otherNamespace,
-			constants.AlwaysEnabledNamespaces[0]: &gardenNamespace,
+		otherNamespace := &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testNamespace",
+			},
 		}
 
-		Expect(verifyNamespaceEligibility("wrongNamespace")).To(BeFalse(), "Namespace is nil but not detected as such")
+		gardenNamespace := &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "garden",
+			},
+		}
 
-		Expect(verifyNamespaceEligibility(constants.AlwaysEnabledNamespaces[0])).To(BeTrue(), "Always enabled project is not detected as such")
+		fakeClient := fake.NewClientBuilder().WithObjects(otherNamespace, gardenNamespace).Build()
+		s := &shoot{client: fakeClient}
 
-		Expect(verifyNamespaceEligibility(otherNamespace.Name)).To(BeFalse(), "Non annotated project is not detected as such")
+		ok, err := s.verifyNamespaceEligibility(ctx, "wrongNamespace")
+		Expect(err).NotTo(BeNil(), "Namespace does not exist but no error returned")
+		Expect(ok).To(BeFalse(), "Namespace is nil but not detected as such")
 
+		ok, err = s.verifyNamespaceEligibility(ctx, constants.AlwaysEnabledNamespaces[0])
+		Expect(err).To(BeNil())
+		Expect(ok).To(BeTrue(), "Always enabled project is not detected as such")
+
+		ok, err = s.verifyNamespaceEligibility(ctx, otherNamespace.Name)
+		Expect(err).To(BeNil())
+		Expect(ok).To(BeFalse(), "Non annotated project is not detected as such")
+
+		// Update the namespace with the annotation
 		otherNamespace.Annotations = map[string]string{constants.NamespaceEnableAnnotation: "true"}
-		Expect(verifyNamespaceEligibility(otherNamespace.Name)).To(BeTrue(), "Annotated project is falsely detected non-elegible")
+		Expect(fakeClient.Update(ctx, otherNamespace)).To(Succeed())
+		ok, err = s.verifyNamespaceEligibility(ctx, otherNamespace.Name)
+		Expect(err).To(BeNil())
+		Expect(ok).To(BeTrue(), "Annotated project is falsely detected non-elegible")
 
 		otherNamespace.Annotations = map[string]string{constants.NamespaceEnableAnnotation: "random.garbage"}
-		Expect(verifyNamespaceEligibility(otherNamespace.Name)).To(BeFalse(), "Falsely annotated project is detected elegible")
+		Expect(fakeClient.Update(ctx, otherNamespace)).To(Succeed())
+		ok, err = s.verifyNamespaceEligibility(ctx, otherNamespace.Name)
+		Expect(err).To(BeNil())
+		Expect(ok).To(BeFalse(), "Falsely annotated project is detected elegible")
 	})
 
 	It("can verify legal extensions", func(ctx SpecContext) {

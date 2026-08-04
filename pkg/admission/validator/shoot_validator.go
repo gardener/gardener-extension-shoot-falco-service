@@ -16,6 +16,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -88,6 +89,7 @@ func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptio
 	}
 
 	return &shoot{
+		client:                   mgr.GetClient(),
 		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		restrictedUsage:          restrictedUsage,
 		restrictedCentralLogging: options.RestrictedCentralizedLogging,
@@ -98,6 +100,7 @@ func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptio
 
 // shoot validates shoots
 type shoot struct {
+	client                   client.Reader
 	decoder                  runtime.Decoder
 	restrictedUsage          bool
 	restrictedCentralLogging bool
@@ -124,7 +127,7 @@ func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 	}
 }
 
-func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *core.Shoot) error {
+func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot, oldShoot *core.Shoot) error {
 	// Need check here
 	if s.isDisabled(shoot) {
 		return nil
@@ -139,14 +142,18 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot, oldShoot *co
 
 	if s.restrictedUsage {
 		if oldFalcoConfErr != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
-			if ok := verifyNamespaceEligibility(shoot.Namespace); !ok {
+			if ok, err := s.verifyNamespaceEligibility(ctx, shoot.Namespace); err != nil {
+				return fmt.Errorf("failed to check namespace eligibility: %w", err)
+			} else if !ok {
 				return fmt.Errorf("namespace %s is not eligible for Falco extension", shoot.Namespace)
 			}
 		}
 	}
 
 	if s.restrictedCentralLogging && isCentralLoggingEnabled(falcoConf) {
-		if ok := verifyNamespaceEligibilityForCentralLogging(shoot.Namespace); !ok {
+		if ok, err := s.verifyNamespaceEligibilityForCentralLogging(ctx, shoot.Namespace); err != nil {
+			return fmt.Errorf("failed to check namespace eligibility for central logging: %w", err)
+		} else if !ok {
 			return fmt.Errorf(
 				"namespace %s is not eligible for centralized logging. Set destination to %s, %s or %s",
 				shoot.Namespace,
@@ -637,50 +644,35 @@ func (s *shoot) extractFalcoConfig(obj client.Object) (*service.FalcoServiceConf
 	return nil, fmt.Errorf("no FalcoConfig found in extensions")
 }
 
-func verifyNamespaceEligibility(namespace string) bool {
-	always := slices.Contains(constants.AlwaysEnabledNamespaces[:], namespace)
-	if always {
-		return true
-	}
-
-	namespaceV1, ok := NamespacesInstance.namespaces[namespace]
-	if !ok {
-		return false
-	}
-
-	val, ok := namespaceV1.Annotations[constants.NamespaceEnableAnnotation]
-	if !ok {
-		return false
-	}
-
-	enabled, err := strconv.ParseBool(val)
-	if err != nil {
-		return false
-	}
-	return enabled
+func (s *shoot) verifyNamespaceEligibility(ctx context.Context, namespace string) (bool, error) {
+	return s.checkNamespaceAnnotation(ctx, namespace, constants.AlwaysEnabledNamespaces[:], constants.NamespaceEnableAnnotation)
 }
 
-func verifyNamespaceEligibilityForCentralLogging(namespace string) bool {
-	always := slices.Contains(constants.CentralLoggingAllowedNamespaces[:], namespace)
-	if always {
-		return true
+func (s *shoot) verifyNamespaceEligibilityForCentralLogging(ctx context.Context, namespace string) (bool, error) {
+	return s.checkNamespaceAnnotation(ctx, namespace, constants.CentralLoggingAllowedNamespaces[:], constants.NamespaceCentralLoggingAnnotation)
+}
+
+// checkNamespaceAnnotation checks if a namespace is in the alwaysAllowed list or has the given annotation set to true.
+func (s *shoot) checkNamespaceAnnotation(ctx context.Context, namespace string, alwaysAllowed []string, annotation string) (bool, error) {
+	if slices.Contains(alwaysAllowed, namespace) {
+		return true, nil
 	}
 
-	namespaceV1, ok := NamespacesInstance.namespaces[namespace]
-	if !ok {
-		return false
+	ns := &corev1.Namespace{}
+	if err := s.client.Get(ctx, client.ObjectKey{Name: namespace}, ns); err != nil {
+		return false, fmt.Errorf("failed to get namespace %s: %w", namespace, err)
 	}
 
-	val, ok := namespaceV1.Annotations[constants.NamespaceCentralLoggingAnnotation]
+	val, ok := ns.Annotations[annotation]
 	if !ok {
-		return false
+		return false, nil
 	}
 
 	enabled, err := strconv.ParseBool(val)
 	if err != nil {
-		return false
+		return false, nil
 	}
-	return enabled
+	return enabled, nil
 }
 
 func isCentralLoggingEnabled(falcoConf *service.FalcoServiceConfig) bool {
