@@ -75,6 +75,101 @@ var _ = Describe("TokenIssuer", func() {
 		Expect(tm.Truncate(24 * time.Hour)).To(Equal(time.Now().Add(validity.Duration).Truncate(24 * time.Hour)))
 	})
 
+	Describe("Token Caching", func() {
+		It("should return the same token on repeated calls within validity window", func() {
+			validity := metav1.Duration{Duration: 7 * 24 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			token1, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			token2, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(token1).To(Equal(token2), "Expected cached token to be returned on second call")
+		})
+
+		It("should return independent tokens for different cluster identities", func() {
+			validity := metav1.Duration{Duration: 7 * 24 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			tokenA, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			tokenB, err := issuer.IssueToken("cluster-b")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(tokenA).NotTo(Equal(tokenB), "Different clusters should get different tokens")
+		})
+
+		It("should issue a new token when validity is shorter than min refresh threshold", func() {
+			// With validity < minRefreshBefore (1h), every call should issue a fresh token
+			// because the remaining time can never exceed the clamped threshold.
+			validity := metav1.Duration{Duration: 2 * time.Second}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			token1, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Even without sleeping, the second call should issue a new token
+			// because remaining (≈2s) < refreshThreshold (clamped to 1h)
+			time.Sleep(1100 * time.Millisecond)
+
+			token2, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(token1).NotTo(Equal(token2), "Expected a new token since validity is below min refresh threshold")
+		})
+
+		It("should cache IssueClusterIdentityToken independently", func() {
+			validity := metav1.Duration{Duration: 7 * 24 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			token1, err := issuer.IssueClusterIdentityToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			token2, err := issuer.IssueClusterIdentityToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(token1).To(Equal(token2), "Expected cached cluster identity token to be returned")
+		})
+
+		It("should cache IssueToken and IssueClusterIdentityToken separately", func() {
+			validity := metav1.Duration{Duration: 7 * 24 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			tokenIssue, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			tokenCIT, err := issuer.IssueClusterIdentityToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(tokenIssue).NotTo(Equal(tokenCIT), "IssueToken and IssueClusterIdentityToken should produce different tokens")
+		})
+
+		It("should cache tokens with long validity (refresh clamped to max 24h before expiry)", func() {
+			// With 90 days validity, 50% would be 45 days, but it's clamped to maxRefreshBefore (24h).
+			// So tokens should be cached as long as remaining > 24h.
+			validity := metav1.Duration{Duration: 90 * 24 * time.Hour}
+			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
+			Expect(err).NotTo(HaveOccurred())
+
+			token1, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Immediately calling again should return cached (remaining ≈ 90 days > 24h threshold)
+			token2, err := issuer.IssueToken("cluster-a")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(token1).To(Equal(token2), "Long-lived token should be cached")
+		})
+	})
+
 	Describe("IssueClusterIdentityToken", func() {
 		It("should issue a valid JWT with correct claims", func() {
 			validity := metav1.Duration{Duration: 7 * 24 * time.Hour}
