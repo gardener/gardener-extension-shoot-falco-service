@@ -9,7 +9,6 @@
 package tools
 
 import (
-	_ "github.com/gardener/gardener/hack"
 	_ "github.com/gardener/gardener/hack/.ci"
 
 	_ "github.com/elastic/crd-ref-docs"
