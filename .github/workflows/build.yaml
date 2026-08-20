@@ -148,7 +148,7 @@ jobs:
           remove-trusted-label: false
       - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.26.5'
+          go-version: '1.26.6'
       - name: run-verify
         run: |
           set -eu
