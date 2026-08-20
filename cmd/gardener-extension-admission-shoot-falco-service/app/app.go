@@ -194,14 +194,6 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
-			dynamicClientNamespaces, err := dynamic.NewForConfig(mgr.GetConfig())
-			if err != nil {
-				return err
-			}
-
-			validator.NewNamespaces(dynamicClientNamespaces)
-			go validator.NamespacesInstance.StartNamespaceWatch()
-
 			dynamicClient, err := dynamic.NewForConfig(mgr.GetConfig())
 			if err != nil {
 				return err
