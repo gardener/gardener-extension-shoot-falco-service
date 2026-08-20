@@ -4,24 +4,21 @@ go 1.26.5
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/elastic/crd-ref-docs v0.3.0
 	github.com/gardener/gardener v1.149.0
+	github.com/gardener/gardener/hack/tools v1.149.0
 	github.com/gardener/gardener/pkg/apis v1.149.0
 	github.com/go-logr/logr v1.4.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hashicorp/go-version v1.9.0
-	github.com/ironcore-dev/vgopath v0.1.11
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/mod v0.40.0
-	golang.org/x/tools v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.36.3
 	k8s.io/apimachinery v0.36.3
 	k8s.io/client-go v0.36.3
-	k8s.io/code-generator v0.36.3
 	k8s.io/component-base v0.36.3
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 	sigs.k8s.io/controller-runtime v0.24.1
@@ -102,7 +99,6 @@ require (
 	github.com/go-openapi/swag/typeutils v0.26.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.26.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/gobuffalo/flect v1.0.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -206,10 +202,10 @@ require (
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260615183401-62b3387ff324 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260727163830-6c54dddc4772 // indirect
@@ -223,7 +219,6 @@ require (
 	istio.io/client-go v1.29.2 // indirect
 	k8s.io/apiextensions-apiserver v0.36.3 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.7.1 // indirect
-	k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-aggregator v0.36.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20260603220949-865597e52e25 // indirect
@@ -231,7 +226,6 @@ require (
 	k8s.io/metrics v0.36.3 // indirect
 	k8s.io/pod-security-admission v0.36.3 // indirect
 	k8s.io/streaming v0.36.3 // indirect
-	sigs.k8s.io/controller-tools v0.21.0 // indirect
 	sigs.k8s.io/gateway-api v1.6.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
