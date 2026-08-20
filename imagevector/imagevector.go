@@ -26,7 +26,7 @@ var (
 func init() {
 
 	var err error
-	imageVector, err = imagevector.Read([]byte(imagesYAML))
+	imageVector, _, err = imagevector.Read([]byte(imagesYAML))
 	runtime.Must(err)
 
 	imageVector, err = withEnvOverride(imageVector)
@@ -143,7 +143,7 @@ func withEnvOverride(vector imagevector.ImageVector) (imagevector.ImageVector, e
 		return vector, nil
 	}
 
-	override, err := imagevector.ReadFile(overwritePath)
+	override, _, err := imagevector.ReadFile(overwritePath)
 	if err != nil {
 		return nil, err
 	}

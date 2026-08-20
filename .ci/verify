@@ -13,8 +13,10 @@ cd "$(dirname $0)/.."
 git config --global user.email "gardener@sap.com"
 git config --global user.name "Gardener CI/CD"
 
+go mod download
+
 apt-get update && apt-get install -y python3-pip
-pip install pyyaml  --break-system-packages
+pip install pyyaml --break-system-packages
 
 export GOTOOLCHAIN=auto
 make verify-extended
