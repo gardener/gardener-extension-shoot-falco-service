@@ -9,7 +9,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CODE_GEN_DIR=$(go list -m -f '{{.Dir}}' k8s.io/code-generator)
+CODE_GEN_DIR=$(GOWORK=off go list -m -modfile "$(go list -m -f '{{.Dir}}' github.com/gardener/gardener/hack/tools)/go.mod" -f '{{.Dir}}' k8s.io/code-generator)
 source "${CODE_GEN_DIR}/kube_codegen.sh"
 
 rm -f "$(go env GOPATH)/bin"/*-gen
@@ -17,13 +17,13 @@ rm -f "$(go env GOPATH)/bin"/*-gen
 PROJECT_ROOT=$(dirname $0)/..
 
 kube::codegen::gen_helpers \
-  --boilerplate "${PROJECT_ROOT}/hack/LICENSE_BOILERPLATE.txt" \
+  --boilerplate "${GARDENER_HACK_DIR}/LICENSE_BOILERPLATE.txt" \
   "${PROJECT_ROOT}/pkg/apis/config"
 
 kube::codegen::gen_helpers \
-  --boilerplate "${PROJECT_ROOT}/hack/LICENSE_BOILERPLATE.txt" \
+  --boilerplate "${GARDENER_HACK_DIR}/LICENSE_BOILERPLATE.txt" \
   "${PROJECT_ROOT}/pkg/apis/profile"
 
 kube::codegen::gen_helpers \
-  --boilerplate "${PROJECT_ROOT}/hack/LICENSE_BOILERPLATE.txt" \
+  --boilerplate "${GARDENER_HACK_DIR}/LICENSE_BOILERPLATE.txt" \
   "${PROJECT_ROOT}/pkg/apis/service"
