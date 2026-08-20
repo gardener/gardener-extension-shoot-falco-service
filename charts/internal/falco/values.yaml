@@ -1540,7 +1540,7 @@ falcosidekick:
   deployNetworkPolicies: true
 
   # -- Number of old history to retain to allow rollback (If not set, default Kubernetes value is set to 10)
-  # revisionHistoryLimit: 1
+  revisionHistoryLimit: 2
 
   image:
     # -- The image registry to pull from
