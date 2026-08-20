@@ -152,9 +152,10 @@ var _ = Describe("TokenIssuer", func() {
 			Expect(tokenIssue).NotTo(Equal(tokenCIT), "IssueToken and IssueClusterIdentityToken should produce different tokens")
 		})
 
-		It("should cache tokens with long validity (refresh clamped to max 24h before expiry)", func() {
-			// With 90 days validity, 50% would be 45 days, but it's clamped to maxRefreshBefore (24h).
-			// So tokens should be cached as long as remaining > 24h.
+		It("should cache tokens with long validity (refresh at 60% of lifetime)", func() {
+			// With 90 days validity, the refresh threshold is 60% = 54 days.
+			// A freshly issued token has ~90 days remaining, well above the threshold,
+			// so the cached token is returned on a subsequent call.
 			validity := metav1.Duration{Duration: 90 * 24 * time.Hour}
 			issuer, err := secrets.NewTokenIssuer(validKey, &validity)
 			Expect(err).NotTo(HaveOccurred())
@@ -162,7 +163,6 @@ var _ = Describe("TokenIssuer", func() {
 			token1, err := issuer.IssueToken("cluster-a")
 			Expect(err).NotTo(HaveOccurred())
 
-			// Immediately calling again should return cached (remaining ≈ 90 days > 24h threshold)
 			token2, err := issuer.IssueToken("cluster-a")
 			Expect(err).NotTo(HaveOccurred())
 

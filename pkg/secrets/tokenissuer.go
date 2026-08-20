@@ -58,20 +58,14 @@ const (
 	// minRefreshBefore is the minimum time before expiry at which a token is refreshed.
 	// Even for very short-lived tokens, we refresh at least 1 hour before expiry.
 	minRefreshBefore = 1 * time.Hour
-	// maxRefreshBefore is the maximum time before expiry at which a token is refreshed.
-	// Even for very long-lived tokens, we refresh at most 1 day before expiry.
-	maxRefreshBefore = 24 * time.Hour
 )
 
 // refreshThreshold returns how much time before expiry a token should be refreshed.
-// It uses 50% of the token lifetime, clamped to [minRefreshBefore, maxRefreshBefore].
+// It uses 60% of the token lifetime, clamped to a minimum of minRefreshBefore.
 func refreshThreshold(validity time.Duration) time.Duration {
-	threshold := validity / 2
+	threshold := validity * 60 / 100 // 60%
 	if threshold < minRefreshBefore {
 		threshold = minRefreshBefore
-	}
-	if threshold > maxRefreshBefore {
-		threshold = maxRefreshBefore
 	}
 	return threshold
 }
