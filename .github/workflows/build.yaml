@@ -138,6 +138,27 @@ jobs:
                 localReference: falco-crds.tar.gz
           blobs-directory: /tmp/blobs.d
 
+  export-opensearch-files:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: prepare
+        run: |
+          set -eu
+          mkdir /tmp/blobs.d
+          tar czf /tmp/blobs.d/opensearch.tar.gz opensearch
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
+        with:
+          ocm-resources: |
+            - name: opensearch
+              relation: local
+              access:
+                type: localBlob
+                localReference: opensearch.tar.gz
+          blobs-directory: /tmp/blobs.d
+
   verify:
     runs-on: ubuntu-latest
     permissions:
