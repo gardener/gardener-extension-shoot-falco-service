@@ -203,6 +203,7 @@ var (
 		},
 		Shoot: &gardencorev1beta1.Shoot{
 			Spec: gardencorev1beta1.ShootSpec{
+				Purpose: purposeValue(gardencorev1beta1.ShootPurposeProduction),
 				Resources: []gardencorev1beta1.NamedResourceReference{
 					{
 						Name: "rules1",
@@ -2195,6 +2196,62 @@ var _ = Describe("BuildFalcoValues", func() {
 			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 			Expect(sidekickConfig).To(HaveKey("loki"))
 			Expect(sidekickConfig).NotTo(HaveKey("webhook"))
+		})
+	})
+
+	Describe("#ShootPurpose", func() {
+		BeforeEach(func() {
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).To(BeNil())
+			configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
+			logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+		})
+
+		It("should set cluster_purpose in customfields for a shoot with purpose", func(ctx SpecContext) {
+			shoot := shootSpec.Shoot.DeepCopy()
+			shoot.Spec.Purpose = purposeValue(gardencorev1beta1.ShootPurposeProduction)
+			reconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: shootExtension,
+				Namespace:          "shoot--test--foo",
+				IsShootDeployment:  true,
+				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+				ResourceSection:    shoot.Spec.Resources,
+				Shoot:              shoot,
+				Seed:               shootSpec.Seed,
+			}
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			customfields := config["customfields"].(map[string]string)
+			Expect(customfields).To(HaveKeyWithValue("cluster_purpose", "production"))
+			Expect(customfields).To(HaveKey("cluster_id"))
+		})
+
+		It("should not set cluster_purpose in customfields for a non-Gardener-managed cluster (seed)", func(ctx SpecContext) {
+			seedReconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: seedExtenstionSimple,
+				Namespace:          "shoot--test--foo",
+				IsSeedDeployment:   true,
+				IsShootDeployment:  false,
+				ClusterIdentity:    stringValue("seed-cluster-identity"),
+				ClusterName:        "seed-cluster",
+			}
+			configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+				TokenLifetime:         &metav1.Duration{Duration: 0},
+				TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+				URL:                   "dummy",
+			}
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, seedReconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			customfields := sidekickConfig["customfields"].(map[string]string)
+			Expect(customfields).NotTo(HaveKey("cluster_purpose"))
+			Expect(customfields).To(HaveKey("cluster_id"))
 		})
 	})
 })

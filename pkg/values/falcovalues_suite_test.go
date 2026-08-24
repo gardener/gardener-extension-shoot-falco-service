@@ -7,6 +7,7 @@ package values
 import (
 	"testing"
 
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,6 +33,10 @@ var _ = BeforeSuite(func() {
 
 func stringValue(value string) *string {
 	return &value
+}
+
+func purposeValue(p gardencorev1beta1.ShootPurpose) *gardencorev1beta1.ShootPurpose {
+	return &p
 }
 
 // func boolValue(value bool) *bool {
