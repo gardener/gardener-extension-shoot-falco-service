@@ -12,7 +12,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
 )
 
 var tokenIssuerPrivateKey string
@@ -37,6 +39,17 @@ func stringValue(value string) *string {
 
 func purposeValue(p gardencorev1beta1.ShootPurpose) *gardencorev1beta1.ShootPurpose {
 	return &p
+}
+
+func baseReconcileCtx(falcoConf *service.FalcoServiceConfig) *utils.ReconcileContext {
+	return &utils.ReconcileContext{
+		FalcoServiceConfig: falcoConf,
+		Namespace:          "shoot--test--foo",
+		IsShootDeployment:  true,
+		ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
+		SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
+		ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+	}
 }
 
 // func boolValue(value bool) *bool {

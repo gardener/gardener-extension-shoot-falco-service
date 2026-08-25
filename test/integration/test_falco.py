@@ -482,7 +482,7 @@ def test_cluster_purpose(garden_api_client, shoot_api_client, shoot, project_nam
     actual_purpose = sidekick_cfg.get("customfields", {}).get("cluster_purpose")
     assert actual_purpose == expected_purpose, \
         f"cluster_purpose mismatch: expected '{expected_purpose}', got '{actual_purpose}'"
-    logger.info(f"cluster_purpose correctly set to '{actual_purpose}'")
+    logger.info(f"cluster_purpose correctly set to '{expected_purpose}'")
 
 
 def test_node_selector(garden_api_client, shoot_api_client, project_namespace: str, shoot_name: str):
