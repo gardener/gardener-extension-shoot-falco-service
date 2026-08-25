@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/profile/v1alpha1"
 )
@@ -85,6 +86,60 @@ func GetDummyFalcoProfileManager(falcoVersions *map[string]FalcoVersion, falcoIm
 		falcoctlImages:        *falcoCtlImages,
 	}
 	return FalcoProfileManagerInstance
+}
+
+// NewFalcoProfileManagerFromFalcoProfile builds a FalcoProfileManager from the
+// embedded falco-profile.yaml, so tests always use the real version/image data.
+func NewFalcoProfileManagerFromFalcoProfile(profileYAML []byte) (*FalcoProfileManager, error) {
+	var fp v1alpha1.FalcoProfile
+	if err := yaml.Unmarshal(profileYAML, &fp); err != nil {
+		return nil, fmt.Errorf("cannot parse falco-profile.yaml: %w", err)
+	}
+
+	falcoVersions := make(map[string]FalcoVersion)
+	falcoImages := make(map[string]Image)
+	falcosidekickVersions := make(map[string]Version)
+	falcosidekickImages := make(map[string]Image)
+	falcoctlVersions := make(map[string]Version)
+	falcoctlImages := make(map[string]Image)
+
+	for _, v := range fp.Spec.Versions.Falco {
+		falcoVersions[v.Version] = FalcoVersion{
+			Classification: v.Classification,
+			ExpirationDate: getExpirationDateFromString(v.ExpirationDate),
+			Version:        v.Version,
+			RulesVersion:   v.RulesVersion,
+		}
+	}
+	for _, img := range fp.Spec.Images.Falco {
+		falcoImages[img.Version] = Image{Repository: img.Repository, Tag: img.Tag, Version: img.Version}
+	}
+	for _, v := range fp.Spec.Versions.Falcosidekick {
+		falcosidekickVersions[v.Version] = Version{
+			Classification: v.Classification,
+			ExpirationDate: getExpirationDateFromString(v.ExpirationDate),
+			Version:        v.Version,
+		}
+	}
+	for _, img := range fp.Spec.Images.Falcosidekick {
+		falcosidekickImages[img.Version] = Image{Repository: img.Repository, Tag: img.Tag, Version: img.Version}
+	}
+	for _, v := range fp.Spec.Versions.Falcoctl {
+		falcoctlVersions[v.Version] = Version{
+			Classification: v.Classification,
+			ExpirationDate: getExpirationDateFromString(v.ExpirationDate),
+			Version:        v.Version,
+		}
+	}
+	for _, img := range fp.Spec.Images.Falcoctl {
+		falcoctlImages[img.Version] = Image{Repository: img.Repository, Tag: img.Tag, Version: img.Version}
+	}
+
+	return GetDummyFalcoProfileManager(
+		&falcoVersions, &falcoImages,
+		&falcosidekickVersions, &falcosidekickImages,
+		&falcoctlVersions, &falcoctlImages,
+	), nil
 }
 
 func (p *FalcoProfileManager) StartWatch() {
@@ -302,4 +357,15 @@ func getExpirationDate(version v1alpha1.Version) *time.Time {
 	} else {
 		return nil
 	}
+}
+
+func getExpirationDateFromString(s *string) *time.Time {
+	if s == nil {
+		return nil
+	}
+	parsedTime, err := time.Parse(time.RFC3339, *s)
+	if err != nil {
+		return nil
+	}
+	return &parsedTime
 }
