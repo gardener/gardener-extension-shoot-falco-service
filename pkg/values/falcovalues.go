@@ -425,6 +425,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	}
 
 	destination := c.getDestination(falcoOutputConfigs)
+	createFalcosidekickServiceAccount := destination == constants.FalcoEventDestinationLogging || destination == constants.FalcoEventDestinationOTLP
 	falcoChartValues := map[string]any{
 		"clusterId":         *reconcileCtx.ClusterIdentity,
 		"priorityClassName": priorityClassName,
@@ -468,7 +469,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				"mtls":        true,
 				"client_cert": "/etc/falco/certs/client.crt",
 				"client_key":  "/etc/falco/certs/client.key",
-				"url":         fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", metav1.NamespaceSystem, 2801),
+				"url":         fmt.Sprintf("https://falcosidekick.%s.svc.cluster.local:%d", reconcileCtx.FalcoNamespace, 2801),
 			},
 			"json_output":                  true,
 			"json_include_output_property": true,
@@ -486,8 +487,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"image": falcoOpsImage.String(),
 		},
 		"gardenerExtensionShootFalcoService": map[string]any{
-			"output": map[string]string{
-				"eventCollector": destination,
+			"output": map[string]any{
+				"eventCollector":                    destination,
+				"createFalcosidekickServiceAccount": createFalcosidekickServiceAccount,
 			},
 		},
 	}
@@ -829,7 +831,7 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 		}
-		certs, err = secrets.GenerateKeysAndCerts(cas, metav1.NamespaceSystem, c.config.Falco.CertificateLifetime.Duration)
+		certs, err = secrets.GenerateKeysAndCerts(cas, reconcileCtx.FalcoNamespace, c.config.Falco.CertificateLifetime.Duration)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
 		}
@@ -847,9 +849,9 @@ func (c *ConfigBuilder) getFalcoCertificates(ctx context.Context, log logr.Logge
 				return nil, nil, fmt.Errorf("cannot generate Falco CAs: %w", err)
 			}
 		}
-		if renewed || secrets.CertsNeedRenewal(certs, c.config.Falco.CertificateRenewAfter.Duration) || secrets.CertsNeedRegeneration(certs, metav1.NamespaceSystem) {
+		if renewed || secrets.CertsNeedRenewal(certs, c.config.Falco.CertificateRenewAfter.Duration) || secrets.CertsNeedRegeneration(certs, reconcileCtx.FalcoNamespace) {
 			renewed = true
-			certs, err = secrets.GenerateKeysAndCerts(cas, metav1.NamespaceSystem, c.config.Falco.CertificateLifetime.Duration)
+			certs, err = secrets.GenerateKeysAndCerts(cas, reconcileCtx.FalcoNamespace, c.config.Falco.CertificateLifetime.Duration)
 			if err != nil {
 				return nil, nil, fmt.Errorf("cannot generate Falco certificates: %w", err)
 			}

@@ -15,7 +15,10 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	operatorv1alpha1 "github.com/gardener/gardener/pkg/apis/operator/v1alpha1"
 	"github.com/spf13/pflag"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,6 +112,9 @@ type shoot struct {
 }
 
 // Validate implements extensionswebhook.Validator.Validate
+// Note: the Garden case below is not currently reachable — operatorv1alpha1.Garden is not registered
+// as a webhook target because the Garden CRD lives on the runtime cluster, not the virtual garden
+// where this admission service runs. The validation logic is kept here for future use.
 func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 
 	switch newObj := new.(type) {
@@ -121,6 +127,9 @@ func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 
 	case *core.Seed:
 		return s.validateSeed(ctx, newObj)
+
+	case *operatorv1alpha1.Garden:
+		return s.validateGarden(ctx, newObj)
 
 	default:
 		return fmt.Errorf("wrong object type %T", new)
@@ -213,6 +222,33 @@ func (s *shoot) validateSeed(_ context.Context, seed *core.Seed) error {
 	}
 
 	if err := s.verifyEventDestinationsSeed(falcoConf, seed); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
+	}
+
+	return nil
+}
+
+func (s *shoot) validateGarden(_ context.Context, garden *operatorv1alpha1.Garden) error {
+	falcoConf, err := s.extractFalcoConfigFromGarden(garden)
+	if err != nil {
+		return err
+	}
+
+	allErrs := []error{}
+
+	if err := verifyFalcoVersion(falcoConf, falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyRules(falcoConf, toNamedResourceRefs(garden.Spec.Resources)); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := s.verifyEventDestinationsGarden(falcoConf, garden); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -323,6 +359,26 @@ func (s *shoot) verifyEventDestinationsSeed(falcoConf *service.FalcoServiceConfi
 	return s.verifyEventDestinationsCommon(falcoConf, seed.Spec.Resources, constants.AllowedDestinationsSeed)
 }
 
+func (s *shoot) verifyEventDestinationsGarden(falcoConf *service.FalcoServiceConfig, garden *operatorv1alpha1.Garden) error {
+	return s.verifyEventDestinationsCommon(falcoConf, toNamedResourceRefs(garden.Spec.Resources), constants.AllowedDestinationsGarden)
+}
+
+// toNamedResourceRefs converts operator v1alpha1 NamedResourceReference slice to core NamedResourceReference slice.
+func toNamedResourceRefs(refs []gardencorev1beta1.NamedResourceReference) []core.NamedResourceReference {
+	result := make([]core.NamedResourceReference, 0, len(refs))
+	for _, r := range refs {
+		result = append(result, core.NamedResourceReference{
+			Name: r.Name,
+			ResourceRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: r.ResourceRef.APIVersion,
+				Kind:       r.ResourceRef.Kind,
+				Name:       r.ResourceRef.Name,
+			},
+		})
+	}
+	return result
+}
+
 func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceConfig, resources []core.NamedResourceReference, allowedDestinations []string) error {
 	if falcoConf.Destinations == nil {
 		return fmt.Errorf("event destination property is not defined")
@@ -398,6 +454,16 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 		}
 	}
 
+	idxOpenSearch := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
+		return dest.Name == constants.FalcoEventDestinationOpenSearch && servicehelper.IsDestinationEnabled(dest)
+	})
+
+	if idxOpenSearch != -1 {
+		if err := verifyOpenSearchDestination(falcoConf.Destinations[idxOpenSearch], resources); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -435,6 +501,25 @@ func verifySplunkDestination(splunkDest service.Destination, resources []core.Na
 
 	if !found {
 		return fmt.Errorf("splunk event destination config %s not found in resources", *splunkDest.ResourceSecretName)
+	}
+	return nil
+}
+
+func verifyOpenSearchDestination(openSearchDest service.Destination, resources []core.NamedResourceReference) error {
+	if openSearchDest.ResourceSecretName == nil {
+		return fmt.Errorf("opensearch event destination is set but no secret config is defined")
+	}
+
+	found := false
+	for _, s := range resources {
+		if s.ResourceRef.Kind == "Secret" && s.Name == *openSearchDest.ResourceSecretName {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("opensearch event destination config %s not found in resources", *openSearchDest.ResourceSecretName)
 	}
 	return nil
 }
@@ -640,6 +725,25 @@ func (s *shoot) extractFalcoConfig(obj client.Object) (*service.FalcoServiceConf
 			return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
 		}
 		return falcoConfig, nil
+	}
+	return nil, fmt.Errorf("no FalcoConfig found in extensions")
+}
+
+func (s *shoot) extractFalcoConfigFromGarden(garden *operatorv1alpha1.Garden) (*service.FalcoServiceConfig, error) {
+	if garden == nil {
+		return nil, fmt.Errorf("resource pointer was nil")
+	}
+	for i := range garden.Spec.Extensions {
+		if garden.Spec.Extensions[i].Type == constants.ExtensionType {
+			ext := &garden.Spec.Extensions[i]
+			if ext.ProviderConfig != nil {
+				falcoConfig := &service.FalcoServiceConfig{}
+				if _, _, err := s.decoder.Decode(ext.ProviderConfig.Raw, nil, falcoConfig); err != nil {
+					return nil, fmt.Errorf("failed to decode %s provider config: %w", ext.Type, err)
+				}
+				return falcoConfig, nil
+			}
+		}
 	}
 	return nil, fmt.Errorf("no FalcoConfig found in extensions")
 }

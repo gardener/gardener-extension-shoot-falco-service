@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	operatorv1alpha1 "github.com/gardener/gardener/pkg/apis/operator/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -107,6 +109,33 @@ var (
 				},
 			},
 			Resources: []core.NamedResourceReference{
+				{
+					Name: "dummy-custom-rules-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+				},
+				{
+					Name: "my-custom-webhook-ref",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "Secret",
+					},
+				},
+			},
+		},
+	}
+
+	genericGarden = &operatorv1alpha1.Garden{
+		Spec: operatorv1alpha1.GardenSpec{
+			Extensions: []operatorv1alpha1.GardenExtension{
+				{
+					Type:           "shoot-falco-service",
+					ProviderConfig: &runtime.RawExtension{},
+				},
+			},
+			Resources: []gardencorev1beta1.NamedResourceReference{
 				{
 					Name: "dummy-custom-rules-ref",
 					ResourceRef: autoscalingv1.CrossVersionObjectReference{
@@ -465,7 +494,7 @@ var (
 		]
 	}`
 
-	// "looging" destination is not allowed for seed
+	// "logging" destination is not allowed for seed
 	falcoExtensionForSeedIllegal = `
 	{
 		"apiVersion":"falco.extensions.gardener.cloud/v1alpha1",
@@ -521,6 +550,79 @@ var (
 		"destinations": [
 		 {
 			"name": "splunk"
+		 }
+		]
+	}`
+
+	// "logging" destination is not allowed for garden
+	falcoExtensionForGardenIllegalLogging = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
+		},
+		"destinations": [
+		 {
+			"name": "logging"
+		 }
+		]
+	}`
+
+	// "otlp" destination is not allowed for garden
+	falcoExtensionForGardenIllegalOTLP = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
+		},
+		"destinations": [
+		 {
+			"name": "otlp"
+		 }
+		]
+	}`
+
+	// opensearch with a resourceSecretName pointing to a Secret resource ref
+	falcoExtensionOpenSearch = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
+		},
+		"destinations": [
+		 {
+			"name": "opensearch",
+			"resourceSecretName": "my-custom-webhook-ref"
+		 }
+		]
+	}`
+
+	// opensearch without resourceSecretName — valid at admission time (secret is only needed at reconcile time)
+	falcoExtensionOpenSearchNoSecret = `
+	{
+		"apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+		"kind": "FalcoServiceConfig",
+		"falcoVersion": "1.2.3",
+		"rules": {
+			"standard": [
+				"falco-rules"
+			]
+		},
+		"destinations": [
+		 {
+			"name": "opensearch"
 		 }
 		]
 	}`
@@ -1113,6 +1215,111 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).To(Not(BeNil()), "Illegal extension is not detected as such")
 		Expect(err.Error()).To(ContainSubstring("unknown event destination: logging"))
 		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"))
+	})
+
+	It("check garden objects with Falco installation", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		err = operatorv1alpha1.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Operator scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		f := func(extensionSpec string) error {
+			providerConfig := genericGarden.Spec.Extensions[0].ProviderConfig
+			providerConfig.Raw = []byte(extensionSpec)
+			return s.Validate(context.TODO(), genericGarden, nil)
+		}
+
+		// Legal destinations for garden
+		err = f(falcoExtension2) // stdout
+		Expect(err).To(BeNil(), "stdout destination should be legal for garden")
+
+		err = f(falcoExtensionCustomWebhook) // custom with secret ref
+		Expect(err).To(BeNil(), "custom destination with secret ref should be legal for garden")
+
+		err = f(falcoExtensionCustomWebookCustomRules) // custom with custom rules
+		Expect(err).To(BeNil(), "custom destination with custom rules should be legal for garden")
+
+		// Illegal: logging destination is not allowed for garden
+		err = f(falcoExtensionForGardenIllegalLogging)
+		Expect(err).To(Not(BeNil()), "logging destination must be rejected for garden")
+		Expect(err.Error()).To(ContainSubstring("unknown event destination: logging"))
+
+		// Illegal: otlp destination is not allowed for garden
+		err = f(falcoExtensionForGardenIllegalOTLP)
+		Expect(err).To(Not(BeNil()), "otlp destination must be rejected for garden")
+		Expect(err.Error()).To(ContainSubstring("unknown event destination: otlp"))
+	})
+
+	It("checks opensearch and splunk destinations for seed and garden", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		err = operatorv1alpha1.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Operator scheme could not be added")
+		s := NewShootValidator(mgr)
+
+		seedF := func(extensionSpec string) error {
+			genericSeed.Spec.Extensions[0].ProviderConfig.Raw = []byte(extensionSpec)
+			return s.Validate(context.TODO(), genericSeed, nil)
+		}
+		gardenF := func(extensionSpec string) error {
+			genericGarden.Spec.Extensions[0].ProviderConfig.Raw = []byte(extensionSpec)
+			return s.Validate(context.TODO(), genericGarden, nil)
+		}
+
+		// opensearch with secret ref is valid for both seed and garden
+		err = seedF(falcoExtensionOpenSearch)
+		Expect(err).To(BeNil(), "opensearch with secret ref should be valid for seed")
+
+		err = gardenF(falcoExtensionOpenSearch)
+		Expect(err).To(BeNil(), "opensearch with secret ref should be valid for garden")
+
+		// opensearch without resourceSecretName is rejected
+		err = seedF(falcoExtensionOpenSearchNoSecret)
+		Expect(err).To(Not(BeNil()), "opensearch without secret ref must be rejected for seed")
+		Expect(err.Error()).To(ContainSubstring("opensearch event destination is set but no secret config is defined"))
+
+		err = gardenF(falcoExtensionOpenSearchNoSecret)
+		Expect(err).To(Not(BeNil()), "opensearch without secret ref must be rejected for garden")
+		Expect(err.Error()).To(ContainSubstring("opensearch event destination is set but no secret config is defined"))
+
+		// splunk with secret ref (my-custom-webhook-ref is a Secret in both genericSeed and genericGarden)
+		err = seedF(falcoExtensionSplunk)
+		Expect(err).To(BeNil(), "splunk with secret ref should be valid for seed")
+
+		err = gardenF(falcoExtensionSplunk)
+		Expect(err).To(BeNil(), "splunk with secret ref should be valid for garden")
+
+		// splunk without resourceSecretName is rejected
+		err = seedF(falcoExtensionSplunkNoSecret)
+		Expect(err).To(Not(BeNil()), "splunk without secret ref must be rejected for seed")
+		Expect(err.Error()).To(ContainSubstring("splunk event destination is set but no secret config is defined"))
+
+		err = gardenF(falcoExtensionSplunkNoSecret)
+		Expect(err).To(Not(BeNil()), "splunk without secret ref must be rejected for garden")
+		Expect(err.Error()).To(ContainSubstring("splunk event destination is set but no secret config is defined"))
+
+		// central-splunk as a global default: use a validator with globalDefaultKeys configured
+		sWithDefaults := &shoot{
+			decoder:           s.(*shoot).decoder,
+			globalDefaultKeys: map[string]string{"central-splunk": "splunk"},
+		}
+		centralSplunkConf := &service.FalcoServiceConfig{
+			FalcoVersion: stringValue("1.2.3"),
+			Rules:        &service.Rules{StandardRules: []string{"falco-rules"}},
+			Destinations: []service.Destination{{Name: "central-splunk"}},
+		}
+		err = sWithDefaults.verifyEventDestinationsCommon(centralSplunkConf, genericSeed.Spec.Resources, constants.AllowedDestinationsSeed)
+		Expect(err).To(BeNil(), "central-splunk global default should be valid for seed")
+
+		err = sWithDefaults.verifyEventDestinationsCommon(centralSplunkConf, toNamedResourceRefs(genericGarden.Spec.Resources), constants.AllowedDestinationsGarden)
+		Expect(err).To(BeNil(), "central-splunk global default should be valid for garden")
 	})
 
 	Context("global default destinations", func() {
