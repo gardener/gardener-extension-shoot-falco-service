@@ -408,6 +408,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 		customFields := map[string]string{
 			"cluster_id": *reconcileCtx.ClusterIdentity,
 		}
+		if reconcileCtx.Shoot != nil && reconcileCtx.Shoot.Spec.Purpose != nil {
+			customFields["cluster_purpose"] = string(*reconcileCtx.Shoot.Spec.Purpose)
+		}
 
 		falcosidekickConfig = c.generateSidekickDefaultValues(falcosidekickImage, cas, certs, customFields, priorityClassName, reconcileCtx.IsShootDeployment)
 		for _, outputConfig := range falcoOutputConfigs {
