@@ -210,6 +210,9 @@ func (s *shoot) validateSeed(_ context.Context, seed *core.Seed) error {
 	if err != nil {
 		return err
 	}
+	if falcoConf == nil {
+		return nil
+	}
 
 	allErrs := []error{}
 
@@ -236,6 +239,9 @@ func (s *shoot) validateGarden(_ context.Context, garden *operatorv1alpha1.Garde
 	falcoConf, err := s.extractFalcoConfigFromGarden(garden)
 	if err != nil {
 		return err
+	}
+	if falcoConf == nil {
+		return nil
 	}
 
 	allErrs := []error{}
@@ -726,7 +732,7 @@ func (s *shoot) extractFalcoConfig(obj client.Object) (*service.FalcoServiceConf
 		}
 		return falcoConfig, nil
 	}
-	return nil, fmt.Errorf("no FalcoConfig found in extensions")
+	return nil, nil
 }
 
 func (s *shoot) extractFalcoConfigFromGarden(garden *operatorv1alpha1.Garden) (*service.FalcoServiceConfig, error) {
@@ -745,7 +751,7 @@ func (s *shoot) extractFalcoConfigFromGarden(garden *operatorv1alpha1.Garden) (*
 			}
 		}
 	}
-	return nil, fmt.Errorf("no FalcoConfig found in extensions")
+	return nil, nil
 }
 
 func (s *shoot) verifyNamespaceEligibility(ctx context.Context, namespace string) (bool, error) {
@@ -788,4 +794,45 @@ func isCentralLoggingEnabled(falcoConf *service.FalcoServiceConfig) bool {
 		}
 	}
 	return false
+}
+
+// ValidateForGarden validates a FalcoServiceConfig in the context of a Garden object.
+// Called from the lifecycle actuator because no admission webhook runs for garden-class extensions.
+func ValidateForGarden(ctx context.Context, falcoConf *service.FalcoServiceConfig, garden *operatorv1alpha1.Garden, globalDefaultDestinations []config.GlobalDefaultDestination) error {
+	s := &shoot{
+		globalDefaultKeys: confighelper.GlobalDefaultKeyMap(globalDefaultDestinations),
+	}
+	return s.verifyEventDestinationsGarden(falcoConf, garden)
+}
+
+// ValidateForSeed validates a FalcoServiceConfig in the context of a Seed object.
+// Called from the lifecycle actuator because the admission webhook may not run for seed-class extensions.
+func ValidateForSeed(ctx context.Context, falcoConf *service.FalcoServiceConfig, seed *gardencorev1beta1.Seed, globalDefaultDestinations []config.GlobalDefaultDestination) error {
+	s := &shoot{
+		globalDefaultKeys: confighelper.GlobalDefaultKeyMap(globalDefaultDestinations),
+	}
+	resources := toNamedResourceRefs(seed.Spec.Resources)
+	allErrs := []error{}
+	if err := verifyFalcoVersion(falcoConf, falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+	if err := verifyRules(falcoConf, resources); err != nil {
+		allErrs = append(allErrs, err)
+	}
+	if err := s.verifyEventDestinationsCommon(falcoConf, resources, constants.AllowedDestinationsSeed); err != nil {
+		allErrs = append(allErrs, err)
+	}
+	return errors.Join(allErrs...)
+}
+
+// ValidateForShoot validates a FalcoServiceConfig in the context of a Shoot object.
+// Called from the lifecycle actuator for completeness.
+func ValidateForShoot(ctx context.Context, falcoConf *service.FalcoServiceConfig, shootObj *core.Shoot, globalDefaultDestinations []config.GlobalDefaultDestination, restrictedUsage, restrictedCentralLogging, otlpLogging bool) error {
+	s := &shoot{
+		restrictedUsage:          restrictedUsage,
+		restrictedCentralLogging: restrictedCentralLogging,
+		otlpLoggingDestination:   otlpLogging,
+		globalDefaultKeys:        confighelper.GlobalDefaultKeyMap(globalDefaultDestinations),
+	}
+	return s.validateShoot(ctx, shootObj, nil)
 }

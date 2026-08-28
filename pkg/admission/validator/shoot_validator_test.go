@@ -1217,6 +1217,31 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err.Error()).To(ContainSubstring("found custom rule with both resource name and shoot config map defined"))
 	})
 
+	It("accepts seed and garden with falco extension removed", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil())
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil())
+		err = operatorv1alpha1.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil())
+		s := NewShootValidator(mgr)
+
+		seedNoFalco := &core.Seed{
+			Spec: core.SeedSpec{
+				Extensions: []core.Extension{},
+			},
+		}
+		err = s.Validate(context.TODO(), seedNoFalco, nil)
+		Expect(err).To(BeNil(), "removing falco extension from seed must not be rejected by the validator")
+
+		gardenNoFalco := &operatorv1alpha1.Garden{
+			Spec: operatorv1alpha1.GardenSpec{},
+		}
+		err = s.Validate(context.TODO(), gardenNoFalco, nil)
+		Expect(err).To(BeNil(), "removing falco extension from garden must not be rejected by the validator")
+	})
+
 	It("check garden objects with Falco installation", func(ctx SpecContext) {
 		managerOptions := sigsmanager.Options{}
 		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)

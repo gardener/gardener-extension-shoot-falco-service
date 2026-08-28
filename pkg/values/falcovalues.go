@@ -123,7 +123,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	var priorityClassName string
 	if reconcileCtx.IsShootDeployment {
 		priorityClassName = *c.config.Falco.PriorityClassName
-	} else if reconcileCtx.IsSeedDeployment {
+	} else if reconcileCtx.IsSeedDeployment || reconcileCtx.IsGardenDeployment {
 		priorityClassName = "gardener-system-900"
 	}
 
@@ -684,7 +684,7 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 }
 
 func (c *ConfigBuilder) generateStandardRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig, falcoVersion *string) error {
-	if falcoServiceConfig.Rules.StandardRules != nil {
+	if falcoServiceConfig.Rules != nil && falcoServiceConfig.Rules.StandardRules != nil {
 		for _, rule := range falcoServiceConfig.Rules.StandardRules {
 			switch rule {
 			case constants.ConfigFalcoRules:
@@ -723,7 +723,7 @@ func (c *ConfigBuilder) generateCustomRules(ctx context.Context, log logr.Logger
 
 func (c *ConfigBuilder) referenceShootCustomRules(falcoChartValues map[string]interface{}, falcoServiceConfig *apisservice.FalcoServiceConfig) error {
 
-	if len(falcoServiceConfig.Rules.CustomRules) == 0 {
+	if falcoServiceConfig.Rules == nil || len(falcoServiceConfig.Rules.CustomRules) == 0 {
 		return nil
 	}
 	shoot_custom_rules := []map[string]string{}
