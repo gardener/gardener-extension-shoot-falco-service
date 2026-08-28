@@ -355,7 +355,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			// Gardener managed event store
 			ingestorAddress := c.config.Falco.CentralStorage.URL
 
-			// ok to generate new token on each reconcile
+			// Token is cached by the issuer and only refreshed when approaching expiry
 			token, _ := c.tokenIssuer.IssueToken(*reconcileCtx.ClusterIdentity)
 			customHeaders := map[string]string{
 				"Authorization": "Bearer " + token,
