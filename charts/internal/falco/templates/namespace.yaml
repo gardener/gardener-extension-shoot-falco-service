@@ -1,0 +1,8 @@
+{{- if ne (include "falco.namespace" .) "kube-system" }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "falco.namespace" . }}
+  labels:
+    {{- include "falco.labels" . | nindent 4 }}
+{{- end }}
