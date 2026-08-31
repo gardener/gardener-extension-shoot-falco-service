@@ -75,6 +75,10 @@ spec:
         - --leader-election-id={{ include "leaderelectionid" . }}
         {{- if .Values.extensionClasses }}
         - --extension-classes={{ join "," .Values.extensionClasses }}
+        {{- else if .Values.gardener.runtimeCluster.enabled }}
+        - --extension-classes=garden
+        {{- else }}
+        - --extension-classes=shoot,seed
         {{- end }}
         env:
         - name: LEADER_ELECTION_NAMESPACE
