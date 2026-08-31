@@ -6,6 +6,10 @@
 serviceName: shoot-falco-service
 replicaCount: 2
 
+gardener:
+  runtimeCluster:
+    enabled: false
+
 ignoreResources: false
 
 # PriorityClass to use for Falco extension deployment
