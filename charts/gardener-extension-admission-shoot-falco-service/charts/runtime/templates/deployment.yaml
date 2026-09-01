@@ -15,6 +15,7 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/gardener-extension-admission-shoot-falco-service-config: {{ include (print $.Template.BasePath "/secret-config.yaml") . | sha256sum }}
         {{- if .Values.kubeconfig }}
         checksum/gardener-extension-admission-shoot-falco-service-kubeconfig: {{ include (print $.Template.BasePath "/secret-kubeconfig.yaml") . | sha256sum }}
         {{- end }}
@@ -39,7 +40,7 @@ spec:
         - --webhook-config-server-port={{ .Values.webhookConfig.serverPort }}
         {{- if .Values.gardener.virtualCluster.enabled }}
         - --webhook-config-mode=url
-        - --webhook-config-url={{ printf "%s.%s" (include "name" .) (.Release.Namespace) }}
+        - --webhook-config-url={{ printf "%s.%s" (include "name" .) (.Release.Namespace) | quote }}
         {{- else }}
         - --webhook-config-mode=service
         {{- end}}
@@ -54,7 +55,7 @@ spec:
         - --restricted-centralized-logging
         {{- end }}
         {{- if .Values.kubeconfig }}
-        - --kubeconfig=/etc/gardener-extension-admission-falco-falco-service/kubeconfig/kubeconfig
+        - --kubeconfig=/etc/gardener-extension-admission-shoot-falco-service/kubeconfig/kubeconfig
         {{- end }}
         {{- if .Values.projectedKubeconfig }}
         - --kubeconfig={{ required ".Values.projectedKubeconfig.baseMountPath is required" .Values.projectedKubeconfig.baseMountPath }}/kubeconfig
