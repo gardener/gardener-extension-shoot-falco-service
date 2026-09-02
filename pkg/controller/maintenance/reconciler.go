@@ -112,7 +112,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 		versionToSet, err = mutator.GetForceUpdateVersion(*currentVersion, *availableVersions)
 	} else if autoUpdate {
 		logger.Info("Falco AutoUpdate enabled")
-		versionToSet, err = mutator.GetAutoUpdateVersion(*availableVersions)
+		versionToSet, err = mutator.GetAutoUpdateVersion(*currentVersion, *availableVersions)
 	}
 	if err != nil {
 		return err
