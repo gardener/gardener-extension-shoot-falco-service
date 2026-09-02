@@ -229,9 +229,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -250,9 +249,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -275,9 +273,8 @@ var _ = Describe("Reconciler", func() {
 
 			// Use a clock time well outside the maintenance window
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC)),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC)),
 			}
 			setMutator(rec, m)
 
@@ -301,9 +298,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -356,9 +352,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -391,9 +386,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -447,9 +441,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -509,9 +502,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 

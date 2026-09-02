@@ -25,8 +25,3 @@ func newFakeClientWithShoot(scheme *runtime.Scheme, shoot *gardencorev1beta1.Sho
 	}
 	return b.Build()
 }
-
-type fakeRecorder struct{}
-
-func (r *fakeRecorder) Eventf(_ runtime.Object, _ runtime.Object, _, _, _, _ string, _ ...interface{}) {
-}
