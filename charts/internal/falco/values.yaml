@@ -1789,6 +1789,9 @@ gardenerExtensionShootFalcoService:
   output:
     # -- Configure the destination of Falco events (e.g. central, cluster, custom, none)
     eventCollector: "logging"
+    # -- Whether to create the gardener-falcosidekick ServiceAccount and sa-token volume.
+    # True only when eventCollector is "logging" or "otlp" (token-requestor pattern for vali/OTLP access).
+    createFalcosidekickServiceAccount: true
 
 # name of configmaps in shoot cluster with Falco custom rules
 shoot_custom_rules: []

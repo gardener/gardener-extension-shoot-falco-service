@@ -19,31 +19,30 @@ cd "${gardener_dir}"
 echo ">>>>>>>>>>>>>>>>>>>> kind-single-node-up"
 make kind-single-node-up
 trap '{
-  cd "$repo_root/gardener"
-  export_artifacts "gardener-operator-local"
+  cd "$gardener_dir"
   make kind-single-node-down
 }' EXIT
-export KUBECONFIG=$repo_root/gardener/dev-setup/gardenlet/components/kubeconfigs/seed-local/kubeconfig
+export KUBECONFIG=$gardener_dir/dev-setup/gardenlet/components/kubeconfigs/seed-local/kubeconfig
 echo "<<<<<<<<<<<<<<<<<<<< kind-single-node-up done"
 
-echo ">>>>>>>>>>>>>>>>>>>> operator-up"
-make operator-up
-echo "<<<<<<<<<<<<<<<<<<<< operator-up done"
+echo ">>>>>>>>>>>>>>>>>>>> gardener-up"
+make gardener-up
+echo "<<<<<<<<<<<<<<<<<<<< gardener-up done"
 
-echo ">>>>>>>>>>>>>>>>>>>> operator-seed-up"
-make operator-seed-up
-echo "<<<<<<<<<<<<<<<<<<<< operator-seed-up done"
-
-export KUBECONFIG=$repo_root/gardener-wo-prov/gardener/dev-setup/kubeconfigs/virtual-garden/kubeconfig
+export KUBECONFIG=$repo_root/../gardener/dev-setup/kubeconfigs/virtual-garden/kubeconfig
 
 cd "$repo_root"
 
-k apply -f crds/clusterrole-falcoprofiles.yaml
-k apply -f crds/clusterrolebinding-falcoprofiles.yaml
-k apply -f crds/crd-falco-profile.yaml
-k apply -f falco/falco-profile.yaml
+kubectl apply -f crds/clusterrole-falcoprofiles.yaml
+kubectl apply -f crds/clusterrolebinding-falcoprofiles.yaml
+kubectl apply -f crds/crd-falco-profile.yaml
+kubectl apply -f falco/falco-profile.yaml
 
-export KUBECONFIG=$repo_root/gardener/dev-setup/gardenlet/components/kubeconfigs/seed-local/kubeconfig
+export KUBECONFIG=$gardener_dir/dev-setup/gardenlet/components/kubeconfigs/seed-local/kubeconfig
+
+echo ">>>>>>>>>>>>>>>>>>>> generate-operator-extension-resource"
+hack/local-setup/generate-operator-extension-resource.sh
+echo "<<<<<<<<<<<<<<<<<<<< generate-operator-extension-resource done"
 
 echo ">>>>>>>>>>>>>>>>>>>> extension-up"
 make extension-up

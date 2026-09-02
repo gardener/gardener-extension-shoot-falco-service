@@ -35,6 +35,9 @@ const (
 	// NamespaceKubeSystem kube-system namespace
 	NamespaceKubeSystem = "kube-system"
 
+	// NamespaceFalco is the namespace used for Falco deployments on seed and garden clusters
+	NamespaceFalco = "falco"
+
 	// FalcoChartname is the name of the Falco Helm chart to be deployed in shoot clusters
 	FalcoChartname = "falco"
 
@@ -90,6 +93,7 @@ var (
 	CentralLoggingAllowedNamespaces = []string{"garden"}
 	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOTLP, FalcoEventDestinationOpenSearch, FalcoEventDestinationSplunk}
 	AllowedDestinationsSeed         = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOpenSearch, FalcoEventDestinationSplunk}
+	AllowedDestinationsGarden       = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOpenSearch, FalcoEventDestinationSplunk}
 
 	// Default Event logger if not specified in controller configuration
 	// (apis.Falco.DefaultEventDestination)
