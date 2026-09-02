@@ -9,6 +9,7 @@ replicaCount: 2
 gardener:
   runtimeCluster:
     enabled: false
+  selfHostedShootCluster: false
 
 ignoreResources: false
 

@@ -77,6 +77,8 @@ spec:
         - --extension-classes={{ join "," .Values.extensionClasses }}
         {{- else if .Values.gardener.runtimeCluster.enabled }}
         - --extension-classes=garden
+        {{- else if .Values.gardener.selfHostedShootCluster }}
+        - --extension-classes=shoot
         {{- else }}
         - --extension-classes=shoot,seed
         {{- end }}
