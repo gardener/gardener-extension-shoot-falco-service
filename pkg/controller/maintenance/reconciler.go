@@ -12,10 +12,8 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,10 +25,9 @@ import (
 
 // Reconciler reconciles Shoots and maintains them by updating versions or triggering operations.
 type Reconciler struct {
-	Client   client.Client
-	Clock    clock.Clock
-	Recorder events.EventRecorder
-	mutator  *mutator.Shoot
+	Client  client.Client
+	Clock   clock.Clock
+	mutator *mutator.Shoot
 }
 
 // Reconcile reconciles Shoots and maintains them by updating versions or triggering operations.
@@ -134,11 +131,7 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 	// _ = maintainOperation(shoot)
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.Client.Update(ctx, shoot); err != nil {
-			r.Recorder.Eventf(shoot, nil, corev1.EventTypeWarning, gardencorev1beta1.ShootMaintenanceFailed, gardencorev1beta1.EventActionReconcile, err.Error())
-			return err
-		}
-		return nil
+		return r.Client.Update(ctx, shoot)
 	})
 	if retryErr != nil {
 		return fmt.Errorf("falco maintenance update failed: %v", retryErr)
