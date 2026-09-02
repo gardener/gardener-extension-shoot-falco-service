@@ -189,9 +189,23 @@ func chooseHighestVersion(versions map[string]profile.FalcoVersion, classificati
 	return &highest, nil
 }
 
-func GetAutoUpdateVersion(versions map[string]profile.FalcoVersion) (*string, error) {
+func GetAutoUpdateVersion(currentVersion string, versions map[string]profile.FalcoVersion) (*string, error) {
 	vers, err := chooseHighestVersion(versions, "supported")
-	return vers, err
+	if err != nil || vers == nil {
+		return nil, err
+	}
+	candidate, err := pkgversion.NewVersion(*vers)
+	if err != nil {
+		return nil, err
+	}
+	current, err := pkgversion.NewVersion(currentVersion)
+	if err != nil {
+		return nil, err
+	}
+	if !candidate.GreaterThan(current) {
+		return nil, nil
+	}
+	return vers, nil
 }
 
 func GetForceUpdateVersion(version string, versions map[string]profile.FalcoVersion) (*string, error) {

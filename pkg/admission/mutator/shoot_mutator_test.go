@@ -576,7 +576,7 @@ func TestGetAutoUpdateVersion(t *testing.T) {
 	lowV := profile.FalcoVersion{Version: lowVersion, Classification: dummyClassification}
 	falcoVersions := map[string]profile.FalcoVersion{highVersion: highV, lowVersion: lowV, midVersion: midV, veryhighVersion: vHighV}
 
-	vers, err := GetAutoUpdateVersion(falcoVersions)
+	vers, err := GetAutoUpdateVersion(lowVersion, falcoVersions)
 	if err != nil {
 		t.Errorf("Could not get auto update version %s", err.Error())
 	}
