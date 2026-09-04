@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/gardener/gardener v1.149.0
 	github.com/gardener/gardener/hack/tools v1.149.0
-	github.com/gardener/gardener/pkg/apis v1.149.0
+	github.com/gardener/gardener/pkg/apis v1.150.1
 	github.com/go-logr/logr v1.4.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hashicorp/go-version v1.9.0
@@ -16,10 +16,10 @@ require (
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/mod v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/client-go v0.36.3
-	k8s.io/component-base v0.36.3
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
+	k8s.io/client-go v0.36.4
+	k8s.io/component-base v0.36.4
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/yaml v1.6.0
@@ -194,7 +194,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
@@ -217,7 +217,7 @@ require (
 	helm.sh/helm/v4 v4.2.3 // indirect
 	istio.io/api v1.29.6 // indirect
 	istio.io/client-go v1.29.2 // indirect
-	k8s.io/apiextensions-apiserver v0.36.3 // indirect
+	k8s.io/apiextensions-apiserver v0.36.4 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.7.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-aggregator v0.36.3 // indirect
@@ -225,7 +225,7 @@ require (
 	k8s.io/kubelet v0.36.3 // indirect
 	k8s.io/metrics v0.36.3 // indirect
 	k8s.io/pod-security-admission v0.36.3 // indirect
-	k8s.io/streaming v0.36.3 // indirect
+	k8s.io/streaming v0.36.4 // indirect
 	sigs.k8s.io/gateway-api v1.6.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
