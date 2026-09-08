@@ -62,9 +62,9 @@ const (
 	DefaultCertificateLifetime   = time.Hour * 24 * 180
 	DefaultCertificateRenewAfter = DefaultCertificateLifetime - 30*24*time.Hour
 
-	DefaultTokenLifetime = time.Hour * 24 * 7
+	DefaultTokenLifetime = time.Hour * 24 * 21
 
-	DefaultClusterIdentityTokenLifetime = time.Hour * 24 * 7
+	DefaultClusterIdentityTokenLifetime = time.Hour * 24 * 21
 
 	FalcoRules           = "falco_rules.yaml"
 	FalcoIncubatingRules = "falco-incubating_rules.yaml"
