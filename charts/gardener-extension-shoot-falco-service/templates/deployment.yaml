@@ -73,6 +73,15 @@ spec:
         args:
         - --config-file=/etc/extension-config/config.yaml
         - --leader-election-id={{ include "leaderelectionid" . }}
+        {{- if .Values.extensionClasses }}
+        - --extension-classes={{ join "," .Values.extensionClasses }}
+        {{- else if .Values.gardener.runtimeCluster.enabled }}
+        - --extension-classes=garden
+        {{- else if .Values.gardener.selfHostedShootCluster }}
+        - --extension-classes=shoot
+        {{- else }}
+        - --extension-classes=shoot,seed
+        {{- end }}
         env:
         - name: LEADER_ELECTION_NAMESPACE
           valueFrom:
@@ -85,6 +94,10 @@ spec:
         {{- if .Values.imageVectorOverwrite }}
         - name: IMAGEVECTOR_OVERWRITE
           value: /charts_overwrite/images_overwrite.yaml
+        {{- end }}
+        {{- if .Values.gardenKubeconfigSecretName }}
+        - name: GARDEN_KUBECONFIG
+          value: /etc/garden-kubeconfig/kubeconfig
         {{- end }}
         {{- if .Values.resources }}
         resources:
@@ -101,6 +114,11 @@ spec:
           mountPath: /charts_overwrite/
           readOnly: true
         {{ end }}
+        {{- if .Values.gardenKubeconfigSecretName }}
+        - name: garden-kubeconfig
+          mountPath: /etc/garden-kubeconfig
+          readOnly: true
+        {{- end }}
       volumes:
       - name: extension-shoot-falco-service-config
         secret:
@@ -113,4 +131,9 @@ spec:
         configMap:
           name: gardener-extension-{{ .Values.serviceName }}-imagevector-overwrite
           defaultMode: 420
+      {{- end }}
+      {{- if .Values.gardenKubeconfigSecretName }}
+      - name: garden-kubeconfig
+        secret:
+          secretName: {{ .Values.gardenKubeconfigSecretName }}
       {{- end }}

@@ -20,6 +20,7 @@ type ReconcileContext struct {
 	ShootTechnicalId        string
 	SeedIngressDomain       string
 	ClusterName             string
+	FalcoNamespace          string
 	IsSeedDeployment        bool
 	IsShootDeployment       bool
 	IsGardenDeployment      bool

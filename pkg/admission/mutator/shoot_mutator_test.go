@@ -755,6 +755,59 @@ var _ = Describe("Test mutator", Label("mutator"), func() {
 	})
 })
 
+var _ = Describe("Seed mutator", Label("mutator"), func() {
+
+	It("must not inject falco config into a seed that has none", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		mutator := NewShootMutator(mgr, nil)
+
+		setProfileManager(profileManager1)
+
+		// Seed without any falco extension — simulates gardenlet startup seed registration.
+		seedNoFalco := &gardencorev1beta1.Seed{
+			Spec: gardencorev1beta1.SeedSpec{
+				Extensions: []gardencorev1beta1.Extension{
+					{Type: "some-other-extension"},
+				},
+			},
+		}
+		originalExtensionCount := len(seedNoFalco.Spec.Extensions)
+
+		err = mutator.Mutate(context.TODO(), seedNoFalco, nil)
+		Expect(err).To(BeNil(), "Mutate must not fail for seed without falco extension")
+		Expect(seedNoFalco.Spec.Extensions).To(HaveLen(originalExtensionCount),
+			"Mutate must not add a falco extension to a seed that has none")
+		for _, ext := range seedNoFalco.Spec.Extensions {
+			Expect(ext.Type).NotTo(Equal("shoot-falco-service"),
+				"Mutate must not inject shoot-falco-service extension into seed")
+		}
+	})
+
+	It("must not inject falco config into a seed with an empty extensions list", func(ctx SpecContext) {
+		managerOptions := sigsmanager.Options{}
+		mgr, err := sigsmanager.New(&rest.Config{}, managerOptions)
+		Expect(err).To(BeNil(), "Manager could not be created")
+		err = serviceinstall.AddToScheme(mgr.GetScheme())
+		Expect(err).To(BeNil(), "Scheme could not be added")
+		mutator := NewShootMutator(mgr, nil)
+
+		setProfileManager(profileManager1)
+
+		seedEmptyExtensions := &gardencorev1beta1.Seed{
+			Spec: gardencorev1beta1.SeedSpec{},
+		}
+
+		err = mutator.Mutate(context.TODO(), seedEmptyExtensions, nil)
+		Expect(err).To(BeNil(), "Mutate must not fail for seed with empty extensions")
+		Expect(seedEmptyExtensions.Spec.Extensions).To(BeEmpty(),
+			"Mutate must not add extensions to a seed that has none")
+	})
+})
+
 var _ = Describe("Global default destinations", func() {
 	Describe("#injectGlobalDefaults", func() {
 		var s *Shoot

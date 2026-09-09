@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
@@ -64,12 +65,15 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			Namespace:            os.Getenv("LEADER_ELECTION_NAMESPACE"),
 		}
 
+		generalOpts = &controllercmd.GeneralOptions{}
+
 		aggOption = controllercmd.NewOptionAggregator(
 			restOpts,
 			mgrOpts,
 			falcoCtrlOpts,
 			controllercmd.PrefixOption("heartbeat-", heartbeatCtrlOpts),
 			reconcileOpts,
+			generalOpts,
 		)
 	)
 
@@ -147,6 +151,8 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			falcoConfig := falcoCtrlOpts.Completed()
 			falcoConfig.Apply(&lifecycle.DefaultAddOptions.ServiceConfig)
 
+			lifecycle.DefaultAddOptions.ExtensionClasses = slices.Clone(generalOpts.Completed().ExtensionClasses)
+
 			profile.NewFalcoProfileManager(dynamicGardenCluster)
 
 			if err := lifecycle.AddToManager(ctx, mgr); err != nil {
@@ -159,12 +165,15 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			}
 
 			var seedIngressDomain string
-			seed, err := utils.GetSeed(context.TODO(), dynamicGardenCluster, os.Getenv("SEED_NAME"))
-			if err != nil {
-				return fmt.Errorf("could not get seed for additional resources controller: %w", err)
-			}
-			if seed.Spec.Ingress != nil {
-				seedIngressDomain = seed.Spec.Ingress.Domain
+			// SEED_NAME is only set for seed-class deployments; skip for garden-class.
+			if seedName := os.Getenv("SEED_NAME"); seedName != "" {
+				seed, err := utils.GetSeed(context.TODO(), dynamicGardenCluster, seedName)
+				if err != nil {
+					return fmt.Errorf("could not get seed for additional resources controller: %w", err)
+				}
+				if seed.Spec.Ingress != nil {
+					seedIngressDomain = seed.Spec.Ingress.Domain
+				}
 			}
 
 			ingressWildcardCertName, err := getIngressWildcardCertificateName(ctx, mgr.GetClient(), log)

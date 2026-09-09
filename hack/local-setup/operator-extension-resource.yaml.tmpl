@@ -1,0 +1,92 @@
+apiVersion: operator.gardener.cloud/v1alpha1
+kind: Extension
+metadata:
+  name: extension-shoot-falco-service
+spec:
+  deployment:
+    admission:
+      runtimeCluster:
+        helm:
+          ociRepository:
+            ref: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/runtime
+      values:
+        image:
+          repository: local-skaffold/gardener-extension-admission-shoot-falco-service
+        replicaCount: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        restrictedUsage: false
+        service:
+          topologyAwareRouting:
+            enabled: true
+      virtualCluster:
+        helm:
+          ociRepository:
+            ref: local-skaffold/gardener-extension-admission-shoot-falco-service/charts/application
+    extension:
+      helm:
+        ociRepository:
+          ref: local-skaffold/gardener-extension-shoot-falco-service/charts/extension
+      injectGardenKubeconfig: true
+      runtimeClusterValues:
+        extensionClasses:
+        - garden
+        - seed
+        extensionPriorityClassName: gardener-system-900
+        falco:
+          priorityClassName: gardener-shoot-system-900
+        image:
+          repository: local-skaffold/gardener-extension-shoot-falco-service
+        podLabels:
+          networking.gardener.cloud/to-private-networks: allowed
+        imageVectorOverwrite: |
+@@IMAGE_VECTOR_OVERWRITE@@
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        vpa:
+          enabled: true
+          resourcePolicy:
+            minAllowed:
+              memory: 128Mi
+      values:
+        extensionClasses:
+        - garden
+        - seed
+        extensionPriorityClassName: gardener-system-900
+        falco:
+          priorityClassName: gardener-shoot-system-900
+        image:
+          repository: local-skaffold/gardener-extension-shoot-falco-service
+        podLabels:
+          networking.gardener.cloud/to-private-networks: allowed
+        imageVectorOverwrite: |
+@@IMAGE_VECTOR_OVERWRITE@@
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        vpa:
+          enabled: true
+          resourcePolicy:
+            minAllowed:
+              memory: 128Mi
+  resources:
+  - clusterCompatibility:
+    - shoot
+    - seed
+    - garden
+    kind: Extension
+    lifecycle:
+      delete: BeforeKubeAPIServer
+      migrate: BeforeKubeAPIServer
+      reconcile: AfterKubeAPIServer
+    primary: true
+    reconcileTimeout: 3m0s
+    type: shoot-falco-service
+    workerlessSupported: false

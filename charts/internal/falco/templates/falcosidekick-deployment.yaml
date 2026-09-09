@@ -39,7 +39,9 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
+      {{- if .Values.gardenerExtensionShootFalcoService.output.createFalcosidekickServiceAccount }}
       serviceAccountName: gardener-falcosidekick
+      {{- end }}
       {{- if .Values.falcosidekick.priorityClassName }}
       priorityClassName: "{{ .Values.falcosidekick.priorityClassName }}"
       {{- end }}
@@ -59,8 +61,10 @@ spec:
           volumeMounts:
             - mountPath: /etc/falcosidekick-config-template
               name: falcosidekick-secrets
+            {{- if .Values.gardenerExtensionShootFalcoService.output.createFalcosidekickServiceAccount }}
             - mountPath: /etc/falcosidekick-token
               name: sa-token
+            {{- end }}
             - mountPath: /etc/falcosidekick
               name: secrets-init-volume
           securityContext:
@@ -160,12 +164,14 @@ spec:
             secretName: falcosidekick-certs
             {{- end }}
     {{- end }}
+    {{- if .Values.gardenerExtensionShootFalcoService.output.createFalcosidekickServiceAccount }}
         - name: sa-token
           secret:
             secretName: gardener-falcosidekick
             items:
               - key: token
                 path: token
+    {{- end }}
     {{- if .Values.falcosidekick.extraVolumes }}
 {{ toYaml .Values.falcosidekick.extraVolumes | indent 8 }}
     {{- end }}

@@ -243,7 +243,8 @@ func (s *Shoot) mutateSeed(ctx context.Context, new *gardencorev1beta1.Seed, old
 		return err
 	}
 	if falcoConf == nil {
-		falcoConf = &service.FalcoServiceConfig{}
+		// No falco extension on this seed — nothing to mutate.
+		return nil
 	}
 
 	var oldFalcoConf *service.FalcoServiceConfig
@@ -254,7 +255,7 @@ func (s *Shoot) mutateSeed(ctx context.Context, new *gardencorev1beta1.Seed, old
 		}
 	}
 
-	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, "")
+	newConfig, err := s.mutateSeedConfig(ctx, falcoConf, oldFalcoConf)
 	if err != nil {
 		return err
 	}
@@ -284,6 +285,33 @@ func (s *Shoot) mutate(ctx context.Context, falcoConf *service.FalcoServiceConfi
 	return falcoConf, nil
 }
 
+// mutateSeedConfig applies mutations appropriate for seed objects.
+// Unlike shoots, seeds must not have a default destination injected — the operator
+// must configure destinations explicitly, and only destinations valid for seeds are allowed.
+func (s *Shoot) mutateSeedConfig(ctx context.Context, falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig) (*service.FalcoServiceConfig, error) {
+
+	if falcoConf == nil {
+		falcoConf = &service.FalcoServiceConfig{}
+	}
+
+	if err := setFalcoVersion(falcoConf); err != nil {
+		return nil, err
+	}
+
+	setAutoUpdate(falcoConf)
+
+	setRules(falcoConf)
+
+	// Destinations are intentionally not defaulted for seeds: only destinations valid for
+	// seeds are allowed, and the operator must configure them explicitly.
+
+	if err := s.injectGlobalDefaults(ctx, falcoConf, oldFalcoConf, ""); err != nil {
+		return nil, err
+	}
+
+	return falcoConf, nil
+}
+
 func setRules(falcoConf *service.FalcoServiceConfig) {
 	if falcoConf.Rules == nil {
 		standardRules := []string{constants.ConfigFalcoRules}
@@ -295,12 +323,7 @@ func setRules(falcoConf *service.FalcoServiceConfig) {
 
 func setDestinations(falcoConf *service.FalcoServiceConfig) {
 	if len(falcoConf.Destinations) == 0 {
-		defaultDestination := []service.Destination{
-			{
-				Name: constants.FalcoEventDestinationLogging,
-			},
-		}
-		falcoConf.Destinations = defaultDestination
+		falcoConf.Destinations = []service.Destination{{Name: constants.FalcoEventDestinationLogging}}
 	}
 }
 
