@@ -118,9 +118,42 @@ type Output struct {
 }
 
 type FalcoConfig struct {
-	// Falco container resource settings
+	// Resources configures static resource requests/limits for the Falco container.
+	// Mutually exclusive with AdaptiveResources. If neither is set, chart defaults apply.
 	// +optional
 	Resources *FalcoResources `json:"resources,omitempty"`
+
+	// AdaptiveResources enables per-worker-pool dynamic resource sizing.
+	// The feature is active when this field is non-nil. Mutually exclusive with Resources.
+	// Only available for Gardener-managed shoots with worker pools.
+	// +optional
+	AdaptiveResources *AdaptiveResources `json:"adaptiveResources,omitempty"`
+}
+
+// AdaptiveResources configures per-worker-pool dynamic resource sizing for Falco.
+type AdaptiveResources struct {
+	// Formulas defines arithmetic expressions for each resource field.
+	Formulas ResourceFormulas `json:"formulas"`
+}
+
+// ResourceFormulas holds one optional expression per resource field.
+// Each expression is evaluated against node capacity variables and must produce a number.
+type ResourceFormulas struct {
+	// CPURequest expression. Result unit: millicores (500 → "500m").
+	// +optional
+	CPURequest *string `json:"cpuRequest,omitempty"`
+
+	// CPULimit expression. Result unit: millicores.
+	// +optional
+	CPULimit *string `json:"cpuLimit,omitempty"`
+
+	// MemoryRequest expression. Result unit: MiB (2048 → "2048Mi").
+	// +optional
+	MemoryRequest *string `json:"memoryRequest,omitempty"`
+
+	// MemoryLimit expression. Result unit: MiB.
+	// +optional
+	MemoryLimit *string `json:"memoryLimit,omitempty"`
 }
 
 type FalcoResources struct {

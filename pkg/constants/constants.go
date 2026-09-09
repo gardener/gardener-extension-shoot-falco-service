@@ -18,6 +18,9 @@ const (
 	// ManagedResourceNamesControllerSeed is the name used to describe the managed seed resources for the controller.
 	ManagedResourceNameFalco = ExtensionServiceName + "-shoot"
 
+	// ManagedResourceNameFalcoAdaptive is the name of the ManagedResource for per-pool adaptive DaemonSets.
+	ManagedResourceNameFalcoAdaptive = ExtensionServiceName + "-adaptive"
+
 	ManagedResourceNameFalcoSeed = ExtensionServiceName + "-seed"
 
 	// Name of the chart deployed in control plane (seed)
