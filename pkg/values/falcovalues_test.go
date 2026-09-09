@@ -203,6 +203,7 @@ var (
 		},
 		Shoot: &gardencorev1beta1.Shoot{
 			Spec: gardencorev1beta1.ShootSpec{
+				Purpose: purposeValue(gardencorev1beta1.ShootPurposeProduction),
 				Resources: []gardencorev1beta1.NamedResourceReference{
 					{
 						Name: "rules1",
@@ -915,14 +916,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("Test cluster logging functionality", func(ctx SpecContext) {
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: falcoServiceConfigCluster,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-		}
+		reconcileCtx := baseReconcileCtx(falcoServiceConfigCluster)
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).To(BeNil())
 
@@ -1061,16 +1055,9 @@ var _ = Describe("Test value generation for helm chart without central storage",
 			IPFamilies: []gardencorev1beta1.IPFamily{"IPv4"},
 		}
 
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: shootExtension,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			ResourceSection:    shootSpec.Shoot.Spec.Resources,
-			Shoot:              ipv4Shoot,
-		}
+		reconcileCtx := baseReconcileCtx(shootExtension)
+		reconcileCtx.ResourceSection = shootSpec.Shoot.Spec.Resources
+		reconcileCtx.Shoot = ipv4Shoot
 
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).To(BeNil())
@@ -1091,16 +1078,9 @@ var _ = Describe("Test value generation for helm chart without central storage",
 			IPFamilies: []gardencorev1beta1.IPFamily{"IPv6"},
 		}
 
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: shootExtension,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			ResourceSection:    shootSpec.Shoot.Spec.Resources,
-			Shoot:              ipv6Shoot,
-		}
+		reconcileCtx := baseReconcileCtx(shootExtension)
+		reconcileCtx.ResourceSection = shootSpec.Shoot.Spec.Resources
+		reconcileCtx.Shoot = ipv6Shoot
 
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).To(BeNil())
@@ -1121,16 +1101,9 @@ var _ = Describe("Test value generation for helm chart without central storage",
 			IPFamilies: []gardencorev1beta1.IPFamily{"IPv6", "IPv4"},
 		}
 
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: shootExtension,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			ResourceSection:    shootSpec.Shoot.Spec.Resources,
-			Shoot:              dualStackShoot,
-		}
+		reconcileCtx := baseReconcileCtx(shootExtension)
+		reconcileCtx.ResourceSection = shootSpec.Shoot.Spec.Resources
+		reconcileCtx.Shoot = dualStackShoot
 
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).To(BeNil())
@@ -1141,16 +1114,9 @@ var _ = Describe("Test value generation for helm chart without central storage",
 	})
 
 	It("Test default webserver configuration when no IP family specified", func(ctx SpecContext) {
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: shootExtension,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			ResourceSection:    shootSpec.Shoot.Spec.Resources,
-			Shoot:              nil, // No shoot spec
-		}
+		reconcileCtx := baseReconcileCtx(shootExtension)
+		reconcileCtx.ResourceSection = shootSpec.Shoot.Spec.Resources
+		// Shoot is intentionally nil to test default IPv4 fallback
 
 		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).To(BeNil())
@@ -1187,14 +1153,7 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 	})
 
 	It("Can handle missing central storage", func(ctx SpecContext) {
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: falcoServiceConfigCentralStdout,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-		}
+		reconcileCtx := baseReconcileCtx(falcoServiceConfigCentralStdout)
 		configBuilder.config.Falco.CentralStorage = nil
 		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
@@ -1295,26 +1254,14 @@ var _ = Describe("Getter for custom rules", Label("falcovalues"), func() {
 	})
 
 	It("can not load custom rules from empty namespace", func(ctx SpecContext) {
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: falcoServiceConfig,
-			Namespace:          "",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-		}
+		reconcileCtx := baseReconcileCtx(falcoServiceConfig)
+		reconcileCtx.Namespace = ""
 		Expect(configBuilder.getCustomRules(context.TODO(), logger, reconcileCtx)).Error().ToNot(BeNil())
 	})
 
 	It("can not load faulty custom rules references", func(ctx SpecContext) {
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: falcoServiceConfigWrongCustomRules,
-			Namespace:          "",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-		}
+		reconcileCtx := baseReconcileCtx(falcoServiceConfigWrongCustomRules)
+		reconcileCtx.Namespace = ""
 		Expect(configBuilder.getCustomRules(context.TODO(), logger, reconcileCtx)).Error().ToNot(BeNil())
 	})
 })
@@ -1544,14 +1491,7 @@ var _ = Describe("BuildFalcoValues", func() {
 		invalidConfig := &service.FalcoServiceConfig{
 			FalcoVersion: stringValue("invalid-version"),
 		}
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: invalidConfig,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-		}
+		reconcileCtx := baseReconcileCtx(invalidConfig)
 		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("no image found for falco version invalid-version"))
@@ -1564,14 +1504,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				StandardRules: []string{"falco-rules"},
 			},
 		}
-		reconcileCtx := &utils.ReconcileContext{
-			FalcoServiceConfig: configWithoutDestinations,
-			Namespace:          "shoot--test--foo",
-			IsShootDeployment:  true,
-			ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-			SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-			ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-		}
+		reconcileCtx := baseReconcileCtx(configWithoutDestinations)
 		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("no destinations configured"))
@@ -1675,14 +1608,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1743,14 +1669,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1784,14 +1703,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1827,14 +1739,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1865,14 +1770,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				FalcoConfig: nil,
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1893,14 +1791,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1921,14 +1812,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: config,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(config)
 
 			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1971,14 +1855,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: falcoConf,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(falcoConf)
 
 			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -2017,14 +1894,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: falcoConf,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(falcoConf)
 
 			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -2070,14 +1940,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: falcoConf,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(falcoConf)
 
 			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -2128,14 +1991,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: falcoConf,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(falcoConf)
 
 			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -2180,14 +2036,7 @@ var _ = Describe("BuildFalcoValues", func() {
 				},
 			}
 
-			reconcileCtx := &utils.ReconcileContext{
-				FalcoServiceConfig: falcoConf,
-				Namespace:          "shoot--test--foo",
-				IsShootDeployment:  true,
-				ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
-				SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
-				ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
-			}
+			reconcileCtx := baseReconcileCtx(falcoConf)
 
 			values, err := builder.BuildFalcoValues(ctx, logger, reconcileCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -2195,6 +2044,55 @@ var _ = Describe("BuildFalcoValues", func() {
 			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 			Expect(sidekickConfig).To(HaveKey("loki"))
 			Expect(sidekickConfig).NotTo(HaveKey("webhook"))
+		})
+	})
+
+	Describe("#ShootPurpose", func() {
+		BeforeEach(func() {
+			fakeclient := crfake.NewFakeClient(rulesConfigMap, webhookSecrets)
+			tokenIssuer, err := secrets.NewTokenIssuer(tokenIssuerPrivateKey, &metav1.Duration{Duration: constants.DefaultTokenLifetime})
+			Expect(err).To(BeNil())
+			configBuilder = NewConfigBuilder(fakeclient, tokenIssuer, nil, extensionConfiguration, falcoProfileManager)
+			logger, _ = glogger.NewZapLogger(glogger.InfoLevel, glogger.FormatJSON)
+		})
+
+		It("should set cluster_purpose in customfields for a shoot with purpose", func(ctx SpecContext) {
+			shoot := shootSpec.Shoot.DeepCopy()
+			shoot.Spec.Purpose = purposeValue(gardencorev1beta1.ShootPurposeProduction)
+			reconcileCtx := baseReconcileCtx(shootExtension)
+			reconcileCtx.ResourceSection = shoot.Spec.Resources
+			reconcileCtx.Shoot = shoot
+			reconcileCtx.Seed = shootSpec.Seed
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			customfields := config["customfields"].(map[string]string)
+			Expect(customfields).To(HaveKeyWithValue("cluster_purpose", "production"))
+			Expect(customfields).To(HaveKey("cluster_id"))
+		})
+
+		It("should not set cluster_purpose in customfields for a non-Gardener-managed cluster (seed)", func(ctx SpecContext) {
+			seedReconcileCtx := &utils.ReconcileContext{
+				FalcoServiceConfig: seedExtenstionSimple,
+				Namespace:          "shoot--test--foo",
+				IsSeedDeployment:   true,
+				IsShootDeployment:  false,
+				ClusterIdentity:    stringValue("seed-cluster-identity"),
+				ClusterName:        "seed-cluster",
+			}
+			configBuilder.config.Falco.CentralStorage = &config.CentralStorageConfig{
+				TokenLifetime:         &metav1.Duration{Duration: 0},
+				TokenIssuerPrivateKey: tokenIssuerPrivateKey,
+				URL:                   "dummy",
+			}
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, seedReconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			sidekickConfig := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+			customfields := sidekickConfig["customfields"].(map[string]string)
+			Expect(customfields).NotTo(HaveKey("cluster_purpose"))
+			Expect(customfields).To(HaveKey("cluster_id"))
 		})
 	})
 })

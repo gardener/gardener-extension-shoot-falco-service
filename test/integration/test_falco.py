@@ -224,7 +224,7 @@ def test_all_falco_versions(garden_api_client, shoot_api_client, project_namespa
         error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, fv)
 
         if error is not None:
-            body = json.loads(str(error))
+            body = json.loads(error.body)
             # ensure it is the correct error
             assert body["message"] == \
                     "admission webhook \"validator.admission-shoot-falco-service.extensions.gardener.cloud\" " \
@@ -451,6 +451,38 @@ def test_no_output(garden_api_client, shoot_api_client, project_namespace: str, 
         allLogs += lines
     print(allLogs)
     assert "Warning Detected ptrace" in allLogs, "Falco log does not contain expected event"
+
+
+def test_cluster_purpose(garden_api_client, shoot_api_client, shoot, project_namespace: str, shoot_name: str):
+    logger.info("Deploying Falco extension to verify cluster_purpose customfield")
+    extension_config = {
+        "type": "shoot-falco-service",
+        "providerConfig": {
+            "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+            "kind": "FalcoServiceConfig",
+            "destinations": [
+                {"name": "stdout"},
+                {"name": "logging"},
+            ],
+        },
+    }
+    error = add_falco_to_shoot(garden_api_client, project_namespace, shoot_name, extension_config=extension_config)
+    assert error is None
+
+    wait_for_extension_deployed(shoot_api_client)
+
+    expected_purpose = shoot.get("spec", {}).get("purpose")
+    assert expected_purpose is not None, "Shoot has no spec.purpose set"
+
+    secret = get_secret(shoot_api_client, "kube-system", "falcosidekick")
+    config_yaml_b64 = secret.data["config.yaml"]
+    config_yaml = str(base64.b64decode(config_yaml_b64), "utf-8")
+    sidekick_cfg = yaml.safe_load(config_yaml)
+
+    actual_purpose = sidekick_cfg.get("customfields", {}).get("cluster_purpose")
+    assert actual_purpose == expected_purpose, \
+        f"cluster_purpose mismatch: expected '{expected_purpose}', got '{actual_purpose}'"
+    logger.info(f"cluster_purpose correctly set to '{expected_purpose}'")
 
 
 def test_node_selector(garden_api_client, shoot_api_client, project_namespace: str, shoot_name: str):

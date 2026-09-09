@@ -81,7 +81,7 @@ def shoot_api_client(garden_api_client, project_namespace: str, shoot_name: str)
         header_params=header_params,
         body=request,
         auth_settings=auth_settings,
-        response_type=object)
+        response_types_map={201: object})
     kubeconfig = base64.b64decode(data["status"]["kubeconfig"])
     kc = yaml.safe_load(kubeconfig)
     return config.new_client_from_config_dict(kc)
@@ -99,7 +99,7 @@ def shoot(garden_api_client, project_namespace: str, shoot_name: str):
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 
@@ -115,7 +115,7 @@ def falco_profile(garden_api_client):
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 

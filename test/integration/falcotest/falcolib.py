@@ -92,7 +92,7 @@ def get_controllerdeployment(garden_api_client, name):
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 
@@ -173,7 +173,7 @@ def get_shoot(garden_api_client, project_namespace: str, shoot_name: str):
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 
@@ -189,7 +189,7 @@ def get_falco_extension(garden_api_client, project_namespace: str, shoot_name: s
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
 
     extension_spec = None
     if "extensions" in data["spec"]:
@@ -276,7 +276,7 @@ def get_shoot_kubeconfig(garden_api_client, project_namespace: str, shoot_name: 
         method="POST",
         header_params=header_params,
         body=request,
-        response_type=object)
+        response_types_map={201: object})
     kubeconfig = base64.b64decode(data["status"]["kubeconfig"])
     kc = yaml.safe_load(kubeconfig)
     return config.new_client_from_config_dict(kc)
@@ -323,7 +323,7 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
             query_params=query_params,
             auth_settings=auth_settings,
             body=patch,
-            response_type=object)
+            response_types_map={200: object})
 
 
 def create_configmap(garden_api_client, namespace, name, configmap_data):
@@ -486,7 +486,7 @@ def add_falco_to_shoot(
             auth_settings=auth_settings,
             query_params=query_params,
             body=patch,
-            response_type=object)
+            response_types_map={200: object})
 
     except ApiException as e:
         logger.error(f"Error adding falco extension to shoot {shoot_name}: {e}")
@@ -521,7 +521,7 @@ def annotate_shoot(garden_api_client, project_namespace: str, shoot_name: str, a
         query_params=query_params,
         auth_settings=auth_settings,
         body=patch,
-        response_type=object)
+        response_types_map={200: object})
 
 
 def wait_for_extension_undeployed(shoot_api_client):
@@ -658,7 +658,7 @@ def get_falco_profile(garden_api_client, profile_name):
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 
@@ -710,7 +710,7 @@ def get_falco_profile2(garden_api_client, profile_name):
         resource_path=resource_path,
         method="GET",
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return json.loads(data)
 
 
