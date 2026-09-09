@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- if .Values.customRules }}
 apiVersion: v1
 kind: ConfigMap
@@ -10,5 +11,6 @@ data:
 {{- range $rulesFile := .Values.customRules }}
   {{ $rulesFile.filename | quote }}: |-
 {{ $rulesFile.content | indent 4 }}
+{{- end }}
 {{- end }}
 {{- end }}
