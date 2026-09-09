@@ -211,6 +211,161 @@ func TestVerifyFalcoConfigResources(t *testing.T) {
 	}
 }
 
+func TestVerifyFalcoConfigResourcesWorkerPoolOverrides(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *service.FalcoServiceConfig
+		expectError bool
+		errContains string
+	}{
+		{
+			name: "valid per-pool override",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Requests: &service.ResourceValues{Cpu: stringPtr("100m")},
+					},
+					WorkerPoolResources: map[string]*service.FalcoResources{
+						"pool-a": {
+							Requests: &service.ResourceValues{Cpu: stringPtr("200m"), Memory: stringPtr("256Mi")},
+							Limits:   &service.ResourceValues{Cpu: stringPtr("400m"), Memory: stringPtr("512Mi")},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid CPU in per-pool override",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolResources: map[string]*service.FalcoResources{
+						"pool-a": {
+							Requests: &service.ResourceValues{Cpu: stringPtr("0")},
+						},
+					},
+				},
+			},
+			expectError: true,
+			errContains: "workerPoolResources[pool-a]",
+		},
+		{
+			name: "per-pool CPU request greater than limit",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolResources: map[string]*service.FalcoResources{
+						"pool-b": {
+							Requests: &service.ResourceValues{Cpu: stringPtr("800m")},
+							Limits:   &service.ResourceValues{Cpu: stringPtr("400m")},
+						},
+					},
+				},
+			},
+			expectError: true,
+			errContains: "workerPoolResources[pool-b]",
+		},
+		{
+			name: "nil per-pool entry is skipped",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolResources: map[string]*service.FalcoResources{
+						"pool-a": nil,
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid expression (unknown variable) is rejected",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Requests: &service.ResourceValues{Cpu: stringPtr("NodeGPU * 4")},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "expression in CPU is accepted (valid expr-lang expression)",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Requests: &service.ResourceValues{Cpu: stringPtr("NodeCPU < 4 ? 400.0 : 800.0")},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "expression in memory is accepted",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					Resources: &service.FalcoResources{
+						Requests: &service.ResourceValues{Memory: stringPtr("NodeMemoryGi * 32.0")},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "expression in per-pool override is accepted",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolResources: map[string]*service.FalcoResources{
+						"pool-a": {
+							Requests: &service.ResourceValues{
+								Cpu:    stringPtr("NodeMemoryGi < 10 ? 200 : 400"),
+								Memory: stringPtr("NodeMemoryGi * 8"),
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "nil FalcoConfig is accepted",
+			config:      &service.FalcoServiceConfig{FalcoConfig: nil},
+			expectError: false,
+		},
+		{
+			name:        "nil FalcoServiceConfig is accepted",
+			config:      nil,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := verifyFalcoConfigResources(tt.config)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+			if tt.expectError && tt.errContains != "" && err != nil {
+				if !contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error to contain %q, got: %v", tt.errContains, err)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		func() bool {
+			for i := 0; i <= len(s)-len(substr); i++ {
+				if s[i:i+len(substr)] == substr {
+					return true
+				}
+			}
+			return false
+		}())
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

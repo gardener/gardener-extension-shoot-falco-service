@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
+	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck/general"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -25,23 +26,46 @@ import (
 )
 
 type customFalcoHealthCheck struct {
-	shootClient    client.Client
-	logger         logr.Logger
-	daemonSetCheck healthcheck.HealthCheck
-	restConfig     *rest.Config
-	clientset      kubernetes.Interface
+	shootClient     client.Client
+	logger          logr.Logger
+	managedResCheck healthcheck.HealthCheck
+	restConfig      *rest.Config
+	clientset       kubernetes.Interface
 }
 
-func NewCustomFalcoHealthCheck(daemonSetCheck healthcheck.HealthCheck) *customFalcoHealthCheck {
-	return &customFalcoHealthCheck{daemonSetCheck: daemonSetCheck}
+func NewCustomFalcoHealthCheck() *customFalcoHealthCheck {
+	return &customFalcoHealthCheck{
+		managedResCheck: general.CheckManagedResource(constants.ManagedResourceNameFalco),
+	}
 }
 
 func (hc *customFalcoHealthCheck) SetLoggerSuffix(provider, extension string) {
 	hc.logger = log.Log.WithName(fmt.Sprintf("%s-healthcheck-custom-falco", provider))
-	hc.daemonSetCheck.SetLoggerSuffix(provider, extension)
 }
 
 func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
+	// Health check strategy:
+	//
+	// 1. checkFalco lists all pods with label app.kubernetes.io/name=falco.
+	//    - If any pod has a detectable config error (ConfigMap mount failure, rule YAML syntax
+	//      error in logs), it returns ConditionFalse with ErrorConfigurationProblem — returned
+	//      immediately so the error code reaches the shoot status.
+	//    - If pods are found and all healthy, it returns ConditionTrue — returned immediately.
+	//    - If no pods are found, it returns ConditionFalse without error codes.
+	//
+	// 2. No-pods fallback: zero pods is not itself an error — it is normal when all worker pools
+	//    are scaled to minimum=0, or when nodes are tainted and no pod is schedulable yet.
+	//    In this case we fall back to checking the shared ManagedResource
+	//    (extension-shoot-falco-service-shoot). If that MR is healthy, the extension controller
+	//    has successfully reconciled and all DaemonSets have been handed off to the Gardener
+	//    resource manager — the extension is working correctly.
+	//
+	//    We intentionally check only the shared MR, not the N per-pool MRs
+	//    (extension-shoot-falco-service-pool-<name>). Checking all of them would require listing
+	//    by label from the seed client, adding complexity. In practice: if the shared MR is
+	//    healthy the reconcile loop completed; per-pool MR failures would surface either as pod
+	//    health issues (caught above) or as Gardener resource manager conditions visible in the
+	//    shoot status independently.
 	result, err := hc.checkFalco(ctx, request)
 
 	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionFalse && len(result.Codes) > 0 {
@@ -49,20 +73,27 @@ func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.Names
 		return result, err
 	}
 
-	if hc.daemonSetCheck != nil {
-		hc.logger.V(1).Info("No configuration errors found, falling back to DaemonSet health check")
-		nameName := types.NamespacedName{
-			Name:      "falco",
+	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionTrue {
+		hc.logger.V(1).Info("Falco pods healthy, returning True")
+		return result, err
+	}
+
+	if hc.managedResCheck != nil {
+		// No pods scheduled (e.g. all pools at zero nodes, taints, etc.) — that's fine.
+		// Fall back to checking the shared ManagedResource to confirm the extension deployed correctly.
+		hc.logger.V(1).Info("No Falco pods found, falling back to ManagedResource health check")
+		mrName := types.NamespacedName{
+			Name:      constants.ManagedResourceNameFalco,
 			Namespace: metav1.NamespaceSystem,
 		}
-		return hc.daemonSetCheck.Check(ctx, nameName)
+		return hc.managedResCheck.Check(ctx, mrName)
 	}
 
 	return result, err
 }
 
 func (hc *customFalcoHealthCheck) InjectSourceClient(sourceClient client.Client) {
-	if itf, ok := hc.daemonSetCheck.(healthcheck.SourceClient); ok {
+	if itf, ok := hc.managedResCheck.(healthcheck.SourceClient); ok {
 		itf.InjectSourceClient(sourceClient)
 	}
 }
@@ -83,9 +114,9 @@ func (hc *customFalcoHealthCheck) InjectTargetClient(targetClient client.Client)
 		hc.logger.V(1).Info("Failed to get in-cluster config", "error", err)
 	}
 
-	if itf, ok := hc.daemonSetCheck.(healthcheck.TargetClient); ok {
+	if itf, ok := hc.managedResCheck.(healthcheck.TargetClient); ok {
 		itf.InjectTargetClient(targetClient)
-		hc.logger.V(2).Info("Target client also injected into underlying health check")
+		hc.logger.V(2).Info("Target client also injected into ManagedResource health check")
 	}
 }
 

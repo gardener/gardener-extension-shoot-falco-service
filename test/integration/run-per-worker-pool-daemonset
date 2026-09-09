@@ -1,0 +1,7 @@
+pytest test_falco.py::test_adaptive_resources test_falco.py::test_adaptive_resources_per_pool_override \
+    --garden-kubeconfig=$KUBECONFIG \
+    --project-namespace=garden-d040949 \
+    --shoot-name=falco-dev \
+    --adaptive-machine-small=m5.large \
+    --adaptive-machine-medium=m5.xlarge \
+    --adaptive-machine-large=m5.2xlarge

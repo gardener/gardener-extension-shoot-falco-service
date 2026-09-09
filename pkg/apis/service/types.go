@@ -145,20 +145,45 @@ type Output struct {
 }
 
 type FalcoConfig struct {
-	// Falco container resource settings
+	// Resources defines default resource requests/limits applied to all worker
+	// pools. Each value field accepts either a plain Kubernetes quantity
+	// ("500m", "2Gi") or an arithmetic expression evaluated against node
+	// capacity variables:
+	//   nodeCPU         – number of CPU cores (float)
+	//   nodeMemoryMi    – RAM in MiB (float)
+	//   nodeMemoryGi    – RAM in GiB (float)
+	//   nodeEphemeralGi – ephemeral storage in GiB (float)
+	// CPU expression results are interpreted as millicores; memory as MiB.
+	// If nil, system defaults apply.
 	// +optional
 	Resources *FalcoResources
+
+	// WorkerPoolResources allows per-worker-pool resource overrides, keyed by
+	// pool name. A pool listed here inherits Resources for any field it does
+	// not set. Pools not listed use Resources directly. If Resources is also
+	// nil, system defaults apply.
+	// +optional
+	WorkerPoolResources map[string]*FalcoResources
 }
 
+// FalcoResources mirrors the existing structure exactly so that existing shoot
+// specs require no migration. The Cpu and Memory fields now additionally accept
+// arithmetic expressions (see FalcoConfig.Resources for the variable set).
 type FalcoResources struct {
-	// limits
+	// +optional
 	Limits *ResourceValues
 
-	// requests
+	// +optional
 	Requests *ResourceValues
 }
 
+// ResourceValues holds a CPU and memory value, each of which is either a plain
+// Kubernetes quantity or an arithmetic expression.
 type ResourceValues struct {
-	Cpu    *string
+	// Kubernetes quantity ("500m", "2") or arithmetic expression.
+	// +optional
+	Cpu *string
+	// Kubernetes quantity ("2Gi", "512Mi") or arithmetic expression.
+	// +optional
 	Memory *string
 }

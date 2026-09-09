@@ -29,6 +29,14 @@ const (
 	// Label to identify ManagedResources created by the additional resources controller
 	AdditionalManagedResourceLabel = "falco.gardener.cloud/additional-resource"
 
+	// ManagedResourcePoolPrefix is the name prefix for per-worker-pool ManagedResources.
+	// Each pool gets a ManagedResource named ManagedResourcePoolPrefix+poolName.
+	ManagedResourcePoolPrefix = ExtensionServiceName + "-pool-"
+
+	// PoolManagedResourceLabel is applied to every per-pool ManagedResource so they
+	// can be listed and cleaned up when pools are removed.
+	PoolManagedResourceLabel = "falco.gardener.cloud/pool-managed-resource"
+
 	// Name of the Falco certificate secret file in shoot namespace
 	FalcoCertificatesSecretName = GardenerExtensionServiceName + "-certificates"
 

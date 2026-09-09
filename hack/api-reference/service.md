@@ -147,7 +147,19 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Falco container resource settings</p>
+<p>Resources defines default resource requests/limits applied to all worker<br />pools. Each value field accepts either a plain Kubernetes quantity<br />("500m", "2Gi") or an arithmetic expression evaluated against node<br />capacity variables:<br />  nodeCPU         – number of CPU cores (float)<br />  nodeMemoryMi    – RAM in MiB (float)<br />  nodeMemoryGi    – RAM in GiB (float)<br />  nodeEphemeralGi – ephemeral storage in GiB (float)<br />CPU expression results are interpreted as millicores; memory as MiB.<br />If nil, system defaults apply.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>workerPoolResources</code></br>
+<em>
+object (keys:string, values:<a href="#falcoresources">FalcoResources</a>)
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WorkerPoolResources allows per-worker-pool resource overrides, keyed by<br />pool name. A pool listed here inherits Resources for any field it does<br />not set. Pools not listed use Resources directly. If Resources is also<br />nil, system defaults apply.</p>
 </td>
 </tr>
 
@@ -278,7 +290,9 @@ string
 </p>
 
 <p>
-
+FalcoResources mirrors the existing structure exactly so that existing shoot
+specs require no migration. The Cpu and Memory fields now additionally accept
+arithmetic expressions (see FalcoConfig.Resources for the variable set).
 </p>
 
 <table>
@@ -298,7 +312,8 @@ string
 </em>
 </td>
 <td>
-<p>limits</p>
+<em>(Optional)</em>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -309,7 +324,8 @@ string
 </em>
 </td>
 <td>
-<p>requests</p>
+<em>(Optional)</em>
+<p></p>
 </td>
 </tr>
 
@@ -663,7 +679,8 @@ string
 </p>
 
 <p>
-
+ResourceValues holds a CPU and memory value, each of which is either a plain
+Kubernetes quantity or an arithmetic expression.
 </p>
 
 <table>
@@ -683,7 +700,8 @@ string
 </em>
 </td>
 <td>
-<p></p>
+<em>(Optional)</em>
+<p>Kubernetes quantity ("500m", "2") or arithmetic expression.</p>
 </td>
 </tr>
 <tr>
@@ -694,7 +712,8 @@ string
 </em>
 </td>
 <td>
-<p></p>
+<em>(Optional)</em>
+<p>Kubernetes quantity ("2Gi", "512Mi") or arithmetic expression.</p>
 </td>
 </tr>
 
