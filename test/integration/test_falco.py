@@ -18,7 +18,11 @@ from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extensio
             falco_pod_label_selector, get_secret, label_node, \
             get_token_lifetime, get_token_public_key, delete_configmaps, \
             delete_event_generator_pod, get_nodes, get_falco_pods, \
-            get_falco_sidekick_pods
+            get_falco_sidekick_pods, \
+            add_machine_type_to_cloudprofile, remove_machine_type_from_cloudprofile, \
+            add_worker_pool_to_shoot, remove_worker_pool_from_shoot, \
+            wait_for_daemonsets, wait_for_daemonsets_absent, get_daemonset_resources, \
+            wait_for_shoot_reconciled_and_healthy
 
 
 logger = logging.getLogger(__name__)
@@ -549,3 +553,154 @@ def test_node_selector(garden_api_client, shoot_api_client, project_namespace: s
 
     logger.info("Undeploying falco extension")
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+
+
+# ---------------------------------------------------------------------------
+# AdaptiveResources integration test
+# ---------------------------------------------------------------------------
+
+ADAPTIVE_CLOUD_PROFILE = "local"
+ADAPTIVE_MACHINE_TYPE = {
+    "name": "local-large",
+    "cpu": "4",
+    "gpu": "0",
+    "memory": "32Gi",
+    "architecture": "amd64",
+    "usable": True,
+}
+ADAPTIVE_WORKER_POOL = {
+    "name": "local-large",
+    "machine": {"type": "local-large"},
+    "cri": {"name": "containerd"},
+    "minimum": 0,
+    "maximum": 0,
+    "maxSurge": 0,
+    "maxUnavailable": 0,
+}
+
+
+def test_adaptive_resources(
+    garden_api_client,
+    shoot_api_client,
+    project_namespace,
+    shoot_name,
+):
+    """Deploy Falco with AdaptiveResources; verify per-pool DaemonSets are created with
+    correct resource values and the single 'falco' DaemonSet is absent."""
+
+    logger.info("=== test_adaptive_resources: setup ===")
+
+    # --- Ensure shoot is clean before we start --------------------------------
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+
+    # --- Add fake machine type to cloud profile --------------------------------
+    logger.info(f"Adding machine type {ADAPTIVE_MACHINE_TYPE['name']} to cloud profile {ADAPTIVE_CLOUD_PROFILE}")
+    add_machine_type_to_cloudprofile(garden_api_client, ADAPTIVE_CLOUD_PROFILE, ADAPTIVE_MACHINE_TYPE)
+
+    # --- Add second worker pool (min/max=0 → no actual nodes) -----------------
+    logger.info(f"Adding worker pool {ADAPTIVE_WORKER_POOL['name']} to shoot {shoot_name}")
+    add_worker_pool_to_shoot(garden_api_client, project_namespace, shoot_name, ADAPTIVE_WORKER_POOL)
+    wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+
+    try:
+        # --- Deploy Falco with AdaptiveResources formulas ----------------------
+        # Formula: NodeCPU < 2 ? 200 : (NodeCPU < 4 ? 400 : 800)
+        # local pool:       1 CPU  → 200m cpuRequest
+        # local-large pool: 4 CPUs → 800m cpuRequest
+        extension_config = {
+            "type": "shoot-falco-service",
+            "providerConfig": {
+                "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+                "kind": "FalcoServiceConfig",
+                "rules": {"standard": ["falco-rules"]},
+                "destinations": [{"name": "stdout"}],
+                "falcoConfig": {
+                    "adaptiveResources": {
+                        "formulas": {
+                            "cpuRequest": "NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)",
+                            "memoryRequest": "NodeMemoryGi * 16.0",
+                        }
+                    }
+                }
+            }
+        }
+
+        error = add_falco_to_shoot(
+            garden_api_client,
+            project_namespace,
+            shoot_name,
+            extension_config=extension_config,
+        )
+        assert error is None, f"Failed to add Falco: {error}"
+
+        # Wait for shoot reconcile to finish
+        wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+
+        # --- Verify per-pool DaemonSets exist ----------------------------------
+        expected_ds = ["falco-local", "falco-local-large", "falco-default"]
+        wait_for_daemonsets(shoot_api_client, expected_ds, timeout_seconds=300)
+
+        # --- Verify the single-DaemonSet 'falco' is absent ---------------------
+        wait_for_daemonsets_absent(shoot_api_client, ["falco"], timeout_seconds=120)
+
+        # --- Verify resource values for 'falco-local' (1 CPU → 200m) ----------
+        resources_local = get_daemonset_resources(shoot_api_client, "falco-local")
+        logger.info(f"falco-local resources: {resources_local}")
+        if resources_local and "requests" in resources_local:
+            assert resources_local["requests"].get("cpu") == "200m", \
+                f"Expected 200m for falco-local, got {resources_local['requests'].get('cpu')}"
+
+        # --- Verify resource values for 'falco-local-large' (4 CPUs → 800m) --
+        resources_large = get_daemonset_resources(shoot_api_client, "falco-local-large")
+        logger.info(f"falco-local-large resources: {resources_large}")
+        if resources_large and "requests" in resources_large:
+            assert resources_large["requests"].get("cpu") == "800m", \
+                f"Expected 800m for falco-local-large, got {resources_large['requests'].get('cpu')}"
+
+        logger.info("=== test_adaptive_resources: verifications passed ===")
+
+        # --- Verify teardown restores single DaemonSet ------------------------
+        ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+        # After undeployment there should be no Falco DaemonSets at all
+        wait_for_daemonsets_absent(
+            shoot_api_client,
+            ["falco", "falco-local", "falco-local-large", "falco-default"],
+            timeout_seconds=180,
+        )
+        logger.info("=== test_adaptive_resources: teardown verified ===")
+
+        # --- Verify validator rejects both Resources and AdaptiveResources ----
+        conflicting_config = {
+            "type": "shoot-falco-service",
+            "providerConfig": {
+                "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+                "kind": "FalcoServiceConfig",
+                "rules": {"standard": ["falco-rules"]},
+                "destinations": [{"name": "stdout"}],
+                "falcoConfig": {
+                    "resources": {
+                        "requests": {"cpu": "100m", "memory": "128Mi"}
+                    },
+                    "adaptiveResources": {
+                        "formulas": {"cpuRequest": "NodeCPU * 100.0"}
+                    }
+                }
+            }
+        }
+        error = add_falco_to_shoot(
+            garden_api_client,
+            project_namespace,
+            shoot_name,
+            extension_config=conflicting_config,
+        )
+        assert error is not None, "Expected validator to reject both resources and adaptiveResources, but it was accepted"
+        logger.info(f"Validator correctly rejected conflicting config: {error}")
+
+    finally:
+        # --- Cleanup: always restore shoot and cloud profile ------------------
+        logger.info("=== test_adaptive_resources: cleanup ===")
+        ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+        remove_worker_pool_from_shoot(garden_api_client, project_namespace, shoot_name, ADAPTIVE_WORKER_POOL["name"])
+        wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+        remove_machine_type_from_cloudprofile(garden_api_client, ADAPTIVE_CLOUD_PROFILE, ADAPTIVE_MACHINE_TYPE["name"])
+        logger.info("=== test_adaptive_resources: cleanup complete ===")
