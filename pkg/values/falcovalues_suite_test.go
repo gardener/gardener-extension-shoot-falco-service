@@ -12,8 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	falcopkg "github.com/gardener/gardener-extension-shoot-falco-service/falco"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/secrets"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/utils"
