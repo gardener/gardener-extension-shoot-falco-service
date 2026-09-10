@@ -229,9 +229,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -250,9 +249,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -275,9 +273,8 @@ var _ = Describe("Reconciler", func() {
 
 			// Use a clock time well outside the maintenance window
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC)),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC)),
 			}
 			setMutator(rec, m)
 
@@ -301,9 +298,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -356,9 +352,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -391,9 +386,8 @@ var _ = Describe("Reconciler", func() {
 			m := mutator.NewShoot(mgr, nil)
 
 			rec := &maintenance.Reconciler{
-				Client:   fakeClient,
-				Clock:    clocktesting.NewFakeClock(time.Now()),
-				Recorder: &fakeRecorder{},
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
 			}
 			setMutator(rec, m)
 
@@ -409,6 +403,124 @@ var _ = Describe("Reconciler", func() {
 			Expect(ext).NotTo(BeNil())
 			Expect(string(ext.ProviderConfig.Raw)).To(ContainSubstring("0.100.0"))
 			Expect(string(ext.ProviderConfig.Raw)).NotTo(ContainSubstring("0.99.0"))
+		})
+	})
+
+	Describe("Reconcile with autoUpdate and preview version", func() {
+		It("should not revert a manually-set preview version to highest supported when autoUpdate is true", func() {
+			// Regression test: user explicitly set a "preview" version (0.44.1).
+			// autoUpdate:true must not silently downgrade them back to the highest "supported" version (0.42.1).
+			profile.GetDummyFalcoProfileManager(
+				&map[string]profile.FalcoVersion{
+					"0.42.1": {
+						Version:        "0.42.1",
+						Classification: "supported",
+					},
+					"0.44.1": {
+						Version:        "0.44.1",
+						Classification: "preview",
+					},
+				},
+				&map[string]profile.Image{},
+				&map[string]profile.Version{},
+				&map[string]profile.Image{},
+				&map[string]profile.Version{},
+				&map[string]profile.Image{},
+			)
+
+			shoot := shootWithFalco("preview-no-revert", "garden-dev")
+			shoot.Spec.Extensions[0].ProviderConfig = &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"falco.extensions.gardener.cloud/v1alpha1","kind":"FalcoServiceConfig","falcoVersion":"0.44.1","autoUpdate":true}`),
+			}
+			shoot.Annotations = map[string]string{
+				v1beta1constants.GardenerOperation: v1beta1constants.ShootOperationMaintain,
+			}
+
+			scheme := mgr.GetScheme()
+			fakeClient := newFakeClientWithShoot(scheme, shoot)
+			m := mutator.NewShoot(mgr, nil)
+
+			rec := &maintenance.Reconciler{
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
+			}
+			setMutator(rec, m)
+
+			_, err := rec.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: "preview-no-revert", Namespace: "garden-dev"},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &gardencorev1beta1.Shoot{}
+			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "preview-no-revert", Namespace: "garden-dev"}, updated)).To(Succeed())
+
+			ext := findFalcoExtension(updated)
+			Expect(ext).NotTo(BeNil())
+			// The preview version must be preserved — autoUpdate must not revert it to 0.42.1.
+			Expect(string(ext.ProviderConfig.Raw)).To(ContainSubstring("0.44.1"))
+			Expect(string(ext.ProviderConfig.Raw)).NotTo(ContainSubstring("0.42.1"))
+		})
+	})
+
+	Describe("Reconcile with autoUpdate and preview version superseded by newer supported", func() {
+		It("should update from a preview version to a higher supported version when autoUpdate is true", func() {
+			// User is on 0.44.1 (preview) with autoUpdate:true.
+			// 0.45.1 (supported) is now available and is higher than the preview version.
+			// autoUpdate means "keep me on latest stable", so the user should be advanced to 0.45.1.
+			profile.GetDummyFalcoProfileManager(
+				&map[string]profile.FalcoVersion{
+					"0.43.1": {
+						Version:        "0.43.1",
+						Classification: "supported",
+					},
+					"0.44.1": {
+						Version:        "0.44.1",
+						Classification: "preview",
+					},
+					"0.45.1": {
+						Version:        "0.45.1",
+						Classification: "supported",
+					},
+				},
+				&map[string]profile.Image{},
+				&map[string]profile.Version{},
+				&map[string]profile.Image{},
+				&map[string]profile.Version{},
+				&map[string]profile.Image{},
+			)
+
+			shoot := shootWithFalco("preview-superseded", "garden-dev")
+			shoot.Spec.Extensions[0].ProviderConfig = &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"falco.extensions.gardener.cloud/v1alpha1","kind":"FalcoServiceConfig","falcoVersion":"0.44.1","autoUpdate":true}`),
+			}
+			shoot.Annotations = map[string]string{
+				v1beta1constants.GardenerOperation: v1beta1constants.ShootOperationMaintain,
+			}
+
+			scheme := mgr.GetScheme()
+			fakeClient := newFakeClientWithShoot(scheme, shoot)
+			m := mutator.NewShoot(mgr, nil)
+
+			rec := &maintenance.Reconciler{
+				Client: fakeClient,
+				Clock:  clocktesting.NewFakeClock(time.Now()),
+			}
+			setMutator(rec, m)
+
+			_, err := rec.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: "preview-superseded", Namespace: "garden-dev"},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &gardencorev1beta1.Shoot{}
+			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "preview-superseded", Namespace: "garden-dev"}, updated)).To(Succeed())
+
+			ext := findFalcoExtension(updated)
+			Expect(ext).NotTo(BeNil())
+			// Must advance to the higher supported version, not stay on preview or revert to 0.43.1.
+			Expect(string(ext.ProviderConfig.Raw)).To(ContainSubstring("0.45.1"))
+			Expect(string(ext.ProviderConfig.Raw)).NotTo(ContainSubstring("0.44.1"))
+			Expect(string(ext.ProviderConfig.Raw)).NotTo(ContainSubstring("0.43.1"))
 		})
 	})
 })
