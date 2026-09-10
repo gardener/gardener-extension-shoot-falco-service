@@ -8,7 +8,7 @@ metadata:
     {{- include "falco.labels" . | nindent 4 }}
 data:
 {{- range $rulesFile := .Values.customRules }}
-  {{ $rulesFile.filename }}: |-
+  {{ $rulesFile.filename | quote }}: |-
 {{ $rulesFile.content | indent 4 }}
 {{- end }}
 {{- end }}
