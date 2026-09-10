@@ -1,0 +1,80 @@
+{
+  "type": "monitor",
+  "monitor_type": "query_level_monitor",
+  "name": "{{PREFIX}} - Critical/Emergency Events ({{LANDSCAPE}})",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 5,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": ["{{PREFIX}}-{{LANDSCAPE}}-*"],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "terms": {
+                    "priority.keyword": ["Critical", "Emergency"]
+                  }
+                },
+                {
+                  "range": {
+                    "@timestamp": { "gte": "now-5m" }
+                  }
+                }
+              ]
+            }
+          },
+          "aggs": {
+            "by_rule": {
+              "terms": {
+                "field": "rule.keyword",
+                "size": 10
+              }
+            },
+            "by_cluster": {
+              "terms": {
+                "field": "output_fields.cluster_id.keyword",
+                "size": 10
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "query_level_trigger": {
+        "name": "Critical/Emergency event detected",
+        "severity": "1",
+        "condition": {
+          "script": {
+            "source": "ctx.results[0].hits.total.value > 0",
+            "lang": "painless"
+          }
+        },
+        "actions": [
+          {
+            "name": "Notify Slack",
+            "destination_id": "{{CHANNEL_ID}}",
+            "throttle_enabled": true,
+            "throttle": {
+              "value": 10,
+              "unit": "MINUTES"
+            },
+            "message_template": {
+              "source": "{{PREFIX}} ({{LANDSCAPE}}): {{ctx.results[0].hits.total.value}} critical/emergency Falco events in the last 5 minutes.\nTop rules: {{#ctx.results[0].aggregations.by_rule.buckets}}{{key}} ({{doc_count}}) {{/ctx.results[0].aggregations.by_rule.buckets}}\nTop clusters: {{#ctx.results[0].aggregations.by_cluster.buckets}}{{key}} ({{doc_count}}) {{/ctx.results[0].aggregations.by_cluster.buckets}}"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
