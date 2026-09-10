@@ -32,6 +32,9 @@ var (
 	//go:embed rules
 	rulesFiles embed.FS
 
+	//go:embed falco-profile.yaml
+	FalcoProfileYAML []byte
+
 	falcoVersions         *falcoversions.FalcoVersions
 	falcoSidekickVersions *falcoversions.FalcosidekickVersions
 	falcoCtlVersions      *falcoversions.FalcoctlVersions

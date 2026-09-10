@@ -49,149 +49,13 @@ var (
 		},
 	}
 
-	shootExtension = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-			CustomRules: []service.CustomRule{
-				{
-					ResourceName: "rules1",
-				},
-			},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "logging",
-			},
-		},
-		NodeSelector: &map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-		},
-		Tolerations: []corev1.Toleration{
-			{
-				Key:      "node.gardener.cloud/critical-components-not-ready",
-				Effect:   corev1.TaintEffectNoSchedule,
-				Operator: corev1.TolerationOpExists,
-			},
-			{
-				Key:    "node-role.kubernetes.io/control-plane",
-				Effect: corev1.TaintEffectNoSchedule,
-			},
-		},
-	}
-
-	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-			CustomRules: []service.CustomRule{
-				{
-					ResourceName: "rulesm2",
-				},
-				{
-					ResourceName: "rulesm3",
-				},
-				{
-					ResourceName: "rulesm1",
-				},
-			},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "logging",
-			},
-		},
-	}
-
-	shootExtensionTooManyCustomRuleFiles = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-			CustomRules: []service.CustomRule{
-				{
-					ResourceName: "too-many-rule-files",
-				},
-			},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "logging",
-			},
-		},
-	}
-
-	shootExtenstionShootCustomRules = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			CustomRules: []service.CustomRule{
-				{
-					ResourceName: "rules1",
-				},
-				{
-					ShootConfigMap: "my-shoot-configmap",
-				},
-			},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "logging",
-			},
-		},
-	}
-	seedExtenstionSimple = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "central",
-			},
-		},
-	}
-	falcoProfileManager = profile.GetDummyFalcoProfileManager(
-		&map[string]profile.FalcoVersion{
-			"0.38.0": {
-				Version:        "0.38.0",
-				Classification: "supported",
-				RulesVersion:   "3.2.0",
-			},
-		},
-		&map[string]profile.Image{
-			"0.38.0": {
-				Repository: "falcosecurity/falco",
-				Tag:        "0.38.0",
-				Version:    "0.38.0",
-			},
-		},
-		&map[string]profile.Version{
-			"1.2.3": {
-				Version:        "1.2.3",
-				Classification: "supported",
-			},
-		},
-		&map[string]profile.Image{
-			"1.2.3": {
-				Repository: "falcosecurity/falcosidekick",
-				Tag:        "1.2.3",
-				Version:    "1.2.3",
-			},
-		},
-		&map[string]profile.Version{
-			"0.9.23": {
-				Version:        "0.9.23",
-				Classification: "supported",
-			},
-		},
-		&map[string]profile.Image{
-			"0.9.23": {
-				Repository: "falcosecurity/falcoctl",
-				Tag:        "0.9.23",
-				Version:    "0.9.23",
-			},
-		},
-	)
+	// version-dependent configs are nil until initVersionedConfigs() runs in BeforeSuite
+	shootExtension                       *service.FalcoServiceConfig
+	shootExtensionManyCustomRules        *service.FalcoServiceConfig
+	shootExtensionTooManyCustomRuleFiles *service.FalcoServiceConfig
+	shootExtenstionShootCustomRules      *service.FalcoServiceConfig
+	seedExtenstionSimple                 *service.FalcoServiceConfig
+	falcoProfileManager                  *profile.FalcoProfileManager
 
 	shootSpec = &extensions.Cluster{
 		Seed: &gardencorev1beta1.Seed{
@@ -350,83 +214,12 @@ var (
 		},
 	}
 
-	falcoServiceConfigCentralStdout = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-			CustomRules: []service.CustomRule{
-				{
-					ResourceName: "rules1",
-				},
-				{
-					ResourceName: "rules3",
-				},
-			},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "central",
-			},
-			{
-				Name: "stdout",
-			},
-		},
-		NodeSelector: &map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	}
-
-	falcoServiceConfigCustomWebhookWithSecret = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-		},
-		Destinations: []service.Destination{
-			{
-				Name:               "custom",
-				ResourceSecretName: stringValue("custom-webhook-secret"),
-			},
-		},
-	}
-
-	falcoServiceConfigCluster = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-		},
-		Destinations: []service.Destination{
-			{
-				Name: "logging",
-			},
-		},
-	}
-
-	falcoServiceConfigOpenSearch = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-		},
-		Destinations: []service.Destination{
-			{
-				Name:               "opensearch",
-				ResourceSecretName: stringValue("opensearch-config"),
-			},
-		},
-	}
-
-	falcoServiceConfigSplunk = &service.FalcoServiceConfig{
-		FalcoVersion: stringValue("0.38.0"),
-		Rules: &service.Rules{
-			StandardRules: []string{"falco-rules"},
-		},
-		Destinations: []service.Destination{
-			{
-				Name:               "splunk",
-				ResourceSecretName: stringValue("splunk-config"),
-			},
-		},
-	}
+	// version-dependent; initialized in initVersionedConfigs() via BeforeSuite
+	falcoServiceConfigCentralStdout           *service.FalcoServiceConfig
+	falcoServiceConfigCustomWebhookWithSecret *service.FalcoServiceConfig
+	falcoServiceConfigCluster                 *service.FalcoServiceConfig
+	falcoServiceConfigOpenSearch              *service.FalcoServiceConfig
+	falcoServiceConfigSplunk                  *service.FalcoServiceConfig
 
 	webhookSecrets = &corev1.SecretList{
 		Items: []corev1.Secret{
@@ -626,6 +419,127 @@ key1:
   items: [ash, bash, csh, ksh, sh, tcsh, zsh, dash]
 `
 )
+
+// initVersionedConfigs populates all FalcoServiceConfig vars that require a
+// real falco version. Called from BeforeSuite after testFalcoVersion is set.
+func initVersionedConfigs() {
+	shootExtension = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
+				{ResourceName: "rules1"},
+			},
+		},
+		Destinations: []service.Destination{{Name: "logging"}},
+		NodeSelector: &map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+		Tolerations: []corev1.Toleration{
+			{
+				Key:      "node.gardener.cloud/critical-components-not-ready",
+				Effect:   corev1.TaintEffectNoSchedule,
+				Operator: corev1.TolerationOpExists,
+			},
+			{
+				Key:    "node-role.kubernetes.io/control-plane",
+				Effect: corev1.TaintEffectNoSchedule,
+			},
+		},
+	}
+	shootExtensionManyCustomRules = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
+				{ResourceName: "rulesm2"},
+				{ResourceName: "rulesm3"},
+				{ResourceName: "rulesm1"},
+			},
+		},
+		Destinations: []service.Destination{{Name: "logging"}},
+	}
+	shootExtensionTooManyCustomRuleFiles = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
+				{ResourceName: "too-many-rule-files"},
+			},
+		},
+		Destinations: []service.Destination{{Name: "logging"}},
+	}
+	shootExtenstionShootCustomRules = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			CustomRules: []service.CustomRule{
+				{ResourceName: "rules1"},
+				{ShootConfigMap: "my-shoot-configmap"},
+			},
+		},
+		Destinations: []service.Destination{{Name: "logging"}},
+	}
+	seedExtenstionSimple = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{{Name: "central"}},
+	}
+	falcoServiceConfigCentralStdout = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+			CustomRules: []service.CustomRule{
+				{ResourceName: "rules1"},
+				{ResourceName: "rules3"},
+			},
+		},
+		Destinations: []service.Destination{
+			{Name: "central"},
+			{Name: "stdout"},
+		},
+		NodeSelector: &map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	}
+	falcoServiceConfigCustomWebhookWithSecret = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{
+			{Name: "custom", ResourceSecretName: stringValue("custom-webhook-secret")},
+		},
+	}
+	falcoServiceConfigCluster = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{{Name: "logging"}},
+	}
+	falcoServiceConfigOpenSearch = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{
+			{Name: "opensearch", ResourceSecretName: stringValue("opensearch-config")},
+		},
+	}
+	falcoServiceConfigSplunk = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{
+			{Name: "splunk", ResourceSecretName: stringValue("splunk-config")},
+		},
+	}
+}
 
 func decode(encoded string) []byte {
 	data, _ := base64.StdEncoding.DecodeString(encoded)
@@ -1023,7 +937,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		ds := appsv1.DaemonSet{}
 		err = yaml.Unmarshal([]byte(falcoDaemonset.Content), &ds)
 		Expect(err).To(BeNil())
-		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("falcosecurity/falco:0.38.0"))
+		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(testFalcoImage))
 		Expect(ds.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 		Expect(ds.Spec.Template.Spec.PriorityClassName).To(Equal("falco-test-priority-dummy-classname"))
 
@@ -1280,7 +1194,7 @@ var _ = Describe("Getter for Falco rules", Label("falcovalues"), func() {
 	})
 
 	It("can identify falco a wrong rules file", func(ctx SpecContext) {
-		Expect(configBuilder.getFalcoRulesFile("false_rules_file.yaml", "0.38.0")).Error().ToNot(BeNil())
+		Expect(configBuilder.getFalcoRulesFile("false_rules_file.yaml", testFalcoVersion)).Error().ToNot(BeNil())
 	})
 })
 
@@ -1499,7 +1413,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 	It("should handle missing destinations gracefully", func() {
 		configWithoutDestinations := &service.FalcoServiceConfig{
-			FalcoVersion: stringValue("0.38.0"),
+			FalcoVersion: stringValue(testFalcoVersion),
 			Rules: &service.Rules{
 				StandardRules: []string{"falco-rules"},
 			},
@@ -1587,7 +1501,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should set all resource limits and requests when fully configured", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1652,7 +1566,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should set only resource limits when only limits are configured", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1686,7 +1600,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should set only resource requests when only requests are configured", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1720,7 +1634,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should set only CPU resources when only CPU is configured", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1760,7 +1674,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should not set resources field when FalcoConfig is nil", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1779,7 +1693,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should not set resources field when FalcoConfig.Resources is nil", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1800,7 +1714,7 @@ var _ = Describe("BuildFalcoValues", func() {
 
 		It("should not set resources field when Resources has no values", func(ctx SpecContext) {
 			config := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1846,7 +1760,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configWithGlobalDefault, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1884,7 +1798,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configWithoutGlobalDefaults, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1931,7 +1845,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			builder := NewConfigBuilder(fakeclient, tokenIssuer, clusterIdentityTokenIssuer, configWithToken, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -1982,7 +1896,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configWithDomain, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
@@ -2026,7 +1940,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			builder := NewConfigBuilder(fakeclient, tokenIssuer, nil, configNoIssuer, falcoProfileManager)
 
 			falcoConf := &service.FalcoServiceConfig{
-				FalcoVersion: stringValue("0.38.0"),
+				FalcoVersion: stringValue(testFalcoVersion),
 				Rules: &service.Rules{
 					StandardRules: []string{"falco-rules"},
 				},
