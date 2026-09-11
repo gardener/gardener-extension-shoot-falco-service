@@ -10,6 +10,43 @@
 
 </p>
 
+<h3 id="adaptiveresources">AdaptiveResources
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falcoconfig">FalcoConfig</a>)
+</p>
+
+<p>
+AdaptiveResources configures per-worker-pool dynamic resource sizing for Falco.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>formulas</code></br>
+<em>
+<a href="#resourceformulas">ResourceFormulas</a>
+</em>
+</td>
+<td>
+<p>Formulas defines arithmetic expressions for each resource field.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
 <h3 id="customrule">CustomRule
 </h3>
 
@@ -147,7 +184,19 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Falco container resource settings</p>
+<p>Resources configures static resource requests/limits for the Falco container.<br />Mutually exclusive with AdaptiveResources. If neither is set, chart defaults apply.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>adaptiveResources</code></br>
+<em>
+<a href="#adaptiveresources">AdaptiveResources</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AdaptiveResources enables per-worker-pool dynamic resource sizing.<br />The feature is active when this field is non-nil. Mutually exclusive with Resources.<br />Only available for Gardener-managed shoots with worker pools.</p>
 </td>
 </tr>
 
@@ -647,6 +696,81 @@ string
 </td>
 <td>
 <p></p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="resourceformulas">ResourceFormulas
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#adaptiveresources">AdaptiveResources</a>)
+</p>
+
+<p>
+ResourceFormulas holds one optional expression per resource field.
+Each expression is evaluated against node capacity variables and must produce a number.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>cpuRequest</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CPURequest expression. Result unit: millicores (500 → "500m").</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cpuLimit</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CPULimit expression. Result unit: millicores.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>memoryRequest</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MemoryRequest expression. Result unit: MiB (2048 → "2048Mi").</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>memoryLimit</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MemoryLimit expression. Result unit: MiB.</p>
 </td>
 </tr>
 

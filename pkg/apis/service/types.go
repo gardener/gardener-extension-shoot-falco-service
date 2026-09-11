@@ -145,9 +145,42 @@ type Output struct {
 }
 
 type FalcoConfig struct {
-	// Falco container resource settings
+	// Resources configures static resource requests/limits for the Falco container.
+	// Mutually exclusive with AdaptiveResources. If neither is set, chart defaults apply.
 	// +optional
 	Resources *FalcoResources
+
+	// AdaptiveResources enables per-worker-pool dynamic resource sizing.
+	// The feature is active when this field is non-nil. Mutually exclusive with Resources.
+	// Only available for Gardener-managed shoots with worker pools.
+	// +optional
+	AdaptiveResources *AdaptiveResources
+}
+
+// AdaptiveResources configures per-worker-pool dynamic resource sizing for Falco.
+type AdaptiveResources struct {
+	// Formulas defines arithmetic expressions for each resource field.
+	Formulas ResourceFormulas
+}
+
+// ResourceFormulas holds one optional expression per resource field.
+// Each expression is evaluated against node capacity variables and must produce a number.
+type ResourceFormulas struct {
+	// CPURequest expression. Result unit: millicores (500 → "500m").
+	// +optional
+	CPURequest *string
+
+	// CPULimit expression. Result unit: millicores.
+	// +optional
+	CPULimit *string
+
+	// MemoryRequest expression. Result unit: MiB (2048 → "2048Mi").
+	// +optional
+	MemoryRequest *string
+
+	// MemoryLimit expression. Result unit: MiB.
+	// +optional
+	MemoryLimit *string
 }
 
 type FalcoResources struct {
