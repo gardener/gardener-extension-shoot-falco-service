@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: Contributors to the Gardener project
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	gardenerv1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/chartrenderer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -18,11 +19,6 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources/formula"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
-)
-
-const (
-	// workerPoolLabel is the well-known Gardener label that identifies worker pool membership.
-	workerPoolLabel = "worker.gardener.cloud/pool"
 )
 
 // RenderPerPoolDaemonSets renders one Falco DaemonSet per worker pool plus a fallback DaemonSet for nodes
@@ -67,7 +63,7 @@ func RenderPerPoolDaemonSets(
 		poolValues := cloneValues(baseValues)
 		poolValues["fullnameOverride"] = "falco-" + worker.Name
 		poolValues["nodeSelector"] = map[string]string{
-			workerPoolLabel: worker.Name,
+			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
 		delete(poolValues, "affinity")
 		applyResourceResult(poolValues, resourceResult)
@@ -181,7 +177,7 @@ func buildDoesNotExistAffinity() map[string]any {
 					map[string]any{
 						"matchExpressions": []any{
 							map[string]any{
-								"key":      workerPoolLabel,
+								"key":      v1beta1constants.LabelWorkerPool,
 								"operator": "DoesNotExist",
 							},
 						},

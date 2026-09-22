@@ -242,11 +242,6 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 		return a.createAdaptiveShootResources(ctx, log, reconcileCtx, renderer)
 	}
 
-	// Ensure any previously created adaptive ManagedResource is cleaned up.
-	if err := a.deleteAdaptiveResourcesIfExists(ctx, reconcileCtx.Namespace); err != nil {
-		return err
-	}
-
 	values, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
 	if err != nil {
 		return fmt.Errorf("could not generate falco configuration: %w", err)
@@ -298,39 +293,11 @@ func (a *actuator) createAdaptiveShootResources(ctx context.Context, log logr.Lo
 
 	data := map[string][]byte{"config.yaml": manifest}
 	if reconcileCtx.IsShootDeployment {
-		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalcoAdaptive, constants.ExtensionServiceName, false, data); err != nil {
+		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
 			return fmt.Errorf("could not create adaptive managed resource: %w", err)
 		}
-		// Remove the standard single-DaemonSet ManagedResource if it still exists.
-		if err := a.deleteStandardResourcesIfExists(ctx, reconcileCtx.Namespace); err != nil {
-			return err
-		}
 	}
 	return nil
-}
-
-func (a *actuator) deleteAdaptiveResourcesIfExists(ctx context.Context, namespace string) error {
-	err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalcoAdaptive)
-	if err != nil && !isNotFound(err) {
-		return fmt.Errorf("could not delete adaptive managed resource: %w", err)
-	}
-	return nil
-}
-
-func (a *actuator) deleteStandardResourcesIfExists(ctx context.Context, namespace string) error {
-	err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco)
-	if err != nil && !isNotFound(err) {
-		return fmt.Errorf("could not delete standard managed resource: %w", err)
-	}
-	return nil
-}
-
-func isNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	kerr, ok := err.(*apierror.StatusError)
-	return ok && kerr.ErrStatus.Code == 404
 }
 
 func (a *actuator) createSeedResources(ctx context.Context, log logr.Logger, namespace string) error {
@@ -394,15 +361,11 @@ func (a *actuator) ForceDelete(ctx context.Context, log logr.Logger, ex *extensi
 func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, namespace string, ex *extensionsv1alpha1.Extension) error {
 	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
 	if isShootDeployment(ex) {
-		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !isNotFound(err) {
-			return err
-		}
-		// Also delete adaptive ManagedResource if present (idempotent).
-		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalcoAdaptive); err != nil && !isNotFound(err) {
+		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !apierror.IsNotFound(err) {
 			return err
 		}
 	} else if isSeedDeployment(ex) {
-		if err := managedresources.DeleteForSeed(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !isNotFound(err) {
+		if err := managedresources.DeleteForSeed(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !apierror.IsNotFound(err) {
 			return err
 		}
 	}
