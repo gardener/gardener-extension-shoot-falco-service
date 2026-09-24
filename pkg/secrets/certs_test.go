@@ -170,9 +170,9 @@ var _ = Describe("Certificate", func() {
 			Expect(certs.ServerCert.NotAfter).To(BeTemporally("<=", cas.ServerCaCert.NotAfter))
 			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", cas.ClientCaCert.NotAfter))
 
-			// leaf should be close to the requested lifetime (within a second of clock skew)
-			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", time.Now().Add(leafLifetime), time.Second))
-			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", time.Now().Add(leafLifetime), time.Second))
+			// leaf lifetime must be exactly as requested, anchored to the cert's own NotBefore
+			Expect(certs.ServerCert.NotAfter).To(Equal(certs.ServerCert.NotBefore.Add(leafLifetime)))
+			Expect(certs.ClientCert.NotAfter).To(Equal(certs.ClientCert.NotBefore.Add(leafLifetime)))
 		})
 
 		It("should cap leaf cert to CA expiry when requested lifetime exceeds CA remaining life", func() {

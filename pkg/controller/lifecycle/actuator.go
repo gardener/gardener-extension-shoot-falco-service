@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -188,6 +189,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 			ClusterName:             shootCluster.Shoot.Name,
 			Shoot:                   shootCluster.Shoot,
 			Seed:                    shootCluster.Seed,
+			CloudProfile:            shootCluster.CloudProfile,
 		}
 		if shootCluster.Seed.Spec.Ingress != nil {
 			reconcileCtx.SeedIngressDomain = shootCluster.Seed.Spec.Ingress.Domain
@@ -233,6 +235,13 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 	if err != nil {
 		return fmt.Errorf("could not create chart renderer for rendering manged resource chart for shoot: %w", err)
 	}
+
+	falcoConf := reconcileCtx.FalcoServiceConfig
+
+	if falcoConf.FalcoConfig != nil && falcoConf.FalcoConfig.AdaptiveResources != nil {
+		return a.createAdaptiveShootResources(ctx, log, reconcileCtx, renderer)
+	}
+
 	values, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
 	if err != nil {
 		return fmt.Errorf("could not generate falco configuration: %w", err)
@@ -253,6 +262,39 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 		if err := managedresources.CreateForSeed(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, false, data); err != nil {
 			//		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
 			return fmt.Errorf("could not create managed resource for shoot falco deployment %w", err)
+		}
+	}
+	return nil
+}
+
+func (a *actuator) createAdaptiveShootResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext, renderer chartrenderer.Interface) error {
+	log.Info("creating adaptive per-pool Falco DaemonSets for shoot " + reconcileCtx.Namespace)
+
+	if reconcileCtx.Shoot == nil {
+		return fmt.Errorf("adaptive resources require a shoot cluster context")
+	}
+
+	baseValues, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
+	if err != nil {
+		return fmt.Errorf("could not generate base falco configuration: %w", err)
+	}
+
+	workers := reconcileCtx.Shoot.Spec.Provider.Workers
+	manifest, err := adaptiveresources.RenderPerPoolDaemonSets(
+		renderer,
+		baseValues,
+		workers,
+		reconcileCtx.CloudProfile,
+		reconcileCtx.FalcoServiceConfig.FalcoConfig.AdaptiveResources,
+	)
+	if err != nil {
+		return fmt.Errorf("could not render per-pool DaemonSets: %w", err)
+	}
+
+	data := map[string][]byte{"config.yaml": manifest}
+	if reconcileCtx.IsShootDeployment {
+		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
+			return fmt.Errorf("could not create adaptive managed resource: %w", err)
 		}
 	}
 	return nil
@@ -319,11 +361,11 @@ func (a *actuator) ForceDelete(ctx context.Context, log logr.Logger, ex *extensi
 func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, namespace string, ex *extensionsv1alpha1.Extension) error {
 	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
 	if isShootDeployment(ex) {
-		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
+		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !apierror.IsNotFound(err) {
 			return err
 		}
 	} else if isSeedDeployment(ex) {
-		if err := managedresources.DeleteForSeed(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
+		if err := managedresources.DeleteForSeed(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !apierror.IsNotFound(err) {
 			return err
 		}
 	}

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources/formula"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -186,6 +187,10 @@ func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot, oldShoot *
 	}
 
 	if err := verifyFalcoConfigResources(falcoConf); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := verifyFalcoConfigAdaptiveResources(falcoConf, shoot); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -485,7 +490,16 @@ func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 
 // verifyFalcoConfigResources validates the Resources field in FalcoServiceConfig
 func verifyFalcoConfigResources(falcoConf *service.FalcoServiceConfig) error {
-	if falcoConf == nil || falcoConf.FalcoConfig == nil || falcoConf.FalcoConfig.Resources == nil {
+	if falcoConf == nil || falcoConf.FalcoConfig == nil {
+		return nil
+	}
+
+	fc := falcoConf.FalcoConfig
+	if fc.Resources != nil && fc.AdaptiveResources != nil {
+		return fmt.Errorf("falcoConfig.resources and falcoConfig.adaptiveResources are mutually exclusive; set at most one")
+	}
+
+	if fc.Resources == nil {
 		return nil
 	}
 
@@ -536,6 +550,30 @@ func verifyFalcoConfigResources(falcoConf *service.FalcoServiceConfig) error {
 
 	if len(allErrs) > 0 {
 		return errors.Join(allErrs...)
+	}
+
+	return nil
+}
+
+// verifyFalcoConfigAdaptiveResources validates the AdaptiveResources field in FalcoServiceConfig.
+func verifyFalcoConfigAdaptiveResources(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
+	if falcoConf == nil || falcoConf.FalcoConfig == nil || falcoConf.FalcoConfig.AdaptiveResources == nil {
+		return nil
+	}
+
+	// AdaptiveResources requires a Gardener-managed shoot with worker pools.
+	if len(shoot.Spec.Provider.Workers) == 0 {
+		return fmt.Errorf("falcoConfig.adaptiveResources requires a Gardener-managed shoot with at least one worker pool")
+	}
+
+	formulas := falcoConf.FalcoConfig.AdaptiveResources.Formulas
+	if formulas.CPURequest == nil && formulas.CPULimit == nil &&
+		formulas.MemoryRequest == nil && formulas.MemoryLimit == nil {
+		return fmt.Errorf("falcoConfig.adaptiveResources.formulas: at least one formula field must be set")
+	}
+
+	if _, err := formula.Compile(formulas); err != nil {
+		return fmt.Errorf("falcoConfig.adaptiveResources.formulas: %w", err)
 	}
 
 	return nil
