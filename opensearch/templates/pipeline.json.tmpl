@@ -1,0 +1,20 @@
+{
+  "description": "Extract project/cluster/landscape from cluster_id, route to landscape write alias",
+  "processors": [
+    {
+      "grok": {
+        "field": "output_fields.cluster_id",
+        "patterns": ["{{GROK_PATTERN}}"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "field": "_index",
+        "value": "{{PREFIX}}-{{landscape}}",
+        "if": "ctx.landscape != null"
+      }
+    }
+  ]
+}
