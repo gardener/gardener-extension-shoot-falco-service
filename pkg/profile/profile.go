@@ -185,6 +185,19 @@ func (p *FalcoProfileManager) watch() error {
 	return nil
 }
 
+func classificationRank(c string) int {
+	switch c {
+	case "supported":
+		return 2
+	case "preview":
+		return 1
+	case "deprecated":
+		return 0
+	default:
+		return -1
+	}
+}
+
 func (p *FalcoProfileManager) rebuild() {
 	p.logger.Info("rebuilding FalcoProfile data structures")
 	clear(p.falcoImages)
@@ -209,7 +222,9 @@ func (p *FalcoProfileManager) rebuild() {
 				Version:        q.Version,
 				RulesVersion:   q.RulesVersion,
 			}
-			p.falcoVersions[q.Version] = v
+			if existing, ok := p.falcoVersions[q.Version]; !ok || classificationRank(q.Classification) > classificationRank(existing.Classification) {
+				p.falcoVersions[q.Version] = v
+			}
 		}
 		for _, q := range profile.Spec.Images.Falcosidekick {
 			im := Image{
@@ -225,7 +240,9 @@ func (p *FalcoProfileManager) rebuild() {
 				ExpirationDate: getExpirationDate(q),
 				Version:        q.Version,
 			}
-			p.falcosidekickVersions[q.Version] = v
+			if existing, ok := p.falcosidekickVersions[q.Version]; !ok || classificationRank(q.Classification) > classificationRank(existing.Classification) {
+				p.falcosidekickVersions[q.Version] = v
+			}
 		}
 		for _, q := range profile.Spec.Images.Falcoctl {
 			im := Image{
