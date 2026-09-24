@@ -443,7 +443,7 @@ falcoctl:
     # -- The image repository to pull from.
     repository: falcosecurity/falcoctl
     # -- The image tag to pull.
-    tag: "0.13.0"
+    tag: "0.14.2"
     # Gardener deployment is based on sha256 references
     image: ""
 
