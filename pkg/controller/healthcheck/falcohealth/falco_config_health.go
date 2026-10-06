@@ -13,7 +13,9 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -44,13 +46,21 @@ func (hc *customFalcoHealthCheck) SetLoggerSuffix(provider, extension string) {
 func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	result, err := hc.checkFalco(ctx, request)
 
-	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionFalse && len(result.Codes) > 0 {
-		hc.logger.Info("Custom health check found configuration errors, returning with error codes", "codes", result.Codes)
-		return result, err
+	if err == nil && result != nil {
+		if result.Status == gardencorev1beta1.ConditionFalse && len(result.Codes) > 0 {
+			hc.logger.Info("Custom health check found configuration errors, returning with error codes", "codes", result.Codes)
+			return result, err
+		}
+		if result.Status == gardencorev1beta1.ConditionTrue {
+			// Direct pod inspection confirms all pods are healthy — trust this over the
+			// DaemonSet status counter, which can transiently report NumberUnavailable>0
+			// even when all pods are ready (stale counter after node joins/replacements).
+			return result, err
+		}
 	}
 
 	if hc.daemonSetCheck != nil {
-		hc.logger.V(1).Info("No configuration errors found, falling back to DaemonSet health check")
+		hc.logger.V(1).Info("Pod-level check inconclusive, falling back to DaemonSet health check")
 		nameName := types.NamespacedName{
 			Name:      "falco",
 			Namespace: metav1.NamespaceSystem,
@@ -127,9 +137,39 @@ func (hc *customFalcoHealthCheck) checkFalco(ctx context.Context, request types.
 		}
 	}
 
+	if result := hc.checkFalcosidekick(ctx); result != nil {
+		return result, nil
+	}
+
 	return &healthcheck.SingleCheckResult{
 		Status: gardencorev1beta1.ConditionTrue,
 	}, nil
+}
+
+func (hc *customFalcoHealthCheck) checkFalcosidekick(ctx context.Context) *healthcheck.SingleCheckResult {
+	deployment := &appsv1.Deployment{}
+	err := hc.shootClient.Get(ctx, client.ObjectKey{Namespace: constants.NamespaceKubeSystem, Name: "falcosidekick"}, deployment)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return &healthcheck.SingleCheckResult{
+			Status: gardencorev1beta1.ConditionFalse,
+			Detail: fmt.Sprintf("failed to get Falcosidekick deployment: %v", err),
+		}
+	}
+
+	desired := int32(1)
+	if deployment.Spec.Replicas != nil {
+		desired = *deployment.Spec.Replicas
+	}
+	if deployment.Status.ReadyReplicas < desired {
+		return &healthcheck.SingleCheckResult{
+			Status: gardencorev1beta1.ConditionFalse,
+			Detail: fmt.Sprintf("Falcosidekick deployment unhealthy: %d/%d pods ready", deployment.Status.ReadyReplicas, desired),
+		}
+	}
+	return nil
 }
 
 func isPodReady(pod *corev1.Pod) bool {
