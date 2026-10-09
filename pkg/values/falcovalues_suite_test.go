@@ -77,6 +77,7 @@ func baseReconcileCtx(falcoConf *service.FalcoServiceConfig) *utils.ReconcileCon
 		ShootTechnicalId:   shootSpec.Shoot.Status.TechnicalID,
 		SeedIngressDomain:  shootSpec.Seed.Spec.Ingress.Domain,
 		ClusterIdentity:    shootSpec.Shoot.Status.ClusterIdentity,
+		LoggingBackend:     utils.LoggingBackend{ValiEnabled: true},
 	}
 }
 
