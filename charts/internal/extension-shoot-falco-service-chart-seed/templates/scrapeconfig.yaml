@@ -1,3 +1,4 @@
+{{- if .Values.falcosidekick.enabled }}
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
@@ -59,3 +60,4 @@ spec:
     ca: {}
     cert: {}
     insecureSkipVerify: true
+{{- end }}

@@ -216,11 +216,13 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	reconcileCtx.IsShootDeployment = isShootDeployment(ex)
 	reconcileCtx.IsGardenDeployment = isGardenDeployment(ex)
 
+	// createShootResources must run before createSeedResources: it calls BuildFalcoValues which
+	// sets reconcileCtx.FalcosidekickEnabled, and createSeedResources reads that field.
 	if err := a.createShootResources(ctx, log, reconcileCtx); err != nil {
 		return err
 	}
 
-	if err := a.createSeedResources(ctx, log, namespace); err != nil {
+	if err := a.createSeedResources(ctx, log, reconcileCtx); err != nil {
 		return err
 	}
 	return nil
@@ -258,9 +260,14 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 	return nil
 }
 
-func (a *actuator) createSeedResources(ctx context.Context, log logr.Logger, namespace string) error {
+func (a *actuator) createSeedResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext) error {
+	namespace := reconcileCtx.Namespace
 	log.Info("Creating Falco seed resources for shoot " + namespace)
-	values := map[string]interface{}{}
+	chartValues := map[string]interface{}{
+		"falcosidekick": map[string]interface{}{
+			"enabled": reconcileCtx.FalcosidekickEnabled,
+		},
+	}
 
 	renderer, err := chartrenderer.NewForConfig(a.config)
 	if err != nil {
@@ -269,7 +276,7 @@ func (a *actuator) createSeedResources(ctx context.Context, log logr.Logger, nam
 
 	log.Info("Component is being applied", "component", "shoot-falco-service", "namespace", namespace)
 
-	return a.createManagedResource(ctx, log, namespace, constants.ManagedResourceNameFalcoSeed, "seed", renderer, constants.ManagedResourceNameFalcoChartSeed, namespace, values, nil)
+	return a.createManagedResource(ctx, log, namespace, constants.ManagedResourceNameFalcoSeed, "seed", renderer, constants.ManagedResourceNameFalcoChartSeed, namespace, chartValues, nil)
 }
 
 func (a *actuator) createManagedResource(ctx context.Context, log logr.Logger, namespace, name, class string, renderer chartrenderer.Interface, chartName, chartNamespace string, chartValues map[string]interface{}, injectedLabels map[string]string) error {

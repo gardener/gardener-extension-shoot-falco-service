@@ -220,6 +220,7 @@ var (
 	falcoServiceConfigCluster                 *service.FalcoServiceConfig
 	falcoServiceConfigOpenSearch              *service.FalcoServiceConfig
 	falcoServiceConfigSplunk                  *service.FalcoServiceConfig
+	falcoServiceConfigStdoutOnly              *service.FalcoServiceConfig
 
 	webhookSecrets = &corev1.SecretList{
 		Items: []corev1.Secret{
@@ -539,6 +540,15 @@ func initVersionedConfigs() {
 			{Name: "splunk", ResourceSecretName: stringValue("splunk-config")},
 		},
 	}
+	falcoServiceConfigStdoutOnly = &service.FalcoServiceConfig{
+		FalcoVersion: stringValue(testFalcoVersion),
+		Rules: &service.Rules{
+			StandardRules: []string{"falco-rules"},
+		},
+		Destinations: []service.Destination{
+			{Name: "stdout"},
+		},
+	}
 }
 
 func decode(encoded string) []byte {
@@ -838,6 +848,8 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(err).To(BeNil())
 		Expect(len(js)).To(BeNumerically(">", 100))
 
+		Expect(reconcileCtx.FalcosidekickEnabled).To(BeTrue())
+
 		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
 		Expect(config).To(HaveKey("loki"))
 
@@ -1101,6 +1113,8 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		Expect(err).To(BeNil())
 		Expect(len(js)).To(BeNumerically(">", 100))
 
+		Expect(shootReconcileCtx.FalcosidekickEnabled).To(BeTrue())
+
 		configFalco := values["falco"].(map[string]any)
 		Expect(configFalco).To(HaveKey("stdout_output"))
 
@@ -1154,6 +1168,13 @@ var _ = Describe("It can handle central destination", Label("falcovalues"), func
 		stdout := configFalco["stdout_output"].(map[string]bool)
 		Expect(stdout).To(HaveKey("enabled"))
 		Expect(stdout["enabled"]).To(BeTrue())
+	})
+
+	It("should not enable falcosidekick with stdout-only destination", func() {
+		reconcileCtx := baseReconcileCtx(falcoServiceConfigStdoutOnly)
+		_, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+		Expect(reconcileCtx.FalcosidekickEnabled).To(BeFalse())
 	})
 })
 
