@@ -108,11 +108,11 @@ var (
 		ConfigFalcoSandboxRules,
 	}
 
-	DestinationOutputKeys = map[string]string{
-		FalcoEventDestinationLogging:    "otlp",
-		FalcoEventDestinationCustom:     "webhook",
-		FalcoEventDestinationOpenSearch: "elasticsearch",
-		FalcoEventDestinationSplunk:     "splunk",
-		FalcoEventDestinationCentral:    "webhook",
+	DestinationOutputKeys = map[string][]string{
+		FalcoEventDestinationLogging:    {"loki", "otlp"},
+		FalcoEventDestinationCustom:     {"webhook"},
+		FalcoEventDestinationOpenSearch: {"elasticsearch"},
+		FalcoEventDestinationSplunk:     {"splunk"},
+		FalcoEventDestinationCentral:    {"webhook"},
 	}
 )
