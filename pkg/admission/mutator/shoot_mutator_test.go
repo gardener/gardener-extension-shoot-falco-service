@@ -22,6 +22,7 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	serviceinstall "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service/install"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/profile"
 )
 
@@ -350,6 +351,32 @@ func TestSetAutoUpdate(t *testing.T) {
 		t.Error("Autoupdate not set")
 	} else if !*falcoConf.AutoUpdate {
 		t.Error("AutoUpdate not set to default true")
+	}
+}
+
+func TestSetDestinations(t *testing.T) {
+	// no destinations, non-testing shoot → default to logging
+	falcoConf := &service.FalcoServiceConfig{}
+	setDestinations(falcoConf, nil)
+	if len(falcoConf.Destinations) != 1 || falcoConf.Destinations[0].Name != constants.FalcoEventDestinationLogging {
+		t.Errorf("expected default destination %q, got %v", constants.FalcoEventDestinationLogging, falcoConf.Destinations)
+	}
+
+	// no destinations, testing shoot → default to stdout
+	testingPurpose := gardencorev1beta1.ShootPurposeTesting
+	falcoConf = &service.FalcoServiceConfig{}
+	setDestinations(falcoConf, &testingPurpose)
+	if len(falcoConf.Destinations) != 1 || falcoConf.Destinations[0].Name != constants.FalcoEventDestinationStdout {
+		t.Errorf("expected default destination %q for testing shoot, got %v", constants.FalcoEventDestinationStdout, falcoConf.Destinations)
+	}
+
+	// existing destinations are not overwritten
+	falcoConf = &service.FalcoServiceConfig{
+		Destinations: []service.Destination{{Name: constants.FalcoEventDestinationStdout}},
+	}
+	setDestinations(falcoConf, &testingPurpose)
+	if len(falcoConf.Destinations) != 1 || falcoConf.Destinations[0].Name != constants.FalcoEventDestinationStdout {
+		t.Errorf("existing destinations should not be overwritten, got %v", falcoConf.Destinations)
 	}
 }
 
