@@ -81,7 +81,7 @@ Below is the full configuration, explained in detail:
         custom:
         - resourceName: rules1
       destinations:
-        # Possible values: stdout, logging, custom, opensearch, splunk, otlp
+        # Possible values: stdout, logging, custom, opensearch, splunk
         - name: custom
           # Options, may be required to configure destination
           resourceSecretName: secret
