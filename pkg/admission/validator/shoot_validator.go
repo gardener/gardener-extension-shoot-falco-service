@@ -40,11 +40,6 @@ type FalcoWebhookOptions struct {
 	// if set to true, project namespace must be annotated with falco.gardener.cloud/centralized-logging=true
 	// to use the Gardener manged centralized logging solution
 	RestrictedCentralizedLogging bool
-
-	// if set to true the otlp logging destination is available. This is a temporary
-	// switch for development purposes. When finished, logging will be switched to
-	// use OTLP to log to vali
-	OtlpLogging bool
 }
 
 var DefaultFalcoWebhookOptions = FalcoWebhookOptions{}
@@ -63,14 +58,12 @@ func (c *FalcoWebhookOptions) Completed() *FalcoWebhookOptions {
 func (c *FalcoWebhookOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&c.RestrictedUsage, "restricted-usage", false, "if set to true, project namespaces must be annotated with falco.gardener.cloud/enabled=true to deploy Falco in their shoot clusters")
 	fs.BoolVar(&c.RestrictedCentralizedLogging, "restricted-centralized-logging", false, "if set to true, project namespaces must be annotated with falco.gardener.cloud/centralized-logging=true to use the Gardener manged centralized logging solution")
-	fs.BoolVar(&c.OtlpLogging, "otlp-logging", false, "if set to true the OTLP destination \"otlp\" is available")
 }
 
 // Apply sets the values of this Config in the given config.ControllerConfiguration.
 func (c *FalcoWebhookOptions) Apply(config *FalcoWebhookOptions) {
 	config.RestrictedCentralizedLogging = c.RestrictedCentralizedLogging
 	config.RestrictedUsage = c.RestrictedUsage
-	config.OtlpLogging = c.OtlpLogging
 }
 
 // NewShootValidator returns a new instance of a shoot validator.
@@ -93,7 +86,6 @@ func NewShootValidatorWithOption(mgr manager.Manager, options *FalcoWebhookOptio
 		decoder:                  serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		restrictedUsage:          restrictedUsage,
 		restrictedCentralLogging: options.RestrictedCentralizedLogging,
-		otlpLoggingDestination:   options.OtlpLogging,
 		globalDefaultKeys:        confighelper.GlobalDefaultKeyMap(globalDefaults),
 	}
 }
@@ -104,7 +96,6 @@ type shoot struct {
 	decoder                  runtime.Decoder
 	restrictedUsage          bool
 	restrictedCentralLogging bool
-	otlpLoggingDestination   bool
 	globalDefaultKeys        map[string]string
 }
 
@@ -161,13 +152,6 @@ func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot, oldShoot *
 				constants.FalcoEventDestinationLogging,
 				constants.FalcoEventDestinationCustom,
 			)
-		}
-	}
-
-	// restricted OTLP logging
-	for _, dest := range falcoConf.Destinations {
-		if dest.Name == "otlp" && !s.otlpLoggingDestination {
-			return fmt.Errorf("destination \"otlp\" is not configured")
 		}
 	}
 
@@ -344,11 +328,13 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 		eventDestinationNames = append(eventDestinationNames, dest.Name)
 
 		if !isDisabled {
-			key, ok := constants.DestinationOutputKeys[dest.Name]
+			keys, ok := constants.DestinationOutputKeys[dest.Name]
 			if !ok {
-				key, ok = s.globalDefaultKeys[dest.Name]
+				if singleKey, ok2 := s.globalDefaultKeys[dest.Name]; ok2 {
+					keys = []string{singleKey}
+				}
 			}
-			if ok {
+			for _, key := range keys {
 				if len(usedOutputKeys[key]) != 0 {
 					return fmt.Errorf("multiple enabled destinations use the same output key %q", key)
 				}

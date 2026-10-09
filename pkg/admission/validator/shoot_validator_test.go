@@ -738,7 +738,8 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 				Name: constants.FalcoEventDestinationLogging,
 			},
 			{
-				Name: constants.FalcoEventDestinationOTLP,
+				Name:               constants.FalcoEventDestinationOpenSearch,
+				ResourceSecretName: stringValue("test-secret"),
 			},
 		}
 		err = s.verifyEventDestinations(falcoConf, genericShootWithSecret)

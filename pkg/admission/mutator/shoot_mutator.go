@@ -479,8 +479,10 @@ func (s *Shoot) injectGlobalDefaults(ctx context.Context, falcoConf *service.Fal
 		if !servicehelper.IsDestinationEnabled(dest) {
 			continue
 		}
-		if key, ok := constants.DestinationOutputKeys[dest.Name]; ok {
-			usedOutputKeys[key] = struct{}{}
+		if keys, ok := constants.DestinationOutputKeys[dest.Name]; ok {
+			for _, key := range keys {
+				usedOutputKeys[key] = struct{}{}
+			}
 		}
 	}
 

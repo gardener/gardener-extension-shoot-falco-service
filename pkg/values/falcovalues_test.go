@@ -158,6 +158,7 @@ var (
 		ResourceSection:   shootSpec.Shoot.Spec.Resources,
 		Shoot:             shootSpec.Shoot,
 		Seed:              shootSpec.Seed,
+		LoggingBackend:    utils.LoggingBackend{ValiEnabled: true},
 	}
 
 	falcoServiceConfig = &service.FalcoServiceConfig{
@@ -857,6 +858,39 @@ var _ = Describe("Test value generation for helm chart without central storage",
 
 		Expect(loggingConf).To(HaveKey("endpoint"))
 		Expect(loggingConf["endpoint"].(string)).To(Equal("/vali/api/v1/push"))
+	})
+
+	It("Test cluster OTLP logging functionality", func(ctx SpecContext) {
+		reconcileCtx := baseReconcileCtx(falcoServiceConfigCluster)
+		reconcileCtx.LoggingBackend = utils.LoggingBackend{OtelCollectorEnabled: true}
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		Expect(config).NotTo(HaveKey("loki"))
+		Expect(config).To(HaveKey("otlp"))
+
+		otlpConf := config["otlp"].(map[string]interface{})["logs"].(map[string]interface{})
+		Expect(otlpConf["endpoint"].(string)).To(And(
+			ContainSubstring("https://otc-"),
+			ContainSubstring(shootSpec.Seed.Spec.Ingress.Domain),
+			HaveSuffix(":443"),
+		))
+		Expect(otlpConf["protocol"].(string)).To(Equal("grpc"))
+		Expect(otlpConf["checkcert"].(bool)).To(BeFalse())
+		Expect(otlpConf["tls"].(bool)).To(BeTrue())
+		Expect(otlpConf["headers"].(string)).To(ContainSubstring("Authorization=Bearer"))
+	})
+
+	It("Test cluster logging with both Vali and OTLP", func(ctx SpecContext) {
+		reconcileCtx := baseReconcileCtx(falcoServiceConfigCluster)
+		reconcileCtx.LoggingBackend = utils.LoggingBackend{ValiEnabled: true, OtelCollectorEnabled: true}
+		values, err := configBuilder.BuildFalcoValues(context.TODO(), logger, reconcileCtx)
+		Expect(err).To(BeNil())
+
+		config := values["falcosidekick"].(map[string]interface{})["config"].(map[string]interface{})
+		Expect(config).To(HaveKey("loki"))
+		Expect(config).To(HaveKey("otlp"))
 	})
 
 	It("Test simple values generation", func(ctx SpecContext) {
