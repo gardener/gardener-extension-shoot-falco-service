@@ -14,5 +14,3 @@ data:
     {{- toYaml .Values.falco | nindent 4 }}
     {{- include "falco.containerPlugin" . -}}
     {{- include "k8smeta.configuration" . -}}
-
-

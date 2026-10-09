@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- if .Values.falcoIncubatingRules }}
 apiVersion: v1
 kind: ConfigMap
@@ -8,3 +9,4 @@ data:
   falco-incubating_rules.yaml: |-
 {{ .Values.falcoIncubatingRules | indent 4 }}
 {{- end}}
+{{- end }}

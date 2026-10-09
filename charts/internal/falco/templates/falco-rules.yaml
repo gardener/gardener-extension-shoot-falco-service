@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- if .Values.falcoRules }}
 apiVersion: v1
 kind: ConfigMap
@@ -8,3 +9,4 @@ data:
   falco_rules.yaml: |-
 {{ .Values.falcoRules | indent 4 }}
 {{- end}}
+{{- end }}

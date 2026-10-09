@@ -18,7 +18,15 @@ from falcotest.falcolib import ensure_extension_not_deployed, get_falco_extensio
             falco_pod_label_selector, get_secret, label_node, \
             get_token_lifetime, get_token_public_key, delete_configmaps, \
             delete_event_generator_pod, get_nodes, get_falco_pods, \
-            get_falco_sidekick_pods
+            get_falco_sidekick_pods, \
+            add_machine_type_to_cloudprofile, remove_machine_type_from_cloudprofile, \
+            add_worker_pool_to_shoot, remove_worker_pool_from_shoot, \
+            wait_for_daemonsets, wait_for_daemonsets_absent, get_daemonset_resources, \
+            wait_for_shoot_reconciled_and_healthy, \
+            get_shoot_cloud_profile_name, get_shoot, \
+            assert_shoot_system_components_healthy, \
+            wait_for_shoot_system_components_healthy, \
+            get_daemonset_node_selector, get_daemonset_affinity
 
 
 logger = logging.getLogger(__name__)
@@ -549,3 +557,478 @@ def test_node_selector(garden_api_client, shoot_api_client, project_namespace: s
 
     logger.info("Undeploying falco extension")
     ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+
+
+# ---------------------------------------------------------------------------
+# AdaptiveResources integration tests
+# ---------------------------------------------------------------------------
+#
+# These tests add three temporary worker pools (min=max=0) with different
+# memory tiers.  No real VMs are provisioned; the tests verify the DaemonSet
+# specs rendered by the extension — resource values, nodeSelectors, affinity.
+#
+# The machine types must exist in the cloud profile (or be auto-added via
+# placeholder capacity).  Only the machine type capacity metadata is used;
+# no nodes are actually scheduled.
+#
+# Required pytest options (skip tests if absent):
+#   --adaptive-machine-small   machine type name with ~4-8 GiB RAM
+#   --adaptive-machine-medium  machine type name with ~8-16 GiB RAM
+#   --adaptive-machine-large   machine type name with >16 GiB RAM
+#
+# Formula used across both tests:
+#   cpuRequest:    NodeMemoryGi < 10 ? 200 : (NodeMemoryGi < 20 ? 400 : 800)
+#   memoryRequest: NodeMemoryGi * 8
+#
+# Expected results for the default placeholder capacities (8/16/32 GiB):
+#   small  (8 GiB)  → cpu=200m, memory=64Mi
+#   medium (16 GiB) → cpu=400m, memory=128Mi
+#   large  (32 GiB) → cpu=800m, memory=256Mi
+
+# Threshold and formula constants, expressed in terms of NodeMemoryGi so that
+# the same logic works for any three tiers satisfying the tier boundaries below.
+_CPU_FORMULA = "NodeMemoryGi < 10 ? 200 : (NodeMemoryGi < 20 ? 400 : 800)"
+_MEM_FORMULA = "NodeMemoryGi * 8"
+
+# Worker-pool names added temporarily by the adaptive tests (max 15 bytes each).
+_POOL_SMALL  = "falco-sm"
+_POOL_MEDIUM = "falco-md"
+_POOL_LARGE  = "falco-lg"
+
+
+# Per-test-run set of machine type names that were added by _setup_adaptive_pools
+# and therefore must be removed by _teardown_adaptive_pools.  Populated at
+# setup time so teardown does not need to inspect the cloud profile.
+_added_machine_types: set[str] = set()
+
+
+def _make_worker_pool(pool_name, machine_type, template: dict = None):
+    """Build a worker pool spec, optionally inheriting provider fields from a template pool."""
+    pool = {
+        "name": pool_name,
+        "machine": {"type": machine_type},
+        "cri": {"name": "containerd"},
+        "minimum": 0,
+        "maximum": 0,
+        "maxSurge": 1,
+        "maxUnavailable": 0,
+    }
+    if template:
+        # Inherit provider-required fields that vary by cloud provider.
+        for key in ("volume", "zones", "providerConfig"):
+            if key in template:
+                pool[key] = template[key]
+        # Inherit machine image from template if not overriding machine type image.
+        if "machine" in template and "image" in template["machine"]:
+            pool["machine"]["image"] = template["machine"]["image"]
+    return pool
+
+
+# Placeholder capacity for machine types that do not yet exist in the cloud
+# profile (e.g. on a local/fake provider).  Keyed by the three tier names
+# passed via --adaptive-machine-small/medium/large at setup time.
+_PLACEHOLDER_CAPACITY = {
+    "small":  {"cpu": "2",  "memory": "8Gi"},
+    "medium": {"cpu": "4",  "memory": "16Gi"},
+    "large":  {"cpu": "8",  "memory": "32Gi"},
+}
+
+
+def _setup_adaptive_pools(garden_api_client, project_namespace, shoot_name,
+                          cloud_profile_name, small_type, medium_type, large_type):
+    """Add machine types (if missing) and worker pools (min=max=0, no VMs provisioned).
+
+    add_machine_type_to_cloudprofile is idempotent: it returns False (and skips
+    the patch) when the type is already present.  We track which types were
+    actually added so teardown can remove them without inspecting the cloud profile.
+    """
+    global _added_machine_types
+    _added_machine_types = set()
+
+    for tier, mt_name in [("small", small_type), ("medium", medium_type), ("large", large_type)]:
+        cap = _PLACEHOLDER_CAPACITY[tier]
+        entry = {
+            "name":         mt_name,
+            "cpu":          cap["cpu"],
+            "gpu":          "0",
+            "memory":       cap["memory"],
+            "architecture": "amd64",
+            "usable":       True,
+        }
+        added = add_machine_type_to_cloudprofile(garden_api_client, cloud_profile_name, entry)
+        if added:
+            _added_machine_types.add(mt_name)
+            logger.info(f"Added machine type {mt_name} to cloud profile {cloud_profile_name}")
+        else:
+            logger.info(f"Machine type {mt_name} already in cloud profile {cloud_profile_name}, will not remove on teardown")
+
+    for pool_name, machine_type in [
+        (_POOL_SMALL,  small_type),
+        (_POOL_MEDIUM, medium_type),
+        (_POOL_LARGE,  large_type),
+    ]:
+        # Read a fresh copy of the shoot each time in case workers list changed.
+        shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
+        existing_workers = shoot["spec"]["provider"].get("workers", [])
+        template = existing_workers[0] if existing_workers else None
+        add_worker_pool_to_shoot(
+            garden_api_client, project_namespace, shoot_name,
+            _make_worker_pool(pool_name, machine_type, template))
+
+
+def _teardown_adaptive_pools(garden_api_client, project_namespace, shoot_name,
+                             cloud_profile_name, small_type, medium_type, large_type):
+    """Remove worker pools, wait for reconcile, then remove machine types we added."""
+    ensure_extension_not_deployed(garden_api_client, None, project_namespace, shoot_name)
+    for pool_name in [_POOL_SMALL, _POOL_MEDIUM, _POOL_LARGE]:
+        remove_worker_pool_from_shoot(
+            garden_api_client, project_namespace, shoot_name, pool_name)
+    wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+
+    # Only remove machine types that this test run added (not pre-existing types).
+    for mt_name in _added_machine_types:
+        remove_machine_type_from_cloudprofile(garden_api_client, cloud_profile_name, mt_name)
+
+
+def test_adaptive_resources(
+    garden_api_client,
+    shoot_api_client,
+    project_namespace,
+    shoot_name,
+    adaptive_cloud_profile,
+    adaptive_machine_small,
+    adaptive_machine_medium,
+    adaptive_machine_large,
+):
+    """Deploy Falco with per-pool DaemonSets sized by formula expressions.
+
+    Scenario
+    --------
+    Three temporary worker pools (min=max=0) are added to the shoot — no VMs
+    are provisioned.  The FalcoServiceConfig sets a global cpuRequest formula
+    that produces distinct values for each memory tier based on the machine
+    type capacity recorded in the cloud profile:
+
+        NodeMemoryGi < 10  → 200m   (small,  8 GiB placeholder)
+        NodeMemoryGi < 20  → 400m   (medium, 16 GiB placeholder)
+        else               → 800m   (large,  32 GiB placeholder)
+
+    Verifications
+    -------------
+    1. Per-pool DaemonSets falco-<pool> are created; the monolithic 'falco'
+       DaemonSet is absent.
+    2. The falco-default DaemonSet (DoesNotExist affinity) exists.
+    3. Each per-pool DaemonSet carries the correct nodeSelector.
+    4. cpuRequest and memoryRequest on each DaemonSet match the formula output
+       for that pool's machine-type capacity (read from cloud profile metadata,
+       no actual nodes needed).
+    5. After reconcile the shoot's SystemComponentsHealthy condition is True.
+    6. Full teardown removes all per-pool DaemonSets.
+    """
+    if not all([adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large]):
+        pytest.skip(
+            "Adaptive resources test requires --adaptive-machine-small, "
+            "--adaptive-machine-medium, and --adaptive-machine-large"
+        )
+
+    cloud_profile = adaptive_cloud_profile or get_shoot_cloud_profile_name(
+        garden_api_client, project_namespace, shoot_name)
+    assert cloud_profile, "Could not determine cloud profile name"
+
+    logger.info(
+        f"test_adaptive_resources: cloud_profile={cloud_profile} "
+        f"small={adaptive_machine_small} medium={adaptive_machine_medium} "
+        f"large={adaptive_machine_large}"
+    )
+
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+
+    _setup_adaptive_pools(
+        garden_api_client, project_namespace, shoot_name,
+        cloud_profile,
+        adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large,
+    )
+
+    try:
+        # ------------------------------------------------------------------
+        # Deploy Falco with formula-based resources
+        # ------------------------------------------------------------------
+        extension_config = {
+            "type": "shoot-falco-service",
+            "providerConfig": {
+                "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+                "kind": "FalcoServiceConfig",
+                "rules": {"standard": ["falco-rules"]},
+                "destinations": [{"name": "stdout"}],
+                "falcoConfig": {
+                    "resources": {
+                        "requests": {
+                            "cpu":    _CPU_FORMULA,
+                            "memory": _MEM_FORMULA,
+                        }
+                    }
+                },
+            },
+        }
+        error = add_falco_to_shoot(
+            garden_api_client, project_namespace, shoot_name,
+            extension_config=extension_config)
+        assert error is None, f"add_falco_to_shoot failed: {error}"
+
+        wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+
+        # ------------------------------------------------------------------
+        # 1. Per-pool DaemonSets exist; monolithic 'falco' is absent
+        # ------------------------------------------------------------------
+        expected_ds = [
+            f"falco-{_POOL_SMALL}",
+            f"falco-{_POOL_MEDIUM}",
+            f"falco-{_POOL_LARGE}",
+            "falco-default",
+        ]
+        wait_for_daemonsets(shoot_api_client, expected_ds, timeout_seconds=300)
+        wait_for_daemonsets_absent(shoot_api_client, ["falco"], timeout_seconds=120)
+        logger.info("Per-pool DaemonSets present; monolithic DaemonSet absent")
+
+        # ------------------------------------------------------------------
+        # 2. falco-default has DoesNotExist affinity on worker-pool label
+        # ------------------------------------------------------------------
+        affinity = get_daemonset_affinity(shoot_api_client, "falco-default")
+        assert affinity is not None, "falco-default has no affinity"
+        terms = (
+            affinity.node_affinity
+            .required_during_scheduling_ignored_during_execution
+            .node_selector_terms
+        )
+        expressions = terms[0].match_expressions
+        does_not_exist = any(
+            e.key == "worker.gardener.cloud/pool" and e.operator == "DoesNotExist"
+            for e in expressions
+        )
+        assert does_not_exist, (
+            "falco-default does not have DoesNotExist affinity on worker.gardener.cloud/pool"
+        )
+        logger.info("falco-default affinity correct")
+
+        # ------------------------------------------------------------------
+        # 3. Per-pool DaemonSets carry the correct nodeSelector
+        # ------------------------------------------------------------------
+        for pool_name in [_POOL_SMALL, _POOL_MEDIUM, _POOL_LARGE]:
+            ds_name = f"falco-{pool_name}"
+            ns = get_daemonset_node_selector(shoot_api_client, ds_name)
+            assert ns.get("worker.gardener.cloud/pool") == pool_name, (
+                f"{ds_name}: expected nodeSelector worker.gardener.cloud/pool={pool_name}, got {ns}"
+            )
+        logger.info("Per-pool DaemonSet nodeSelectors correct")
+
+        # ------------------------------------------------------------------
+        # 4. Resource values match formula output for each machine-type tier
+        #
+        # Formula: NodeMemoryGi < 10 → 200m; < 20 → 400m; else → 800m
+        # Memory:  NodeMemoryGi * 8  → 64Mi / 128Mi / 256Mi
+        # ------------------------------------------------------------------
+        expected_resources = {
+            _POOL_SMALL:  {"cpu": "200m", "memory": "64Mi"},   # 8 GiB tier
+            _POOL_MEDIUM: {"cpu": "400m", "memory": "128Mi"},  # 16 GiB tier
+            _POOL_LARGE:  {"cpu": "800m", "memory": "256Mi"},  # 32 GiB tier
+        }
+        for pool_name, want in expected_resources.items():
+            ds_name = f"falco-{pool_name}"
+            resources = get_daemonset_resources(shoot_api_client, ds_name)
+            logger.info(f"{ds_name} resources: {resources}")
+            requests = resources.get("requests", {})
+            assert requests.get("cpu") == want["cpu"], (
+                f"{ds_name}: expected cpuRequest={want['cpu']}, got {requests.get('cpu')}"
+            )
+            assert requests.get("memory") == want["memory"], (
+                f"{ds_name}: expected memoryRequest={want['memory']}, got {requests.get('memory')}"
+            )
+        logger.info("Per-pool DaemonSet resource values correct")
+
+        # ------------------------------------------------------------------
+        # 5. Shoot SystemComponentsHealthy=True (extension health check)
+        # ------------------------------------------------------------------
+        wait_for_shoot_system_components_healthy(
+            garden_api_client, project_namespace, shoot_name, timeout_seconds=180)
+        assert_shoot_system_components_healthy(
+            garden_api_client, project_namespace, shoot_name)
+        logger.info("SystemComponentsHealthy=True confirmed")
+
+        # ------------------------------------------------------------------
+        # 6. Teardown: all adaptive DaemonSets disappear
+        # ------------------------------------------------------------------
+        ensure_extension_not_deployed(
+            garden_api_client, shoot_api_client, project_namespace, shoot_name)
+        wait_for_daemonsets_absent(
+            shoot_api_client,
+            expected_ds + ["falco"],
+            timeout_seconds=180,
+        )
+        logger.info("All adaptive DaemonSets removed after teardown")
+
+    finally:
+        _teardown_adaptive_pools(
+            garden_api_client, project_namespace, shoot_name,
+            cloud_profile,
+            adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large,
+        )
+
+
+def test_adaptive_resources_per_pool_override(
+    garden_api_client,
+    shoot_api_client,
+    project_namespace,
+    shoot_name,
+    adaptive_cloud_profile,
+    adaptive_machine_small,
+    adaptive_machine_medium,
+    adaptive_machine_large,
+):
+    """Deploy Falco with a global literal resource default and a per-pool override.
+
+    Scenario
+    --------
+    The FalcoServiceConfig sets:
+      - falcoConfig.resources: literal default cpuRequest=150m, memoryRequest=128Mi
+      - falcoConfig.workerPoolResources[falco-test-large]: cpuRequest=900m
+
+    Verifications
+    -------------
+    1. falco-<small> and falco-<medium> DaemonSets use the global default: 150m / 128Mi.
+    2. falco-<large> DaemonSet uses the per-pool override: 900m / 128Mi (memory
+       falls back to the global default because it is not overridden).
+    3. falco-default DaemonSet uses chart defaults (no resources injected, since
+       falco-default has no machine type context and inherits nothing).
+    4. SystemComponentsHealthy=True after reconcile.
+    """
+    if not all([adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large]):
+        pytest.skip(
+            "Adaptive resources test requires --adaptive-machine-small, "
+            "--adaptive-machine-medium, and --adaptive-machine-large"
+        )
+
+    cloud_profile = adaptive_cloud_profile or get_shoot_cloud_profile_name(
+        garden_api_client, project_namespace, shoot_name)
+    assert cloud_profile, "Could not determine cloud profile name"
+
+    logger.info(
+        f"test_adaptive_resources_per_pool_override: cloud_profile={cloud_profile} "
+        f"small={adaptive_machine_small} medium={adaptive_machine_medium} "
+        f"large={adaptive_machine_large}"
+    )
+
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+
+    _setup_adaptive_pools(
+        garden_api_client, project_namespace, shoot_name,
+        cloud_profile,
+        adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large,
+    )
+
+    try:
+        # ------------------------------------------------------------------
+        # Deploy Falco: global literal default + per-pool override for large
+        # ------------------------------------------------------------------
+        extension_config = {
+            "type": "shoot-falco-service",
+            "providerConfig": {
+                "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+                "kind": "FalcoServiceConfig",
+                "rules": {"standard": ["falco-rules"]},
+                "destinations": [{"name": "stdout"}],
+                "falcoConfig": {
+                    "resources": {
+                        "requests": {
+                            "cpu":    "150m",
+                            "memory": "128Mi",
+                        }
+                    },
+                    "workerPoolResources": {
+                        _POOL_LARGE: {
+                            "requests": {
+                                "cpu": "900m",
+                                # memory intentionally omitted — should fall back
+                                # to the global default of 128Mi
+                            }
+                        }
+                    },
+                },
+            },
+        }
+        error = add_falco_to_shoot(
+            garden_api_client, project_namespace, shoot_name,
+            extension_config=extension_config)
+        assert error is None, f"add_falco_to_shoot failed: {error}"
+
+        wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+
+        expected_ds = [
+            f"falco-{_POOL_SMALL}",
+            f"falco-{_POOL_MEDIUM}",
+            f"falco-{_POOL_LARGE}",
+            "falco-default",
+        ]
+        wait_for_daemonsets(shoot_api_client, expected_ds, timeout_seconds=300)
+
+        # ------------------------------------------------------------------
+        # 1. small and medium use the global default
+        # ------------------------------------------------------------------
+        for pool_name in [_POOL_SMALL, _POOL_MEDIUM]:
+            ds_name = f"falco-{pool_name}"
+            resources = get_daemonset_resources(shoot_api_client, ds_name)
+            logger.info(f"{ds_name} resources: {resources}")
+            requests = resources.get("requests", {})
+            assert requests.get("cpu") == "150m", (
+                f"{ds_name}: expected global default cpuRequest=150m, got {requests.get('cpu')}"
+            )
+            assert requests.get("memory") == "128Mi", (
+                f"{ds_name}: expected global default memoryRequest=128Mi, got {requests.get('memory')}"
+            )
+        logger.info("Small and medium pools use global default resources")
+
+        # ------------------------------------------------------------------
+        # 2. large uses the per-pool override for cpu; memory falls back to global
+        # ------------------------------------------------------------------
+        large_ds = f"falco-{_POOL_LARGE}"
+        resources = get_daemonset_resources(shoot_api_client, large_ds)
+        logger.info(f"{large_ds} resources: {resources}")
+        requests = resources.get("requests", {})
+        assert requests.get("cpu") == "900m", (
+            f"{large_ds}: expected per-pool override cpuRequest=900m, got {requests.get('cpu')}"
+        )
+        assert requests.get("memory") == "128Mi", (
+            f"{large_ds}: expected global default memoryRequest=128Mi (not overridden), "
+            f"got {requests.get('memory')}"
+        )
+        logger.info("Large pool uses per-pool cpu override with global memory fallback")
+
+        # ------------------------------------------------------------------
+        # 3. falco-default does not carry injected resource values
+        #    (uses chart defaults; no machine type context for evaluation)
+        # ------------------------------------------------------------------
+        default_resources = get_daemonset_resources(shoot_api_client, "falco-default")
+        logger.info(f"falco-default resources: {default_resources}")
+        if default_resources.get("requests"):
+            for key in ("cpu", "memory"):
+                val = default_resources["requests"].get(key, "")
+                assert val not in ("150m", "128Mi", "900m"), (
+                    f"falco-default should not inherit injected resource values, "
+                    f"but found requests.{key}={val}"
+                )
+        logger.info("falco-default uses chart defaults (no injected resource values)")
+
+        # ------------------------------------------------------------------
+        # 4. SystemComponentsHealthy=True
+        # ------------------------------------------------------------------
+        wait_for_shoot_system_components_healthy(
+            garden_api_client, project_namespace, shoot_name, timeout_seconds=180)
+        assert_shoot_system_components_healthy(
+            garden_api_client, project_namespace, shoot_name)
+        logger.info("SystemComponentsHealthy=True confirmed")
+
+    finally:
+        _teardown_adaptive_pools(
+            garden_api_client, project_namespace, shoot_name,
+            cloud_profile,
+            adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large,
+        )
