@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- if .Values.heartbeatRule }}
 apiVersion: v1
 kind: ConfigMap
@@ -7,4 +8,5 @@ metadata:
 data:
   heartbeat_rule.yaml: |-
 {{ .Values.heartbeatRule | indent 4 }}
+{{- end }}
 {{- end }}

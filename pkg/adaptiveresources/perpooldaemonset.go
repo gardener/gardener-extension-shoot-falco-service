@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
-	"strings"
 
 	gardenerv1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -21,26 +20,34 @@ import (
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
 )
 
-// RenderPerPoolDaemonSets renders one Falco DaemonSet per worker pool plus a fallback DaemonSet for nodes
-// without a pool label. The caller provides a base values map (already rendered for the standard single-DaemonSet
-// deployment) which is cloned per pool; only the resource/nodeSelector/affinity keys are overridden.
+// PoolManifest holds the rendered YAML manifest for a single worker pool's
+// DaemonSet and falco.yaml ConfigMap.
+type PoolManifest struct {
+	// PoolName is the worker pool name (matches the worker.Name field).
+	PoolName string
+	// Manifest is the rendered YAML containing the DaemonSet and ConfigMap.
+	Manifest []byte
+}
+
+// RenderPerPoolDaemonSets renders the Falco resources for a shoot with per-pool DaemonSets.
 //
-// Returns a single combined YAML manifest suitable for embedding in a ManagedResource.
+// It returns:
+//   - sharedManifest: the falco-default DaemonSet, its ConfigMap, and all shared resources
+//     (falcosidekick, RBAC, certs, rules). Intended for the main ManagedResource.
+//   - poolManifests: one entry per worker pool, each containing only the pool-specific
+//     DaemonSet and its falco.yaml ConfigMap. Intended for per-pool ManagedResources.
 func RenderPerPoolDaemonSets(
 	renderer chartrenderer.Interface,
 	baseValues map[string]any,
 	workers []gardenerv1beta1.Worker,
 	cloudProfile *gardenerv1beta1.CloudProfile,
 	falcoConfig *apisservice.FalcoConfig,
-) ([]byte, error) {
+) (sharedManifest []byte, poolManifests []PoolManifest, err error) {
 	// Build a name→MachineType index from the cloud profile.
 	machineTypeIndex := buildMachineTypeIndex(cloudProfile)
 
-	var manifests []string
-
-	// One DaemonSet per worker pool.
+	// One DaemonSet + ConfigMap per worker pool.
 	for _, worker := range workers {
-		// Determine which FalcoResources apply for this pool.
 		var poolResources *apisservice.FalcoResources
 		if falcoConfig != nil {
 			if pr, ok := falcoConfig.WorkerPoolResources[worker.Name]; ok {
@@ -55,48 +62,54 @@ func RenderPerPoolDaemonSets(
 		poolValues["nodeSelector"] = map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
+		// daemonSetOnly=true suppresses all shared resources (falcosidekick, RBAC, certs,
+		// rules ConfigMaps) but leaves the DaemonSet and falco.yaml ConfigMap enabled.
+		poolValues["daemonSetOnly"] = true
 		delete(poolValues, "affinity")
 
 		if poolResources != nil {
-			compiled, err := formula.Compile(poolResources)
-			if err != nil {
-				return nil, fmt.Errorf("compiling resources for pool %q: %w", worker.Name, err)
+			compiled, compileErr := formula.Compile(poolResources)
+			if compileErr != nil {
+				return nil, nil, fmt.Errorf("compiling resources for pool %q: %w", worker.Name, compileErr)
 			}
-			env, err := buildNodeEnv(worker.Machine.Type, machineTypeIndex)
-			if err != nil {
-				// If the machine type is unknown we skip resource injection and rely on chart defaults.
+			env, envErr := buildNodeEnv(worker.Machine.Type, machineTypeIndex)
+			if envErr != nil {
+				// Unknown machine type: skip resource injection, rely on chart defaults.
 				env = formula.NodeEnv{}
 			}
-			resourceResult, err := compiled.Eval(env)
-			if err != nil {
-				return nil, fmt.Errorf("evaluating resources for pool %q: %w", worker.Name, err)
+			resourceResult, evalErr := compiled.Eval(env)
+			if evalErr != nil {
+				return nil, nil, fmt.Errorf("evaluating resources for pool %q: %w", worker.Name, evalErr)
 			}
 			applyResourceResult(poolValues, resourceResult)
 		}
 
-		manifest, err := renderChart(renderer, poolValues)
-		if err != nil {
-			return nil, fmt.Errorf("rendering chart for pool %q: %w", worker.Name, err)
+		manifest, renderErr := renderChart(renderer, poolValues)
+		if renderErr != nil {
+			return nil, nil, fmt.Errorf("rendering chart for pool %q: %w", worker.Name, renderErr)
 		}
-		manifests = append(manifests, manifest)
+		poolManifests = append(poolManifests, PoolManifest{
+			PoolName: worker.Name,
+			Manifest: []byte(manifest),
+		})
 	}
 
-	// Fallback DaemonSet for nodes that have no pool label (should not normally exist in Gardener shoots).
+	// Shared render: falco-default DaemonSet + ConfigMap + all shared resources.
+	// daemonSetOnly is absent so every template renders.
 	defaultValues := cloneValues(baseValues)
 	defaultValues["fullnameOverride"] = "falco-default"
 	delete(defaultValues, "nodeSelector")
-	// Remove any formula-derived resource values; falco-default has no machine type to evaluate against,
-	// so we fall back to chart defaults. Per-pool DaemonSets get their own resource values computed above.
+	// Remove any resource values from baseValues — falco-default has no machine type
+	// to evaluate against, so it uses chart defaults.
 	delete(defaultValues, "resources")
 	defaultValues["affinity"] = buildDoesNotExistAffinity()
 
-	defaultManifest, err := renderChart(renderer, defaultValues)
-	if err != nil {
-		return nil, fmt.Errorf("rendering default DaemonSet: %w", err)
+	defaultManifest, renderErr := renderChart(renderer, defaultValues)
+	if renderErr != nil {
+		return nil, nil, fmt.Errorf("rendering shared/default DaemonSet: %w", renderErr)
 	}
-	manifests = append(manifests, defaultManifest)
-
-	return []byte(strings.Join(manifests, "\n---\n")), nil
+	sharedManifest = []byte(defaultManifest)
+	return sharedManifest, poolManifests, nil
 }
 
 func renderChart(renderer chartrenderer.Interface, values map[string]any) (string, error) {
@@ -197,7 +210,7 @@ func buildDoesNotExistAffinity() map[string]any {
 	}
 }
 
-// cloneValues performs a shallow clone of the top-level map and deep-clones nested maps one level.
+// cloneValues performs a shallow clone of the top-level map.
 func cloneValues(src map[string]any) map[string]any {
 	dst := make(map[string]any, len(src))
 	for k, v := range src {
