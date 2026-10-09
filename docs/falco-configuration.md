@@ -21,9 +21,9 @@ This configuration deploys Falco into the `kube-system` namespace of the shoot c
 
 - The latest supported Falco version
 - The [Falco rules](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml) ruleset, possibly with extensions to avoid false positives in an empty cluster
-- The `logging` destination
+- The `logging` destination for regular shoots, or `stdout` for shoots with purpose `testing` (since the logging stack is not deployed for testing shoots)
 
-The configuration above will be expanded to:
+The configuration above will be expanded to (for a regular, non-testing shoot):
 
 ```yaml
     - type: shoot-falco-service
@@ -289,6 +289,9 @@ Events are logged to Falco pod stdout and not forwarded. Falcosidekick is not de
 Note: Writing logs to stdout forwards events to the cluster Vali database, as logs from pods in the `kube-system` namespace are generally stored there. Event details may not be stored in an optimal way for analysis. Use the `logging` destination if you plan to analyze events.
 
 ## Store Events in the Cluster Logging Stack (`logging` Option)
+
+> [!NOTE]
+> The `logging` destination requires the cluster logging stack (Vali/Loki). Shoots with purpose `testing` do not have the logging stack deployed, so the `logging` destination is not available for them and will be rejected. Use `stdout` or another destination for testing shoots.
 
 Falco events are forwarded to the cluster Vali logging database using the Falcosidekick [Loki output](https://github.com/falcosecurity/falcosidekick/blob/master/docs/outputs/loki.md).
 
