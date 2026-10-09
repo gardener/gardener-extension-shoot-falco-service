@@ -52,7 +52,6 @@ const (
 	FalcoEventDestinationLogging    = "logging"
 	FalcoEventDestinationCentral    = "central"
 	FalcoEventDestinationCustom     = "custom"
-	FalcoEventDestinationOTLP       = "otlp"
 	FalcoEventDestinationOpenSearch = "opensearch"
 	FalcoEventDestinationSplunk     = "splunk"
 
@@ -88,7 +87,7 @@ const (
 var (
 	AlwaysEnabledNamespaces         = []string{"garden"}
 	CentralLoggingAllowedNamespaces = []string{"garden"}
-	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOTLP, FalcoEventDestinationOpenSearch, FalcoEventDestinationSplunk}
+	AllowedDestinations             = []string{FalcoEventDestinationCentral, FalcoEventDestinationLogging, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOpenSearch, FalcoEventDestinationSplunk}
 	AllowedDestinationsSeed         = []string{FalcoEventDestinationCentral, FalcoEventDestinationStdout, FalcoEventDestinationCustom, FalcoEventDestinationOpenSearch, FalcoEventDestinationSplunk}
 
 	// Default Event logger if not specified in controller configuration
@@ -102,8 +101,7 @@ var (
 	}
 
 	DestinationOutputKeys = map[string]string{
-		FalcoEventDestinationLogging:    "loki",
-		FalcoEventDestinationOTLP:       "otlp",
+		FalcoEventDestinationLogging:    "otlp",
 		FalcoEventDestinationCustom:     "webhook",
 		FalcoEventDestinationOpenSearch: "elasticsearch",
 		FalcoEventDestinationSplunk:     "splunk",
