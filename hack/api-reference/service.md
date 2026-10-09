@@ -10,43 +10,6 @@
 
 </p>
 
-<h3 id="adaptiveresources">AdaptiveResources
-</h3>
-
-
-<p>
-(<em>Appears on:</em><a href="#falcoconfig">FalcoConfig</a>)
-</p>
-
-<p>
-AdaptiveResources configures per-worker-pool dynamic resource sizing for Falco.
-</p>
-
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-
-<tr>
-<td>
-<code>formulas</code></br>
-<em>
-<a href="#resourceformulas">ResourceFormulas</a>
-</em>
-</td>
-<td>
-<p>Formulas defines arithmetic expressions for each resource field.</p>
-</td>
-</tr>
-
-</tbody>
-</table>
-
-
 <h3 id="customrule">CustomRule
 </h3>
 
@@ -184,19 +147,19 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Resources configures static resource requests/limits for the Falco container.<br />Mutually exclusive with AdaptiveResources. If neither is set, chart defaults apply.</p>
+<p>Resources defines default resource requests/limits applied to all worker<br />pools. Each value field accepts either a plain Kubernetes quantity<br />("500m", "2Gi") or an arithmetic expression evaluated against node<br />capacity variables:<br />  nodeCPU         – number of CPU cores (float)<br />  nodeMemoryMi    – RAM in MiB (float)<br />  nodeMemoryGi    – RAM in GiB (float)<br />  nodeEphemeralGi – ephemeral storage in GiB (float)<br />CPU expression results are interpreted as millicores; memory as MiB.<br />If nil, system defaults apply.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>adaptiveResources</code></br>
+<code>workerPoolResources</code></br>
 <em>
-<a href="#adaptiveresources">AdaptiveResources</a>
+object (keys:string, values:<a href="#falcoresources">FalcoResources</a>)
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>AdaptiveResources enables per-worker-pool dynamic resource sizing.<br />The feature is active when this field is non-nil. Mutually exclusive with Resources.<br />Only available for Gardener-managed shoots with worker pools.</p>
+<p>WorkerPoolResources allows per-worker-pool resource overrides, keyed by<br />pool name. A pool listed here inherits Resources for any field it does<br />not set. Pools not listed use Resources directly. If Resources is also<br />nil, system defaults apply.</p>
 </td>
 </tr>
 
@@ -327,7 +290,9 @@ string
 </p>
 
 <p>
-
+FalcoResources mirrors the existing structure exactly so that existing shoot
+specs require no migration. The Cpu and Memory fields now additionally accept
+arithmetic expressions (see FalcoConfig.Resources for the variable set).
 </p>
 
 <table>
@@ -347,7 +312,8 @@ string
 </em>
 </td>
 <td>
-<p>limits</p>
+<em>(Optional)</em>
+<p></p>
 </td>
 </tr>
 <tr>
@@ -358,7 +324,8 @@ string
 </em>
 </td>
 <td>
-<p>requests</p>
+<em>(Optional)</em>
+<p></p>
 </td>
 </tr>
 
@@ -703,81 +670,6 @@ string
 </table>
 
 
-<h3 id="resourceformulas">ResourceFormulas
-</h3>
-
-
-<p>
-(<em>Appears on:</em><a href="#adaptiveresources">AdaptiveResources</a>)
-</p>
-
-<p>
-ResourceFormulas holds one optional expression per resource field.
-Each expression is evaluated against node capacity variables and must produce a number.
-</p>
-
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-
-<tr>
-<td>
-<code>cpuRequest</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CPURequest expression. Result unit: millicores (500 → "500m").</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>cpuLimit</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CPULimit expression. Result unit: millicores.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>memoryRequest</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MemoryRequest expression. Result unit: MiB (2048 → "2048Mi").</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>memoryLimit</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MemoryLimit expression. Result unit: MiB.</p>
-</td>
-</tr>
-
-</tbody>
-</table>
-
-
 <h3 id="resourcevalues">ResourceValues
 </h3>
 
@@ -787,7 +679,8 @@ string
 </p>
 
 <p>
-
+ResourceValues holds a CPU and memory value, each of which is either a plain
+Kubernetes quantity or an arithmetic expression.
 </p>
 
 <table>
@@ -807,7 +700,8 @@ string
 </em>
 </td>
 <td>
-<p></p>
+<em>(Optional)</em>
+<p>Kubernetes quantity ("500m", "2") or arithmetic expression.</p>
 </td>
 </tr>
 <tr>
@@ -818,7 +712,8 @@ string
 </em>
 </td>
 <td>
-<p></p>
+<em>(Optional)</em>
+<p>Kubernetes quantity ("2Gi", "512Mi") or arithmetic expression.</p>
 </td>
 </tr>
 
