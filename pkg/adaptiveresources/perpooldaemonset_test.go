@@ -61,7 +61,7 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 	var (
 		workers      []gardenerv1beta1.Worker
 		cloudProfile *gardenerv1beta1.CloudProfile
-		adaptive     *apisservice.AdaptiveResources
+		falcoConfig  *apisservice.FalcoConfig
 	)
 
 	BeforeEach(func() {
@@ -73,21 +73,18 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 			{Name: "pool-a", Machine: gardenerv1beta1.Machine{Type: "m5.large"}},
 			{Name: "pool-b", Machine: gardenerv1beta1.Machine{Type: "m5.xlarge"}},
 		}
-		adaptive = &apisservice.AdaptiveResources{
-			Formulas: apisservice.ResourceFormulas{
-				CPURequest:    strPtr("NodeCPU < 4 ? 400.0 : 800.0"),
-				MemoryRequest: strPtr("NodeMemoryGi * 32.0"),
+		falcoConfig = &apisservice.FalcoConfig{
+			Resources: &apisservice.FalcoResources{
+				Requests: &apisservice.ResourceValues{
+					Cpu:    strPtr("NodeCPU < 4 ? 400.0 : 800.0"),
+					Memory: strPtr("NodeMemoryGi * 32.0"),
+				},
 			},
 		}
 	})
 
-	It("returns an error when adaptiveResources is nil", func() {
-		_, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, nil)
-		Expect(err).To(HaveOccurred())
-	})
-
 	It("renders a DaemonSet for each worker pool plus a default", func() {
-		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, adaptive)
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 		manifestStr := string(manifest)
 		Expect(manifestStr).To(ContainSubstring("falco-pool-a"))
@@ -96,7 +93,7 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 	})
 
 	It("manifest contains expected CPU request values for both pools", func() {
-		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, adaptive)
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 		manifestStr := string(manifest)
 		// pool-a: 2 CPUs → 400m; pool-b: 4 CPUs → 800m
@@ -105,13 +102,13 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 	})
 
 	It("pool-a nodeSelector targets pool-a", func() {
-		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, adaptive)
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(manifest)).To(ContainSubstring("pool-a"))
 	})
 
 	It("manifest contains DoesNotExist affinity for the default DaemonSet", func() {
-		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, adaptive)
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(manifest)).To(ContainSubstring("DoesNotExist"))
 	})
@@ -120,13 +117,61 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 		workers := []gardenerv1beta1.Worker{
 			{Name: "unknown-pool", Machine: gardenerv1beta1.Machine{Type: "unknown-type"}},
 		}
-		_, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, adaptive)
+		_, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("works with empty worker list (only default DaemonSet)", func() {
-		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), nil, cloudProfile, adaptive)
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), nil, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(manifest)).To(ContainSubstring("falco-default"))
+	})
+
+	It("works with nil falcoConfig (no resource injection)", func() {
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(manifest)).To(ContainSubstring("falco-pool-a"))
+		Expect(string(manifest)).To(ContainSubstring("falco-default"))
+	})
+
+	It("per-pool override takes precedence over default resources", func() {
+		falcoConfigWithOverride := &apisservice.FalcoConfig{
+			Resources: &apisservice.FalcoResources{
+				Requests: &apisservice.ResourceValues{
+					Cpu: strPtr("100m"),
+				},
+			},
+			WorkerPoolResources: map[string]*apisservice.FalcoResources{
+				"pool-a": {
+					Requests: &apisservice.ResourceValues{
+						Cpu: strPtr("999m"),
+					},
+				},
+			},
+		}
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfigWithOverride)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(manifest)).To(ContainSubstring("999m"))
+		// pool-b uses default 100m
+		Expect(string(manifest)).To(ContainSubstring("100m"))
+	})
+
+	It("works with plain quantities (no expressions)", func() {
+		falcoConfigPlain := &apisservice.FalcoConfig{
+			Resources: &apisservice.FalcoResources{
+				Requests: &apisservice.ResourceValues{
+					Cpu:    strPtr("250m"),
+					Memory: strPtr("512Mi"),
+				},
+				Limits: &apisservice.ResourceValues{
+					Cpu:    strPtr("500m"),
+					Memory: strPtr("1Gi"),
+				},
+			},
+		}
+		manifest, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfigPlain)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(manifest)).To(ContainSubstring("250m"))
+		Expect(string(manifest)).To(ContainSubstring("512Mi"))
 	})
 })

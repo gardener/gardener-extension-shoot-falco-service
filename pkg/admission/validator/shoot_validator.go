@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources/formula"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -187,10 +186,6 @@ func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot, oldShoot *
 	}
 
 	if err := verifyFalcoConfigResources(falcoConf); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if err := verifyFalcoConfigAdaptiveResources(falcoConf, shoot); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -488,63 +483,28 @@ func (s *shoot) isDisabled(shoot *core.Shoot) bool {
 	return false
 }
 
-// verifyFalcoConfigResources validates the Resources field in FalcoServiceConfig
+// verifyFalcoConfigResources validates the Resources and WorkerPoolResources fields in FalcoServiceConfig
 func verifyFalcoConfigResources(falcoConf *service.FalcoServiceConfig) error {
 	if falcoConf == nil || falcoConf.FalcoConfig == nil {
 		return nil
 	}
 
 	fc := falcoConf.FalcoConfig
-	if fc.Resources != nil && fc.AdaptiveResources != nil {
-		return fmt.Errorf("falcoConfig.resources and falcoConfig.adaptiveResources are mutually exclusive; set at most one")
-	}
-
-	if fc.Resources == nil {
-		return nil
-	}
-
-	resources := falcoConf.FalcoConfig.Resources
 	var allErrs []error
 
-	// Validate Requests
-	if resources.Requests != nil {
-		if resources.Requests.Cpu != nil {
-			if err := validateCPUQuantity(*resources.Requests.Cpu); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.requests.cpu: %w", err))
-			}
-		}
-		if resources.Requests.Memory != nil {
-			if err := validateMemoryQuantity(*resources.Requests.Memory); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.requests.memory: %w", err))
-			}
+	if fc.Resources != nil {
+		if err := validateFalcoResources(fc.Resources, "falcoConfig.resources"); err != nil {
+			allErrs = append(allErrs, err)
 		}
 	}
 
-	// Validate Limits
-	if resources.Limits != nil {
-		if resources.Limits.Cpu != nil {
-			if err := validateCPUQuantity(*resources.Limits.Cpu); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.limits.cpu: %w", err))
-			}
+	for poolName, poolResources := range fc.WorkerPoolResources {
+		if poolResources == nil {
+			continue
 		}
-		if resources.Limits.Memory != nil {
-			if err := validateMemoryQuantity(*resources.Limits.Memory); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources.limits.memory: %w", err))
-			}
-		}
-	}
-
-	// Validate that requests <= limits
-	if resources.Requests != nil && resources.Limits != nil {
-		if resources.Requests.Cpu != nil && resources.Limits.Cpu != nil {
-			if err := validateRequestNotGreaterThanLimit(*resources.Requests.Cpu, *resources.Limits.Cpu); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources: cpu request must be less than or equal to limit: %w", err))
-			}
-		}
-		if resources.Requests.Memory != nil && resources.Limits.Memory != nil {
-			if err := validateRequestNotGreaterThanLimit(*resources.Requests.Memory, *resources.Limits.Memory); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("falcoConfig.resources: memory request must be less than or equal to limit: %w", err))
-			}
+		prefix := fmt.Sprintf("falcoConfig.workerPoolResources[%s]", poolName)
+		if err := validateFalcoResources(poolResources, prefix); err != nil {
+			allErrs = append(allErrs, err)
 		}
 	}
 
@@ -555,25 +515,72 @@ func verifyFalcoConfigResources(falcoConf *service.FalcoServiceConfig) error {
 	return nil
 }
 
-// verifyFalcoConfigAdaptiveResources validates the AdaptiveResources field in FalcoServiceConfig.
-func verifyFalcoConfigAdaptiveResources(falcoConf *service.FalcoServiceConfig, shoot *core.Shoot) error {
-	if falcoConf == nil || falcoConf.FalcoConfig == nil || falcoConf.FalcoConfig.AdaptiveResources == nil {
-		return nil
+// validateFalcoResources validates a single FalcoResources value under the given field path prefix.
+// Fields that are not valid k8s quantities are assumed to be expressions and are skipped.
+func validateFalcoResources(resources *service.FalcoResources, prefix string) error {
+	var allErrs []error
+
+	// Validate Requests
+	if resources.Requests != nil {
+		if resources.Requests.Cpu != nil {
+			if _, err := resource.ParseQuantity(*resources.Requests.Cpu); err == nil {
+				if err2 := validateCPUQuantity(*resources.Requests.Cpu); err2 != nil {
+					allErrs = append(allErrs, fmt.Errorf("%s.requests.cpu: %w", prefix, err2))
+				}
+			}
+			// else: expression — validated at reconcile time by the formula compiler
+		}
+		if resources.Requests.Memory != nil {
+			if _, err := resource.ParseQuantity(*resources.Requests.Memory); err == nil {
+				if err2 := validateMemoryQuantity(*resources.Requests.Memory); err2 != nil {
+					allErrs = append(allErrs, fmt.Errorf("%s.requests.memory: %w", prefix, err2))
+				}
+			}
+		}
 	}
 
-	// AdaptiveResources requires a Gardener-managed shoot with worker pools.
-	if len(shoot.Spec.Provider.Workers) == 0 {
-		return fmt.Errorf("falcoConfig.adaptiveResources requires a Gardener-managed shoot with at least one worker pool")
+	// Validate Limits
+	if resources.Limits != nil {
+		if resources.Limits.Cpu != nil {
+			if _, err := resource.ParseQuantity(*resources.Limits.Cpu); err == nil {
+				if err2 := validateCPUQuantity(*resources.Limits.Cpu); err2 != nil {
+					allErrs = append(allErrs, fmt.Errorf("%s.limits.cpu: %w", prefix, err2))
+				}
+			}
+		}
+		if resources.Limits.Memory != nil {
+			if _, err := resource.ParseQuantity(*resources.Limits.Memory); err == nil {
+				if err2 := validateMemoryQuantity(*resources.Limits.Memory); err2 != nil {
+					allErrs = append(allErrs, fmt.Errorf("%s.limits.memory: %w", prefix, err2))
+				}
+			}
+		}
 	}
 
-	formulas := falcoConf.FalcoConfig.AdaptiveResources.Formulas
-	if formulas.CPURequest == nil && formulas.CPULimit == nil &&
-		formulas.MemoryRequest == nil && formulas.MemoryLimit == nil {
-		return fmt.Errorf("falcoConfig.adaptiveResources.formulas: at least one formula field must be set")
+	// Validate that requests <= limits (only for plain quantities; expressions are skipped)
+	if resources.Requests != nil && resources.Limits != nil {
+		if resources.Requests.Cpu != nil && resources.Limits.Cpu != nil {
+			_, reqErr := resource.ParseQuantity(*resources.Requests.Cpu)
+			_, limErr := resource.ParseQuantity(*resources.Limits.Cpu)
+			if reqErr == nil && limErr == nil {
+				if err := validateRequestNotGreaterThanLimit(*resources.Requests.Cpu, *resources.Limits.Cpu); err != nil {
+					allErrs = append(allErrs, fmt.Errorf("%s: cpu request must be less than or equal to limit: %w", prefix, err))
+				}
+			}
+		}
+		if resources.Requests.Memory != nil && resources.Limits.Memory != nil {
+			_, reqErr := resource.ParseQuantity(*resources.Requests.Memory)
+			_, limErr := resource.ParseQuantity(*resources.Limits.Memory)
+			if reqErr == nil && limErr == nil {
+				if err := validateRequestNotGreaterThanLimit(*resources.Requests.Memory, *resources.Limits.Memory); err != nil {
+					allErrs = append(allErrs, fmt.Errorf("%s: memory request must be less than or equal to limit: %w", prefix, err))
+				}
+			}
+		}
 	}
 
-	if _, err := formula.Compile(formulas); err != nil {
-		return fmt.Errorf("falcoConfig.adaptiveResources.formulas: %w", err)
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
 	}
 
 	return nil

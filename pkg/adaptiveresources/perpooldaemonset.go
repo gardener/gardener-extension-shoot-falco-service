@@ -31,17 +31,8 @@ func RenderPerPoolDaemonSets(
 	baseValues map[string]any,
 	workers []gardenerv1beta1.Worker,
 	cloudProfile *gardenerv1beta1.CloudProfile,
-	adaptiveResources *apisservice.AdaptiveResources,
+	falcoConfig *apisservice.FalcoConfig,
 ) ([]byte, error) {
-	if adaptiveResources == nil {
-		return nil, fmt.Errorf("adaptiveResources must not be nil")
-	}
-
-	compiled, err := formula.Compile(adaptiveResources.Formulas)
-	if err != nil {
-		return nil, fmt.Errorf("compiling formulas: %w", err)
-	}
-
 	// Build a name→MachineType index from the cloud profile.
 	machineTypeIndex := buildMachineTypeIndex(cloudProfile)
 
@@ -49,15 +40,14 @@ func RenderPerPoolDaemonSets(
 
 	// One DaemonSet per worker pool.
 	for _, worker := range workers {
-		env, err := buildNodeEnv(worker.Machine.Type, machineTypeIndex)
-		if err != nil {
-			// If the machine type is unknown we skip resource injection and rely on chart defaults.
-			env = formula.NodeEnv{}
-		}
-
-		resourceResult, err := compiled.Eval(env)
-		if err != nil {
-			return nil, fmt.Errorf("evaluating formulas for pool %q: %w", worker.Name, err)
+		// Determine which FalcoResources apply for this pool.
+		var poolResources *apisservice.FalcoResources
+		if falcoConfig != nil {
+			if pr, ok := falcoConfig.WorkerPoolResources[worker.Name]; ok {
+				poolResources = pr
+			} else {
+				poolResources = falcoConfig.Resources
+			}
 		}
 
 		poolValues := cloneValues(baseValues)
@@ -66,7 +56,23 @@ func RenderPerPoolDaemonSets(
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
 		delete(poolValues, "affinity")
-		applyResourceResult(poolValues, resourceResult)
+
+		if poolResources != nil {
+			compiled, err := formula.Compile(poolResources)
+			if err != nil {
+				return nil, fmt.Errorf("compiling resources for pool %q: %w", worker.Name, err)
+			}
+			env, err := buildNodeEnv(worker.Machine.Type, machineTypeIndex)
+			if err != nil {
+				// If the machine type is unknown we skip resource injection and rely on chart defaults.
+				env = formula.NodeEnv{}
+			}
+			resourceResult, err := compiled.Eval(env)
+			if err != nil {
+				return nil, fmt.Errorf("evaluating resources for pool %q: %w", worker.Name, err)
+			}
+			applyResourceResult(poolValues, resourceResult)
+		}
 
 		manifest, err := renderChart(renderer, poolValues)
 		if err != nil {
@@ -79,6 +85,9 @@ func RenderPerPoolDaemonSets(
 	defaultValues := cloneValues(baseValues)
 	defaultValues["fullnameOverride"] = "falco-default"
 	delete(defaultValues, "nodeSelector")
+	// Remove any formula-derived resource values; falco-default has no machine type to evaluate against,
+	// so we fall back to chart defaults. Per-pool DaemonSets get their own resource values computed above.
+	delete(defaultValues, "resources")
 	defaultValues["affinity"] = buildDoesNotExistAffinity()
 
 	defaultManifest, err := renderChart(renderer, defaultValues)

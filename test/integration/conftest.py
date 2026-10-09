@@ -33,6 +33,45 @@ def pytest_addoption(parser):
         help="Name of the shoot",
     )
 
+    # ---------------------------------------------------------------------------
+    # AdaptiveResources test options
+    # ---------------------------------------------------------------------------
+    # Three worker pools with different memory tiers are added temporarily.
+    # All pools use minimum=0/maximum=0 so no nodes are actually provisioned —
+    # only the DaemonSet resource values are verified.
+    #
+    # Example AWS machine types:
+    #   small:  m5.large   (2 vCPU,  8 GiB) → NodeMemoryGi=8
+    #   medium: m5.xlarge  (4 vCPU, 16 GiB) → NodeMemoryGi=16
+    #   large:  m5.2xlarge (8 vCPU, 32 GiB) → NodeMemoryGi=32
+    #
+    # The formula "NodeMemoryGi < 10 ? 200 : (NodeMemoryGi < 20 ? 400 : 800)"
+    # produces 200m / 400m / 800m for those three tiers.
+    parser.addoption(
+        "--adaptive-cloud-profile",
+        action="store",
+        default=None,
+        help="Cloud profile name to add adaptive machine types to (default: read from shoot spec)",
+    )
+    parser.addoption(
+        "--adaptive-machine-small",
+        action="store",
+        default=None,
+        help="AWS (or other) machine type name for the small pool (~4-8 GiB RAM), e.g. m5.large",
+    )
+    parser.addoption(
+        "--adaptive-machine-medium",
+        action="store",
+        default=None,
+        help="AWS machine type name for the medium pool (~8-16 GiB RAM), e.g. m5.xlarge",
+    )
+    parser.addoption(
+        "--adaptive-machine-large",
+        action="store",
+        default=None,
+        help="AWS machine type name for the large pool (>16 GiB RAM), e.g. m5.2xlarge",
+    )
+
 
 @pytest.fixture(scope="session")
 def garden_kubeconfig(pytestconfig):
@@ -126,3 +165,23 @@ def pytest_assertrepr_compare(op, left, right):
             "ApiException is:",
             left.__str__(),
         ]
+
+
+@pytest.fixture(scope="session")
+def adaptive_cloud_profile(pytestconfig):
+    return pytestconfig.getoption("--adaptive-cloud-profile")
+
+
+@pytest.fixture(scope="session")
+def adaptive_machine_small(pytestconfig):
+    return pytestconfig.getoption("--adaptive-machine-small")
+
+
+@pytest.fixture(scope="session")
+def adaptive_machine_medium(pytestconfig):
+    return pytestconfig.getoption("--adaptive-machine-medium")
+
+
+@pytest.fixture(scope="session")
+def adaptive_machine_large(pytestconfig):
+    return pytestconfig.getoption("--adaptive-machine-large")

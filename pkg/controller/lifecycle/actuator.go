@@ -236,10 +236,8 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 		return fmt.Errorf("could not create chart renderer for rendering manged resource chart for shoot: %w", err)
 	}
 
-	falcoConf := reconcileCtx.FalcoServiceConfig
-
-	if falcoConf.FalcoConfig != nil && falcoConf.FalcoConfig.AdaptiveResources != nil {
-		return a.createAdaptiveShootResources(ctx, log, reconcileCtx, renderer)
+	if reconcileCtx.IsShootDeployment {
+		return a.createPerPoolShootResources(ctx, log, reconcileCtx, renderer)
 	}
 
 	values, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
@@ -253,11 +251,7 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 	releaseManifest := release.Manifest()
 
 	data := map[string][]byte{"config.yaml": releaseManifest}
-	if reconcileCtx.IsShootDeployment {
-		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
-			return fmt.Errorf("could not create managed resource for shoot falco deployment %w", err)
-		}
-	} else if reconcileCtx.IsSeedDeployment {
+	if reconcileCtx.IsSeedDeployment {
 		// shoot resources must be provisioned in the same cluster (garden, seed)
 		if err := managedresources.CreateForSeed(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, false, data); err != nil {
 			//		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
@@ -267,11 +261,11 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 	return nil
 }
 
-func (a *actuator) createAdaptiveShootResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext, renderer chartrenderer.Interface) error {
-	log.Info("creating adaptive per-pool Falco DaemonSets for shoot " + reconcileCtx.Namespace)
+func (a *actuator) createPerPoolShootResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext, renderer chartrenderer.Interface) error {
+	log.Info("creating per-pool Falco DaemonSets for shoot " + reconcileCtx.Namespace)
 
 	if reconcileCtx.Shoot == nil {
-		return fmt.Errorf("adaptive resources require a shoot cluster context")
+		return fmt.Errorf("per-pool resources require a shoot cluster context")
 	}
 
 	baseValues, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
@@ -285,7 +279,7 @@ func (a *actuator) createAdaptiveShootResources(ctx context.Context, log logr.Lo
 		baseValues,
 		workers,
 		reconcileCtx.CloudProfile,
-		reconcileCtx.FalcoServiceConfig.FalcoConfig.AdaptiveResources,
+		reconcileCtx.FalcoServiceConfig.FalcoConfig,
 	)
 	if err != nil {
 		return fmt.Errorf("could not render per-pool DaemonSets: %w", err)
@@ -294,7 +288,7 @@ func (a *actuator) createAdaptiveShootResources(ctx context.Context, log logr.Lo
 	data := map[string][]byte{"config.yaml": manifest}
 	if reconcileCtx.IsShootDeployment {
 		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
-			return fmt.Errorf("could not create adaptive managed resource: %w", err)
+			return fmt.Errorf("could not create per-pool managed resource: %w", err)
 		}
 	}
 	return nil

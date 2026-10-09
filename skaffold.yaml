@@ -31,6 +31,7 @@ build:
             - pkg/admission/
             - pkg/controller/config/
             - pkg/controller/healthcheck/
+            - pkg/adaptiveresources/
             - pkg/controller/lifecycle/
             - pkg/constants/
             - pkg/secrets/

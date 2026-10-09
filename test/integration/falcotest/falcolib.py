@@ -794,7 +794,7 @@ def get_cloudprofile(garden_api_client, name: str) -> dict:
         method="GET",
         auth_settings=auth_settings,
         header_params=header_params,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 
@@ -811,20 +811,24 @@ def patch_cloudprofile(garden_api_client, name: str, patch: list) -> dict:
         auth_settings=auth_settings,
         header_params=header_params,
         body=patch,
-        response_type=object)
+        response_types_map={200: object})
     return data
 
 
-def add_machine_type_to_cloudprofile(garden_api_client, profile_name: str, machine_type: dict) -> dict:
-    """Append a machine type to the cloud profile's machineTypes list."""
+def add_machine_type_to_cloudprofile(garden_api_client, profile_name: str, machine_type: dict) -> bool:
+    """Append a machine type to the cloud profile's machineTypes list.
+
+    Returns True if the type was added, False if it was already present.
+    """
     cp = get_cloudprofile(garden_api_client, profile_name)
     existing = cp["spec"].get("machineTypes", [])
     for mt in existing:
         if mt["name"] == machine_type["name"]:
             logger.info(f"Machine type {machine_type['name']} already in cloud profile {profile_name}")
-            return cp
+            return False
     patch = [{"op": "add", "path": "/spec/machineTypes/-", "value": machine_type}]
-    return patch_cloudprofile(garden_api_client, profile_name, patch)
+    patch_cloudprofile(garden_api_client, profile_name, patch)
+    return True
 
 
 def remove_machine_type_from_cloudprofile(garden_api_client, profile_name: str, machine_type_name: str):
@@ -844,27 +848,40 @@ def remove_machine_type_from_cloudprofile(garden_api_client, profile_name: str, 
 
 
 def add_worker_pool_to_shoot(garden_api_client, project_namespace: str, shoot_name: str, worker_pool: dict):
-    """Append a worker pool to the shoot's provider.workers list."""
+    """Upsert a worker pool in the shoot's provider.workers list.
+
+    If a pool with the same name already exists it is replaced in-place so that
+    the spec always matches the caller's intent (idempotent).  If it does not
+    exist it is appended.
+    """
     shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
     workers = shoot["spec"]["provider"].get("workers", [])
-    for w in workers:
-        if w["name"] == worker_pool["name"]:
-            logger.info(f"Worker pool {worker_pool['name']} already in shoot {shoot_name}")
-            return
-    patch = [{"op": "add", "path": "/spec/provider/workers/-", "value": worker_pool}]
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
     header_params = {
         "Accept": "application/json, */*",
         "Content-Type": "application/json-patch+json",
     }
     auth_settings = ['BearerToken']
+    for i, w in enumerate(workers):
+        if w["name"] == worker_pool["name"]:
+            logger.info(f"Worker pool {worker_pool['name']} already in shoot {shoot_name}, replacing in-place")
+            patch = [{"op": "replace", "path": f"/spec/provider/workers/{i}", "value": worker_pool}]
+            garden_api_client.call_api(
+                resource_path=resource_path,
+                method="PATCH",
+                auth_settings=auth_settings,
+                header_params=header_params,
+                body=patch,
+                response_types_map={200: object})
+            return
+    patch = [{"op": "add", "path": "/spec/provider/workers/-", "value": worker_pool}]
     garden_api_client.call_api(
         resource_path=resource_path,
         method="PATCH",
         auth_settings=auth_settings,
         header_params=header_params,
         body=patch,
-        response_type=object)
+        response_types_map={200: object})
 
 
 def remove_worker_pool_from_shoot(garden_api_client, project_namespace: str, shoot_name: str, pool_name: str):
@@ -892,7 +909,7 @@ def remove_worker_pool_from_shoot(garden_api_client, project_namespace: str, sho
         auth_settings=auth_settings,
         header_params=header_params,
         body=patch,
-        response_type=object)
+        response_types_map={200: object})
 
 
 def get_daemonsets(shoot_api_client, namespace: str = "kube-system") -> list:
@@ -945,3 +962,72 @@ def get_daemonset_resources(shoot_api_client, ds_name: str, namespace: str = "ku
                     result["limits"] = {k: str(v) for k, v in container.resources.limits.items()}
                 return result
     return {}
+
+
+def get_daemonset_node_selector(shoot_api_client, ds_name: str, namespace: str = "kube-system") -> dict:
+    """Return the nodeSelector of a DaemonSet's pod template, or {} if absent."""
+    apps_v1 = client.AppsV1Api(shoot_api_client)
+    ds = apps_v1.read_namespaced_daemon_set(name=ds_name, namespace=namespace)
+    ns = ds.spec.template.spec.node_selector
+    return dict(ns) if ns else {}
+
+
+def get_daemonset_affinity(shoot_api_client, ds_name: str, namespace: str = "kube-system"):
+    """Return the affinity object of a DaemonSet's pod template, or None."""
+    apps_v1 = client.AppsV1Api(shoot_api_client)
+    ds = apps_v1.read_namespaced_daemon_set(name=ds_name, namespace=namespace)
+    return ds.spec.template.spec.affinity
+
+
+def get_shoot_cloud_profile_name(garden_api_client, project_namespace: str, shoot_name: str) -> str:
+    """Return the cloud profile name referenced by the shoot."""
+    shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
+    # Gardener shoot spec has either .spec.cloudProfile.name (newer) or .spec.cloudProfileName (older)
+    cp = shoot.get("spec", {}).get("cloudProfile")
+    if cp and isinstance(cp, dict):
+        return cp.get("name", "")
+    return shoot.get("spec", {}).get("cloudProfileName", "")
+
+
+def get_shoot_conditions(garden_api_client, project_namespace: str, shoot_name: str) -> dict:
+    """Return shoot conditions as a dict keyed by condition type."""
+    shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
+    conditions = shoot.get("status", {}).get("conditions", [])
+    return {c["type"]: c for c in conditions}
+
+
+def assert_shoot_system_components_healthy(garden_api_client, project_namespace: str, shoot_name: str):
+    """Assert that the shoot's SystemComponentsHealthy condition is True.
+
+    This verifies the extension-side health check: the custom Falco health check
+    (pod label selector scan) reported no errors, so Gardener's shoot controller
+    set SystemComponentsHealthy=True on the Extension resource, which propagated
+    to the shoot condition.
+    """
+    conditions = get_shoot_conditions(garden_api_client, project_namespace, shoot_name)
+    cond = conditions.get("SystemComponentsHealthy")
+    assert cond is not None, "SystemComponentsHealthy condition not found on shoot"
+    assert cond["status"] == "True", (
+        f"SystemComponentsHealthy is not True: status={cond['status']}, "
+        f"message={cond.get('message', '')}"
+    )
+
+
+def wait_for_shoot_system_components_healthy(
+        garden_api_client, project_namespace: str, shoot_name: str,
+        timeout_seconds: int = 180):
+    """Poll until SystemComponentsHealthy==True or timeout."""
+    logger.info("Waiting for SystemComponentsHealthy=True")
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        conditions = get_shoot_conditions(garden_api_client, project_namespace, shoot_name)
+        cond = conditions.get("SystemComponentsHealthy")
+        if cond and cond["status"] == "True":
+            logger.info("SystemComponentsHealthy=True")
+            return
+        msg = cond.get("message", "(no message)") if cond else "(condition absent)"
+        logger.info(f"SystemComponentsHealthy not yet True: {msg}")
+        time.sleep(10)
+    raise Exception(
+        f"SystemComponentsHealthy did not become True within {timeout_seconds}s"
+    )

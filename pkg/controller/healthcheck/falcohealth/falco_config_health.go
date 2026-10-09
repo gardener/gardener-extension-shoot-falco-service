@@ -49,8 +49,16 @@ func (hc *customFalcoHealthCheck) Check(ctx context.Context, request types.Names
 		return result, err
 	}
 
+	// If pods were found and are healthy, return True directly without falling back to
+	// the named DaemonSet check. In per-pool mode the DaemonSet is named falco-<pool>,
+	// not "falco", so checking for "falco" would incorrectly report NotFound.
+	if err == nil && result != nil && result.Status == gardencorev1beta1.ConditionTrue {
+		hc.logger.V(1).Info("Falco pods healthy, returning True")
+		return result, err
+	}
+
 	if hc.daemonSetCheck != nil {
-		hc.logger.V(1).Info("No configuration errors found, falling back to DaemonSet health check")
+		hc.logger.V(1).Info("No Falco pods found, falling back to DaemonSet health check")
 		nameName := types.NamespacedName{
 			Name:      "falco",
 			Namespace: metav1.NamespaceSystem,
