@@ -316,6 +316,14 @@ func verifyCustomRules(customRules []service.CustomRule, resources []core.NamedR
 }
 
 func (s *shoot) verifyEventDestinations(falcoConf *service.FalcoServiceConfig, sh *core.Shoot) error {
+	for _, dest := range falcoConf.Destinations {
+		if dest.Name == constants.FalcoEventDestinationLogging && servicehelper.IsDestinationEnabled(dest) {
+			if sh.Spec.Purpose != nil && *sh.Spec.Purpose == core.ShootPurposeTesting {
+				return fmt.Errorf("destination %q is not available for shoots with purpose %q: the logging stack is not deployed for testing shoots",
+					constants.FalcoEventDestinationLogging, core.ShootPurposeTesting)
+			}
+		}
+	}
 	return s.verifyEventDestinationsCommon(falcoConf, sh.Spec.Resources, constants.AllowedDestinations)
 }
 
