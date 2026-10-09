@@ -328,11 +328,13 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 		eventDestinationNames = append(eventDestinationNames, dest.Name)
 
 		if !isDisabled {
-			key, ok := constants.DestinationOutputKeys[dest.Name]
+			keys, ok := constants.DestinationOutputKeys[dest.Name]
 			if !ok {
-				key, ok = s.globalDefaultKeys[dest.Name]
+				if singleKey, ok2 := s.globalDefaultKeys[dest.Name]; ok2 {
+					keys = []string{singleKey}
+				}
 			}
-			if ok {
+			for _, key := range keys {
 				if len(usedOutputKeys[key]) != 0 {
 					return fmt.Errorf("multiple enabled destinations use the same output key %q", key)
 				}
