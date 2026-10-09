@@ -219,6 +219,12 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	reconcileCtx.IsShootDeployment = isShootDeployment(ex)
 	reconcileCtx.IsGardenDeployment = isGardenDeployment(ex)
 
+	loggingBackend, err := utils.DetectLoggingBackend(ctx, a.client, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to detect logging backend: %w", err)
+	}
+	reconcileCtx.LoggingBackend = loggingBackend
+
 	// createShootResources must run before createSeedResources: it calls BuildFalcoValues which
 	// sets reconcileCtx.FalcosidekickEnabled, and createSeedResources reads that field.
 	if err := a.createShootResources(ctx, log, reconcileCtx); err != nil {
