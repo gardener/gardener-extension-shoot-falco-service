@@ -439,11 +439,11 @@ falcoctl:
     # -- The image pull policy.
     pullPolicy: IfNotPresent
     # -- The image registry to pull from.
-    registry: docker.io
+    registry: ""
     # -- The image repository to pull from.
-    repository: falcosecurity/falcoctl
+    repository: ""
     # -- The image tag to pull.
-    tag: "0.13.0"
+    tag: ""
     # Gardener deployment is based on sha256 references
     image: ""
 
