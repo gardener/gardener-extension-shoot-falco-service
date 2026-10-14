@@ -36,7 +36,7 @@ COPY --from=builder /go/bin/gardener-extension-admission-shoot-falco-service /ga
 ENTRYPOINT ["/gardener-extension-admission-shoot-falco-service"]
 
 ############# falco-ops-builder
-FROM alpine:3.24.1 AS falco-ops-builder
+FROM alpine:3.24.2 AS falco-ops-builder
 
 RUN mkdir -p /volume/bin /volume/lib /volume/tmp \
     && cp /bin/busybox /volume/bin/                   && echo "package busybox" \
