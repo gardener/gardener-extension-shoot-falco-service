@@ -243,7 +243,7 @@ func (s *Shoot) mutateShoot(ctx context.Context, new *gardencorev1beta1.Shoot, o
 		}
 	}
 
-	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, new.Namespace)
+	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, new.Namespace, new.Spec.Purpose)
 	if err != nil {
 		return err
 	}
@@ -268,14 +268,14 @@ func (s *Shoot) mutateSeed(ctx context.Context, new *gardencorev1beta1.Seed, old
 		}
 	}
 
-	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, "")
+	newConfig, err := s.mutate(ctx, falcoConf, oldFalcoConf, "", nil)
 	if err != nil {
 		return err
 	}
 	return s.UpdateFalcoConfigSeed(new, newConfig)
 }
 
-func (s *Shoot) mutate(ctx context.Context, falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig, namespace string) (*service.FalcoServiceConfig, error) {
+func (s *Shoot) mutate(ctx context.Context, falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig, namespace string, shootPurpose *gardencorev1beta1.ShootPurpose) (*service.FalcoServiceConfig, error) {
 
 	if falcoConf == nil {
 		falcoConf = &service.FalcoServiceConfig{}
@@ -289,7 +289,7 @@ func (s *Shoot) mutate(ctx context.Context, falcoConf *service.FalcoServiceConfi
 
 	setRules(falcoConf)
 
-	setDestinations(falcoConf)
+	setDestinations(falcoConf, shootPurpose)
 
 	if err := s.injectGlobalDefaults(ctx, falcoConf, oldFalcoConf, namespace); err != nil {
 		return nil, err
@@ -307,14 +307,13 @@ func setRules(falcoConf *service.FalcoServiceConfig) {
 	}
 }
 
-func setDestinations(falcoConf *service.FalcoServiceConfig) {
+func setDestinations(falcoConf *service.FalcoServiceConfig, shootPurpose *gardencorev1beta1.ShootPurpose) {
 	if len(falcoConf.Destinations) == 0 {
-		defaultDestination := []service.Destination{
-			{
-				Name: constants.FalcoEventDestinationLogging,
-			},
+		defaultDestination := constants.FalcoEventDestinationLogging
+		if shootPurpose != nil && *shootPurpose == gardencorev1beta1.ShootPurposeTesting {
+			defaultDestination = constants.FalcoEventDestinationStdout
 		}
-		falcoConf.Destinations = defaultDestination
+		falcoConf.Destinations = []service.Destination{{Name: defaultDestination}}
 	}
 }
 

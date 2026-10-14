@@ -824,6 +824,30 @@ var _ = Describe("Test validator", Label("falcovalues"), func() {
 		Expect(err).To(BeNil(), "Splunk with two other destinations was not accepted")
 	})
 
+	It("rejects logging destination for testing shoots", func(ctx SpecContext) {
+		testingPurpose := core.ShootPurposeTesting
+		testingShoot := &core.Shoot{
+			Spec: core.ShootSpec{
+				Purpose: &testingPurpose,
+			},
+		}
+		s := &shoot{}
+
+		falcoConf := &service.FalcoServiceConfig{
+			Destinations: []service.Destination{
+				{Name: constants.FalcoEventDestinationLogging},
+			},
+		}
+		err := s.verifyEventDestinations(falcoConf, testingShoot)
+		Expect(err).NotTo(BeNil(), "logging destination should be rejected for testing shoots")
+		Expect(err.Error()).To(ContainSubstring(constants.FalcoEventDestinationLogging))
+
+		// disabled logging destination should be allowed
+		falcoConf.Destinations[0].Enabled = new(false)
+		err = s.verifyEventDestinations(falcoConf, testingShoot)
+		Expect(err).To(BeNil(), "disabled logging destination should be allowed for testing shoots")
+	})
+
 	It("can verify rules", func(ctx SpecContext) {
 		var err error
 		conf := &service.FalcoServiceConfig{}
