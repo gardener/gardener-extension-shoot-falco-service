@@ -149,10 +149,10 @@ type FalcoConfig struct {
 	// pools. Each value field accepts either a plain Kubernetes quantity
 	// ("500m", "2Gi") or an arithmetic expression evaluated against node
 	// capacity variables:
-	//   nodeCPU         – number of CPU cores (float)
-	//   nodeMemoryMi    – RAM in MiB (float)
-	//   nodeMemoryGi    – RAM in GiB (float)
-	//   nodeEphemeralGi – ephemeral storage in GiB (float)
+	//   NodeCPU         – number of CPU cores (float)
+	//   NodeMemoryMi    – RAM in MiB (float)
+	//   NodeMemoryGi    – RAM in GiB (float)
+	//   NodeEphemeralGi – ephemeral storage in GiB (float)
 	// CPU expression results are interpreted as millicores; memory as MiB.
 	// If nil, system defaults apply.
 	// +optional

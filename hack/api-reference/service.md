@@ -147,7 +147,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Resources defines default resource requests/limits applied to all worker<br />pools. Each value field accepts either a plain Kubernetes quantity<br />("500m", "2Gi") or an arithmetic expression evaluated against node<br />capacity variables:<br />  nodeCPU         – number of CPU cores (float)<br />  nodeMemoryMi    – RAM in MiB (float)<br />  nodeMemoryGi    – RAM in GiB (float)<br />  nodeEphemeralGi – ephemeral storage in GiB (float)<br />CPU expression results are interpreted as millicores; memory as MiB.<br />If nil, system defaults apply.</p>
+<p>Resources defines default resource requests/limits applied to all worker<br />pools. Each value field accepts either a plain Kubernetes quantity<br />("500m", "2Gi") or an arithmetic expression evaluated against node<br />capacity variables:<br />  NodeCPU         – number of CPU cores (float)<br />  NodeMemoryMi    – RAM in MiB (float)<br />  NodeMemoryGi    – RAM in GiB (float)<br />  NodeEphemeralGi – ephemeral storage in GiB (float)<br />CPU expression results are interpreted as millicores; memory as MiB.<br />If nil, system defaults apply.</p>
 </td>
 </tr>
 <tr>
