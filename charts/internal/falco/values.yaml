@@ -1788,7 +1788,8 @@ gardenerExtensionShootFalcoService:
   # -- Configure the deployment of the Falco service
   output:
     # -- Configure the destination of Falco events (e.g. central, cluster, custom, none)
-    eventCollector: "logging"
+    valiEnabled: false
+    otlpEnabled: false
 
 # name of configmaps in shoot cluster with Falco custom rules
 shoot_custom_rules: []
