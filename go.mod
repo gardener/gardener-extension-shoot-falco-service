@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
+	github.com/expr-lang/expr v1.17.8
 	github.com/gardener/gardener v1.149.0
 	github.com/gardener/gardener/hack/tools v1.149.0
 	github.com/gardener/gardener/pkg/apis v1.149.0

@@ -216,6 +216,7 @@ func Convert_service_Destination_To_v1alpha1_Destination(in *service.Destination
 
 func autoConvert_v1alpha1_FalcoConfig_To_service_FalcoConfig(in *FalcoConfig, out *service.FalcoConfig, s conversion.Scope) error {
 	out.Resources = (*service.FalcoResources)(unsafe.Pointer(in.Resources))
+	out.WorkerPoolResources = *(*map[string]*service.FalcoResources)(unsafe.Pointer(&in.WorkerPoolResources))
 	return nil
 }
 
@@ -226,6 +227,7 @@ func Convert_v1alpha1_FalcoConfig_To_service_FalcoConfig(in *FalcoConfig, out *s
 
 func autoConvert_service_FalcoConfig_To_v1alpha1_FalcoConfig(in *service.FalcoConfig, out *FalcoConfig, s conversion.Scope) error {
 	out.Resources = (*FalcoResources)(unsafe.Pointer(in.Resources))
+	out.WorkerPoolResources = *(*map[string]*FalcoResources)(unsafe.Pointer(&in.WorkerPoolResources))
 	return nil
 }
 

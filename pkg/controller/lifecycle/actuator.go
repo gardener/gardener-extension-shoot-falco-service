@@ -19,6 +19,7 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/api/extensions/v1alpha1/helper"
 	gardenerv1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -36,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/constants"
@@ -188,6 +190,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 			ClusterName:             shootCluster.Shoot.Name,
 			Shoot:                   shootCluster.Shoot,
 			Seed:                    shootCluster.Seed,
+			CloudProfile:            shootCluster.CloudProfile,
 		}
 		if shootCluster.Seed.Spec.Ingress != nil {
 			reconcileCtx.SeedIngressDomain = shootCluster.Seed.Spec.Ingress.Domain
@@ -233,6 +236,11 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 	if err != nil {
 		return fmt.Errorf("could not create chart renderer for rendering manged resource chart for shoot: %w", err)
 	}
+
+	if reconcileCtx.IsShootDeployment {
+		return a.createPerPoolShootResources(ctx, log, reconcileCtx, renderer)
+	}
+
 	values, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
 	if err != nil {
 		return fmt.Errorf("could not generate falco configuration: %w", err)
@@ -244,15 +252,83 @@ func (a *actuator) createShootResources(ctx context.Context, log logr.Logger, re
 	releaseManifest := release.Manifest()
 
 	data := map[string][]byte{"config.yaml": releaseManifest}
-	if reconcileCtx.IsShootDeployment {
-		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
-			return fmt.Errorf("could not create managed resource for shoot falco deployment %w", err)
-		}
-	} else if reconcileCtx.IsSeedDeployment {
+	if reconcileCtx.IsSeedDeployment {
 		// shoot resources must be provisioned in the same cluster (garden, seed)
 		if err := managedresources.CreateForSeed(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, false, data); err != nil {
 			//		if err := managedresources.CreateForShoot(ctx, a.client, reconcileCtx.Namespace, constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false, data); err != nil {
 			return fmt.Errorf("could not create managed resource for shoot falco deployment %w", err)
+		}
+	}
+	return nil
+}
+
+func (a *actuator) createPerPoolShootResources(ctx context.Context, log logr.Logger, reconcileCtx *utils.ReconcileContext, renderer chartrenderer.Interface) error {
+	log.Info("creating per-pool Falco DaemonSets for shoot " + reconcileCtx.Namespace)
+
+	if reconcileCtx.Shoot == nil {
+		return fmt.Errorf("per-pool resources require a shoot cluster context")
+	}
+
+	baseValues, err := a.configBuilder.BuildFalcoValues(ctx, log, reconcileCtx)
+	if err != nil {
+		return fmt.Errorf("could not generate base falco configuration: %w", err)
+	}
+
+	workers := reconcileCtx.Shoot.Spec.Provider.Workers
+	sharedManifest, poolManifests, err := adaptiveresources.RenderPerPoolDaemonSets(
+		renderer,
+		baseValues,
+		workers,
+		reconcileCtx.CloudProfile,
+		reconcileCtx.FalcoServiceConfig.FalcoConfig,
+	)
+	if err != nil {
+		return fmt.Errorf("could not render per-pool DaemonSets: %w", err)
+	}
+
+	ns := reconcileCtx.Namespace
+
+	// Shared ManagedResource: falco-default DaemonSet + ConfigMap + all shared resources.
+	if err := managedresources.CreateForShoot(ctx, a.client, ns,
+		constants.ManagedResourceNameFalco, constants.ExtensionServiceName, false,
+		map[string][]byte{"config.yaml": sharedManifest}); err != nil {
+		return fmt.Errorf("could not create shared managed resource: %w", err)
+	}
+
+	// Per-pool ManagedResources: one per worker pool (DaemonSet + ConfigMap only).
+	currentPoolMRNames := make(map[string]struct{}, len(poolManifests))
+	for _, pm := range poolManifests {
+		mrName := constants.ManagedResourcePoolPrefix + pm.PoolName
+		currentPoolMRNames[mrName] = struct{}{}
+		if err := managedresources.CreateForShootWithLabels(ctx, a.client, ns, mrName,
+			constants.ExtensionServiceName, false,
+			map[string]string{constants.PoolManagedResourceLabel: "true"},
+			map[string][]byte{"config.yaml": pm.Manifest}); err != nil {
+			return fmt.Errorf("could not create managed resource for pool %q: %w", pm.PoolName, err)
+		}
+	}
+
+	// Orphan cleanup: delete MRs for pools that no longer exist.
+	if err := a.deleteOrphanedPoolManagedResources(ctx, log, ns, currentPoolMRNames); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *actuator) deleteOrphanedPoolManagedResources(ctx context.Context, log logr.Logger, namespace string, currentNames map[string]struct{}) error {
+	mrList := &resourcesv1alpha1.ManagedResourceList{}
+	if err := a.client.List(ctx, mrList,
+		client.InNamespace(namespace),
+		client.MatchingLabels{constants.PoolManagedResourceLabel: "true"}); err != nil {
+		return fmt.Errorf("could not list pool managed resources: %w", err)
+	}
+	for _, mr := range mrList.Items {
+		if _, current := currentNames[mr.Name]; !current {
+			log.Info("deleting orphaned pool managed resource", "name", mr.Name)
+			if err := managedresources.DeleteForShoot(ctx, a.client, namespace, mr.Name); err != nil && !apierror.IsNotFound(err) {
+				return fmt.Errorf("could not delete orphaned managed resource %q: %w", mr.Name, err)
+			}
 		}
 	}
 	return nil
@@ -319,18 +395,45 @@ func (a *actuator) ForceDelete(ctx context.Context, log logr.Logger, ex *extensi
 func (a *actuator) deleteShootResources(ctx context.Context, log logr.Logger, namespace string, ex *extensionsv1alpha1.Extension) error {
 	log.Info(fmt.Sprintf("Deleting managed resource %s/%s", namespace, constants.ManagedResourceNameFalco))
 	if isShootDeployment(ex) {
-		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
+		if err := managedresources.DeleteForShoot(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !apierror.IsNotFound(err) {
 			return err
+		}
+		// Delete all per-pool ManagedResources.
+		mrList := &resourcesv1alpha1.ManagedResourceList{}
+		if err := a.client.List(ctx, mrList,
+			client.InNamespace(namespace),
+			client.MatchingLabels{constants.PoolManagedResourceLabel: "true"}); err != nil {
+			return fmt.Errorf("could not list pool managed resources for deletion: %w", err)
+		}
+		for _, mr := range mrList.Items {
+			mrName := mr.Name
+			log.Info("Deleting pool managed resource", "name", mrName)
+			if err := managedresources.DeleteForShoot(ctx, a.client, namespace, mrName); err != nil && !apierror.IsNotFound(err) {
+				return fmt.Errorf("could not delete pool managed resource %q: %w", mrName, err)
+			}
+		}
+		// Wait for the shared MR and all pool MRs to be gone.
+		timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		if err := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
+			return err
+		}
+		for _, mr := range mrList.Items {
+			timeoutCtx2, cancel2 := context.WithTimeout(ctx, 2*time.Minute)
+			defer cancel2()
+			if err := managedresources.WaitUntilDeleted(timeoutCtx2, a.client, namespace, mr.Name); err != nil {
+				return err
+			}
 		}
 	} else if isSeedDeployment(ex) {
-		if err := managedresources.DeleteForSeed(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
+		if err := managedresources.DeleteForSeed(ctx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil && !apierror.IsNotFound(err) {
 			return err
 		}
-	}
-	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	if err := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
-		return err
+		timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		if err := managedresources.WaitUntilDeleted(timeoutCtx, a.client, namespace, constants.ManagedResourceNameFalco); err != nil {
+			return err
+		}
 	}
 	log.Info(fmt.Sprintf("Successfully deleted managed resource  %s/%s", namespace, constants.ManagedResourceNameFalco))
 	return nil
@@ -373,9 +476,22 @@ func (a *actuator) Restore(ctx context.Context, log logr.Logger, ex *extensionsv
 
 // Migrate the Extension resource.
 func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
-	// Keep objects for shoot managed resources so that they are not deleted from the shoot during the migration
-	if err := managedresources.SetKeepObjects(ctx, a.client, ex.GetNamespace(), constants.ManagedResourceNameFalco, true); err != nil {
+	ns := ex.GetNamespace()
+	// Keep objects for shoot managed resources so they are not deleted during migration.
+	if err := managedresources.SetKeepObjects(ctx, a.client, ns, constants.ManagedResourceNameFalco, true); err != nil {
 		return err
+	}
+	// Keep objects for all per-pool managed resources.
+	mrList := &resourcesv1alpha1.ManagedResourceList{}
+	if err := a.client.List(ctx, mrList,
+		client.InNamespace(ns),
+		client.MatchingLabels{constants.PoolManagedResourceLabel: "true"}); err != nil {
+		return fmt.Errorf("could not list pool managed resources for migration: %w", err)
+	}
+	for _, mr := range mrList.Items {
+		if err := managedresources.SetKeepObjects(ctx, a.client, ns, mr.Name, true); err != nil {
+			return err
+		}
 	}
 	return a.Delete(ctx, log, ex)
 }
