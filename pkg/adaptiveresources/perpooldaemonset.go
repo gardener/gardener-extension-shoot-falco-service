@@ -63,6 +63,9 @@ func RenderPerPoolDaemonSets(
 		poolValues["nodeSelector"] = map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
+		poolValues["podLabels"] = map[string]string{
+			"app.kubernetes.io/instance": "falco-" + worker.Name,
+		}
 		// daemonSetOnly is an internal rendering-mode flag, not a user-facing chart value
 		// (intentionally absent from values.yaml). The chart is rendered twice per reconcile:
 		//   - per-pool render (daemonSetOnly=true): DaemonSet + falco.yaml ConfigMap only.
@@ -72,6 +75,14 @@ func RenderPerPoolDaemonSets(
 		// Splitting into one ManagedResource per pool keeps each secret well under the 3 MiB limit
 		// even for shoots with 100+ worker pools.
 		poolValues["daemonSetOnly"] = true
+
+		// baseValues is built upstream and may contain an affinity key — specifically the
+		// buildDoesNotExistAffinity() value that makes falco-default avoid worker
+		// pool nodes.
+		// For per-pool DaemonSets that's the wrong affinity — each pool DaemonSet should land
+		// on its pool's nodes via nodeSelector, not be repelled by the DoesNotExist affinity.
+		// So delete(poolValues, "affinity") clears any inherited affinity from baseValues before
+		// the per-pool render, letting the nodeSelector do its job cleanly.
 		delete(poolValues, "affinity")
 
 		if poolResources != nil {
