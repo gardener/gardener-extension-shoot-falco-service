@@ -13,6 +13,40 @@ from kubernetes.client.exceptions import ApiException
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+
+def api_request(api_client, method, resource_path, body=None, header_params=None, query_params=None):
+    """Make a raw REST request through the kubernetes ApiClient.
+
+    This avoids the unstable call_api() keyword signature that changed
+    between kubernetes-client major versions (broken in >=31).
+    Returns (parsed_json_body, status_code, headers).
+    """
+    url = api_client.configuration.host + resource_path
+    if query_params:
+        qs = "&".join(f"{k}={v}" for k, v in query_params.items())
+        url = f"{url}?{qs}"
+
+    headers = dict(header_params) if header_params else {}
+    if "Accept" not in headers:
+        headers["Accept"] = "application/json"
+
+    # Let the ApiClient inject auth headers (handles exec, OIDC, bearer token, etc.)
+    auth_headers = {}
+    api_client.update_params_for_auth(auth_headers, {}, ['BearerToken'])
+    headers.update(auth_headers)
+
+    if body is not None and "Content-Type" not in headers:
+        headers["Content-Type"] = "application/json"
+
+    resp = api_client.rest_client.request(
+        method=method.upper(),
+        url=url,
+        headers=headers,
+        body=body,
+    )
+    data = json.loads(resp.data)
+    return data, resp.status, resp.getheaders()
+
 falco_pod_label_selector = "app.kubernetes.io/name=falco"
 falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
 all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
@@ -85,14 +119,11 @@ def get_controllerdeployment(garden_api_client, name):
     header_params = {
          "Accept": "application/json, */*"
     }
-    # Authentication setting
-    auth_settings = ['BearerToken']
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        auth_settings=auth_settings,
-        header_params=header_params,
-        response_types_map={200: object})
+        resource_path=resource_path,
+        header_params=header_params)
     return data
 
 
@@ -166,14 +197,11 @@ def get_shoot(garden_api_client, project_namespace: str, shoot_name: str):
     header_params = {
          "Accept": "application/json, */*"
     }
-    # Authentication setting
-    auth_settings = ['BearerToken']
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        auth_settings=auth_settings,
-        header_params=header_params,
-        response_types_map={200: object})
+        resource_path=resource_path,
+        header_params=header_params)
     return data
 
 
@@ -182,14 +210,11 @@ def get_falco_extension(garden_api_client, project_namespace: str, shoot_name: s
     header_params = {
          "Accept": "application/json, */*"
     }
-    # Authentication setting
-    auth_settings = ['BearerToken']
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        auth_settings=auth_settings,
-        header_params=header_params,
-        response_types_map={200: object})
+        resource_path=resource_path,
+        header_params=header_params)
 
     extension_spec = None
     if "extensions" in data["spec"]:
@@ -271,12 +296,12 @@ def get_shoot_kubeconfig(garden_api_client, project_namespace: str, shoot_name: 
     }
     resource_path = \
         f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}/adminkubeconfig"
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="POST",
+        resource_path=resource_path,
         header_params=header_params,
-        body=request,
-        response_types_map={201: object})
+        body=request)
     kubeconfig = base64.b64decode(data["status"]["kubeconfig"])
     kc = yaml.safe_load(kubeconfig)
     return config.new_client_from_config_dict(kc)
@@ -312,18 +337,15 @@ def remove_falco_from_shoot(garden_api_client, project_namespace: str, shoot_nam
         query_params = {
             "fieldManager": "kubectl-patch"
         }
-        # Authentication setting
-        auth_settings = ['BearerToken']
         # debug_requests_on()
         resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
-        data, status, headers = garden_api_client.call_api(
-            resource_path=resource_path,
+        data, status, headers = api_request(
+            garden_api_client,
             method="PATCH",
+            resource_path=resource_path,
             header_params=header_params,
             query_params=query_params,
-            auth_settings=auth_settings,
-            body=patch,
-            response_types_map={200: object})
+            body=patch)
 
 
 def create_configmap(garden_api_client, namespace, name, configmap_data):
@@ -478,15 +500,13 @@ def add_falco_to_shoot(
                             garden_api_client,
                             project_namespace,
                             shoot_name)
-        auth_settings = ['BearerToken']
-        data, status, headers = garden_api_client.call_api(
-            resource_path=resource_path,
+        data, status, headers = api_request(
+            garden_api_client,
             method="PATCH",
+            resource_path=resource_path,
             header_params=header_params,
-            auth_settings=auth_settings,
             query_params=query_params,
-            body=patch,
-            response_types_map={200: object})
+            body=patch)
 
     except ApiException as e:
         logger.error(f"Error adding falco extension to shoot {shoot_name}: {e}")
@@ -512,16 +532,14 @@ def annotate_shoot(garden_api_client, project_namespace: str, shoot_name: str, a
         "fieldManager": "kubectl-patch"
     }
     # Authentication setting
-    auth_settings = ['BearerToken']
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}"
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="PATCH",
+        resource_path=resource_path,
         header_params=header_params,
         query_params=query_params,
-        auth_settings=auth_settings,
-        body=patch,
-        response_types_map={200: object})
+        body=patch)
 
 
 def wait_for_extension_undeployed(shoot_api_client):
@@ -652,13 +670,11 @@ def get_falco_profile(garden_api_client, profile_name):
     header_params = {
         "Accept": "application/json, */*"
     }
-    auth_settings = ['BearerToken']
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        auth_settings=auth_settings,
-        header_params=header_params,
-        response_types_map={200: object})
+        resource_path=resource_path,
+        header_params=header_params)
     return data
 
 
@@ -706,12 +722,12 @@ def get_falco_profile2(garden_api_client, profile_name):
     header_params = {
         "Accept": "application/json, */*"
     }
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        header_params=header_params,
-        response_types_map={200: object})
-    return json.loads(data)
+        resource_path=resource_path,
+        header_params=header_params)
+    return data
 
 
 def delete_event_generator_pod(shoot_api_client):

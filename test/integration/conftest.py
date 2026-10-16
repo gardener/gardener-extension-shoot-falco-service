@@ -7,6 +7,7 @@ import logging
 
 from kubernetes import config
 from kubernetes.client.exceptions import ApiException
+from falcotest.falcolib import api_request
 
 
 logger = logging.getLogger(__name__)
@@ -72,16 +73,14 @@ def shoot_api_client(garden_api_client, project_namespace: str, shoot_name: str)
     header_params = {
          "Accept": "application/json, */*"
     }
-    auth_settings = ['BearerToken']
     resource_path = f"/apis/core.gardener.cloud/v1beta1/namespaces/{project_namespace}/shoots/{shoot_name}/adminkubeconfig"
     logger.info(f"Requesting shoot kubeconfig for {project_namespace}/{shoot_name}: {resource_path}")
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="POST",
+        resource_path=resource_path,
         header_params=header_params,
-        body=request,
-        auth_settings=auth_settings,
-        response_types_map={201: object})
+        body=request)
     kubeconfig = base64.b64decode(data["status"]["kubeconfig"])
     kc = yaml.safe_load(kubeconfig)
     return config.new_client_from_config_dict(kc)
@@ -93,13 +92,11 @@ def shoot(garden_api_client, project_namespace: str, shoot_name: str):
     header_params = {
          "Accept": "application/json, */*"
     }
-    auth_settings = ['BearerToken']
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        auth_settings=auth_settings,
-        header_params=header_params,
-        response_types_map={200: object})
+        resource_path=resource_path,
+        header_params=header_params)
     return data
 
 
@@ -109,13 +106,11 @@ def falco_profile(garden_api_client):
     header_params = {
         "Accept": "application/json, */*"
     }
-    auth_settings = ['BearerToken']
-    data, status, headers = garden_api_client.call_api(
-        resource_path=resource_path,
+    data, status, headers = api_request(
+        garden_api_client,
         method="GET",
-        auth_settings=auth_settings,
-        header_params=header_params,
-        response_types_map={200: object})
+        resource_path=resource_path,
+        header_params=header_params)
     return data
 
 
