@@ -14,8 +14,6 @@ import (
 
 	config "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	configv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
-	corev1 "github.com/gardener/gardener/pkg/apis/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -121,7 +119,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha1_AdditionalConfig_To_config_AdditionalConfig(in *AdditionalConfig, out *config.AdditionalConfig, s conversion.Scope) error {
-	out.SeedManagedResources = *(*[]config.AdditionalSeedManagedResource)(unsafe.Pointer(&in.SeedManagedResources))
+	*out = *(*config.AdditionalConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -131,7 +129,7 @@ func Convert_v1alpha1_AdditionalConfig_To_config_AdditionalConfig(in *Additional
 }
 
 func autoConvert_config_AdditionalConfig_To_v1alpha1_AdditionalConfig(in *config.AdditionalConfig, out *AdditionalConfig, s conversion.Scope) error {
-	out.SeedManagedResources = *(*[]AdditionalSeedManagedResource)(unsafe.Pointer(&in.SeedManagedResources))
+	*out = *(*AdditionalConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -141,10 +139,7 @@ func Convert_config_AdditionalConfig_To_v1alpha1_AdditionalConfig(in *config.Add
 }
 
 func autoConvert_v1alpha1_AdditionalSeedManagedResource_To_config_AdditionalSeedManagedResource(in *AdditionalSeedManagedResource, out *config.AdditionalSeedManagedResource, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_v1alpha1_HelmConfig_To_config_HelmConfig(&in.Helm, &out.Helm, s); err != nil {
-		return err
-	}
+	*out = *(*config.AdditionalSeedManagedResource)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -154,10 +149,7 @@ func Convert_v1alpha1_AdditionalSeedManagedResource_To_config_AdditionalSeedMana
 }
 
 func autoConvert_config_AdditionalSeedManagedResource_To_v1alpha1_AdditionalSeedManagedResource(in *config.AdditionalSeedManagedResource, out *AdditionalSeedManagedResource, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_config_HelmConfig_To_v1alpha1_HelmConfig(&in.Helm, &out.Helm, s); err != nil {
-		return err
-	}
+	*out = *(*AdditionalSeedManagedResource)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -167,10 +159,7 @@ func Convert_config_AdditionalSeedManagedResource_To_v1alpha1_AdditionalSeedMana
 }
 
 func autoConvert_v1alpha1_CentralStorageConfig_To_config_CentralStorageConfig(in *CentralStorageConfig, out *config.CentralStorageConfig, s conversion.Scope) error {
-	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
-	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
-	out.URL = in.URL
-	out.Enabled = in.Enabled
+	*out = *(*config.CentralStorageConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -180,10 +169,7 @@ func Convert_v1alpha1_CentralStorageConfig_To_config_CentralStorageConfig(in *Ce
 }
 
 func autoConvert_config_CentralStorageConfig_To_v1alpha1_CentralStorageConfig(in *config.CentralStorageConfig, out *CentralStorageConfig, s conversion.Scope) error {
-	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
-	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
-	out.URL = in.URL
-	out.Enabled = in.Enabled
+	*out = *(*CentralStorageConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -193,8 +179,7 @@ func Convert_config_CentralStorageConfig_To_v1alpha1_CentralStorageConfig(in *co
 }
 
 func autoConvert_v1alpha1_ClusterIdentityTokenConfig_To_config_ClusterIdentityTokenConfig(in *ClusterIdentityTokenConfig, out *config.ClusterIdentityTokenConfig, s conversion.Scope) error {
-	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
-	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
+	*out = *(*config.ClusterIdentityTokenConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -204,8 +189,7 @@ func Convert_v1alpha1_ClusterIdentityTokenConfig_To_config_ClusterIdentityTokenC
 }
 
 func autoConvert_config_ClusterIdentityTokenConfig_To_v1alpha1_ClusterIdentityTokenConfig(in *config.ClusterIdentityTokenConfig, out *ClusterIdentityTokenConfig, s conversion.Scope) error {
-	out.TokenIssuerPrivateKey = in.TokenIssuerPrivateKey
-	out.TokenLifetime = (*v1.Duration)(unsafe.Pointer(in.TokenLifetime))
+	*out = *(*ClusterIdentityTokenConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -237,14 +221,7 @@ func Convert_config_Configuration_To_v1alpha1_Configuration(in *config.Configura
 }
 
 func autoConvert_v1alpha1_Falco_To_config_Falco(in *Falco, out *config.Falco, s conversion.Scope) error {
-	out.PriorityClassName = (*string)(unsafe.Pointer(in.PriorityClassName))
-	out.CentralStorage = (*config.CentralStorageConfig)(unsafe.Pointer(in.CentralStorage))
-	out.ClusterIdentityToken = (*config.ClusterIdentityTokenConfig)(unsafe.Pointer(in.ClusterIdentityToken))
-	out.CertificateLifetime = (*v1.Duration)(unsafe.Pointer(in.CertificateLifetime))
-	out.CertificateRenewAfter = (*v1.Duration)(unsafe.Pointer(in.CertificateRenewAfter))
-	out.DefaultEventDestination = (*string)(unsafe.Pointer(in.DefaultEventDestination))
-	out.GlobalDefaultDestinations = *(*[]config.GlobalDefaultDestination)(unsafe.Pointer(&in.GlobalDefaultDestinations))
-	out.Additional = (*config.AdditionalConfig)(unsafe.Pointer(in.Additional))
+	*out = *(*config.Falco)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -254,14 +231,7 @@ func Convert_v1alpha1_Falco_To_config_Falco(in *Falco, out *config.Falco, s conv
 }
 
 func autoConvert_config_Falco_To_v1alpha1_Falco(in *config.Falco, out *Falco, s conversion.Scope) error {
-	out.PriorityClassName = (*string)(unsafe.Pointer(in.PriorityClassName))
-	out.CentralStorage = (*CentralStorageConfig)(unsafe.Pointer(in.CentralStorage))
-	out.ClusterIdentityToken = (*ClusterIdentityTokenConfig)(unsafe.Pointer(in.ClusterIdentityToken))
-	out.CertificateLifetime = (*v1.Duration)(unsafe.Pointer(in.CertificateLifetime))
-	out.CertificateRenewAfter = (*v1.Duration)(unsafe.Pointer(in.CertificateRenewAfter))
-	out.DefaultEventDestination = (*string)(unsafe.Pointer(in.DefaultEventDestination))
-	out.GlobalDefaultDestinations = *(*[]GlobalDefaultDestination)(unsafe.Pointer(&in.GlobalDefaultDestinations))
-	out.Additional = (*AdditionalConfig)(unsafe.Pointer(in.Additional))
+	*out = *(*Falco)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -271,8 +241,7 @@ func Convert_config_Falco_To_v1alpha1_Falco(in *config.Falco, out *Falco, s conv
 }
 
 func autoConvert_v1alpha1_FalcosidekickOutput_To_config_FalcosidekickOutput(in *FalcosidekickOutput, out *config.FalcosidekickOutput, s conversion.Scope) error {
-	out.Key = in.Key
-	out.Value = (*runtime.RawExtension)(unsafe.Pointer(in.Value))
+	*out = *(*config.FalcosidekickOutput)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -282,8 +251,7 @@ func Convert_v1alpha1_FalcosidekickOutput_To_config_FalcosidekickOutput(in *Falc
 }
 
 func autoConvert_config_FalcosidekickOutput_To_v1alpha1_FalcosidekickOutput(in *config.FalcosidekickOutput, out *FalcosidekickOutput, s conversion.Scope) error {
-	out.Key = in.Key
-	out.Value = (*runtime.RawExtension)(unsafe.Pointer(in.Value))
+	*out = *(*FalcosidekickOutput)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -293,10 +261,7 @@ func Convert_config_FalcosidekickOutput_To_v1alpha1_FalcosidekickOutput(in *conf
 }
 
 func autoConvert_v1alpha1_GlobalDefaultDestination_To_config_GlobalDefaultDestination(in *GlobalDefaultDestination, out *config.GlobalDefaultDestination, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_v1alpha1_FalcosidekickOutput_To_config_FalcosidekickOutput(&in.FalcosidekickOutput, &out.FalcosidekickOutput, s); err != nil {
-		return err
-	}
+	*out = *(*config.GlobalDefaultDestination)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -306,10 +271,7 @@ func Convert_v1alpha1_GlobalDefaultDestination_To_config_GlobalDefaultDestinatio
 }
 
 func autoConvert_config_GlobalDefaultDestination_To_v1alpha1_GlobalDefaultDestination(in *config.GlobalDefaultDestination, out *GlobalDefaultDestination, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_config_FalcosidekickOutput_To_v1alpha1_FalcosidekickOutput(&in.FalcosidekickOutput, &out.FalcosidekickOutput, s); err != nil {
-		return err
-	}
+	*out = *(*GlobalDefaultDestination)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -319,9 +281,7 @@ func Convert_config_GlobalDefaultDestination_To_v1alpha1_GlobalDefaultDestinatio
 }
 
 func autoConvert_v1alpha1_HelmConfig_To_config_HelmConfig(in *HelmConfig, out *config.HelmConfig, s conversion.Scope) error {
-	out.OCIRepository = (*corev1.OCIRepository)(unsafe.Pointer(in.OCIRepository))
-	out.Chart = (*string)(unsafe.Pointer(in.Chart))
-	out.Values = (*runtime.RawExtension)(unsafe.Pointer(in.Values))
+	*out = *(*config.HelmConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -331,9 +291,7 @@ func Convert_v1alpha1_HelmConfig_To_config_HelmConfig(in *HelmConfig, out *confi
 }
 
 func autoConvert_config_HelmConfig_To_v1alpha1_HelmConfig(in *config.HelmConfig, out *HelmConfig, s conversion.Scope) error {
-	out.OCIRepository = (*corev1.OCIRepository)(unsafe.Pointer(in.OCIRepository))
-	out.Chart = (*string)(unsafe.Pointer(in.Chart))
-	out.Values = (*runtime.RawExtension)(unsafe.Pointer(in.Values))
+	*out = *(*HelmConfig)(unsafe.Pointer(in))
 	return nil
 }
 
