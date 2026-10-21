@@ -48,7 +48,7 @@ func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthc
 			},
 			{
 				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
-				HealthCheck:   falcohealth.NewCustomFalcoHealthCheck(general.NewShootDaemonSetHealthChecker("falco")),
+				HealthCheck:   falcohealth.NewCustomFalcoHealthCheck(),
 			},
 		},
 		sets.New[gardencorev1beta1.ConditionType](),
