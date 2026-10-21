@@ -166,10 +166,7 @@ func Convert_profile_FalcoProfileList_To_v1alpha1_FalcoProfileList(in *profile.F
 }
 
 func autoConvert_v1alpha1_FalcoVersion_To_profile_FalcoVersion(in *FalcoVersion, out *profile.FalcoVersion, s conversion.Scope) error {
-	out.Classification = in.Classification
-	out.ExpirationDate = (*string)(unsafe.Pointer(in.ExpirationDate))
-	out.Version = in.Version
-	out.RulesVersion = in.RulesVersion
+	*out = *(*profile.FalcoVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -179,10 +176,7 @@ func Convert_v1alpha1_FalcoVersion_To_profile_FalcoVersion(in *FalcoVersion, out
 }
 
 func autoConvert_profile_FalcoVersion_To_v1alpha1_FalcoVersion(in *profile.FalcoVersion, out *FalcoVersion, s conversion.Scope) error {
-	out.Classification = in.Classification
-	out.ExpirationDate = (*string)(unsafe.Pointer(in.ExpirationDate))
-	out.Version = in.Version
-	out.RulesVersion = in.RulesVersion
+	*out = *(*FalcoVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -192,9 +186,7 @@ func Convert_profile_FalcoVersion_To_v1alpha1_FalcoVersion(in *profile.FalcoVers
 }
 
 func autoConvert_v1alpha1_FalcoctlVersion_To_profile_FalcoctlVersion(in *FalcoctlVersion, out *profile.FalcoctlVersion, s conversion.Scope) error {
-	out.Classification = in.Classification
-	out.ExpirationDate = (*string)(unsafe.Pointer(in.ExpirationDate))
-	out.Version = in.Version
+	*out = *(*profile.FalcoctlVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -204,9 +196,7 @@ func Convert_v1alpha1_FalcoctlVersion_To_profile_FalcoctlVersion(in *FalcoctlVer
 }
 
 func autoConvert_profile_FalcoctlVersion_To_v1alpha1_FalcoctlVersion(in *profile.FalcoctlVersion, out *FalcoctlVersion, s conversion.Scope) error {
-	out.Classification = in.Classification
-	out.ExpirationDate = (*string)(unsafe.Pointer(in.ExpirationDate))
-	out.Version = in.Version
+	*out = *(*FalcoctlVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -216,9 +206,7 @@ func Convert_profile_FalcoctlVersion_To_v1alpha1_FalcoctlVersion(in *profile.Fal
 }
 
 func autoConvert_v1alpha1_FalcosidekickVersion_To_profile_FalcosidekickVersion(in *FalcosidekickVersion, out *profile.FalcosidekickVersion, s conversion.Scope) error {
-	out.Classification = in.Classification
-	out.ExpirationDate = (*string)(unsafe.Pointer(in.ExpirationDate))
-	out.Version = in.Version
+	*out = *(*profile.FalcosidekickVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -228,9 +216,7 @@ func Convert_v1alpha1_FalcosidekickVersion_To_profile_FalcosidekickVersion(in *F
 }
 
 func autoConvert_profile_FalcosidekickVersion_To_v1alpha1_FalcosidekickVersion(in *profile.FalcosidekickVersion, out *FalcosidekickVersion, s conversion.Scope) error {
-	out.Classification = in.Classification
-	out.ExpirationDate = (*string)(unsafe.Pointer(in.ExpirationDate))
-	out.Version = in.Version
+	*out = *(*FalcosidekickVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -240,9 +226,7 @@ func Convert_profile_FalcosidekickVersion_To_v1alpha1_FalcosidekickVersion(in *p
 }
 
 func autoConvert_v1alpha1_ImageSpec_To_profile_ImageSpec(in *ImageSpec, out *profile.ImageSpec, s conversion.Scope) error {
-	out.Version = in.Version
-	out.Repository = in.Repository
-	out.Tag = in.Tag
+	*out = *(*profile.ImageSpec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -252,9 +236,7 @@ func Convert_v1alpha1_ImageSpec_To_profile_ImageSpec(in *ImageSpec, out *profile
 }
 
 func autoConvert_profile_ImageSpec_To_v1alpha1_ImageSpec(in *profile.ImageSpec, out *ImageSpec, s conversion.Scope) error {
-	out.Version = in.Version
-	out.Repository = in.Repository
-	out.Tag = in.Tag
+	*out = *(*ImageSpec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -264,9 +246,7 @@ func Convert_profile_ImageSpec_To_v1alpha1_ImageSpec(in *profile.ImageSpec, out 
 }
 
 func autoConvert_v1alpha1_Images_To_profile_Images(in *Images, out *profile.Images, s conversion.Scope) error {
-	out.Falco = *(*[]profile.ImageSpec)(unsafe.Pointer(&in.Falco))
-	out.Falcosidekick = *(*[]profile.ImageSpec)(unsafe.Pointer(&in.Falcosidekick))
-	out.Falcoctl = *(*[]profile.ImageSpec)(unsafe.Pointer(&in.Falcoctl))
+	*out = *(*profile.Images)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -276,9 +256,7 @@ func Convert_v1alpha1_Images_To_profile_Images(in *Images, out *profile.Images, 
 }
 
 func autoConvert_profile_Images_To_v1alpha1_Images(in *profile.Images, out *Images, s conversion.Scope) error {
-	out.Falco = *(*[]ImageSpec)(unsafe.Pointer(&in.Falco))
-	out.Falcosidekick = *(*[]ImageSpec)(unsafe.Pointer(&in.Falcosidekick))
-	out.Falcoctl = *(*[]ImageSpec)(unsafe.Pointer(&in.Falcoctl))
+	*out = *(*Images)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -288,12 +266,7 @@ func Convert_profile_Images_To_v1alpha1_Images(in *profile.Images, out *Images, 
 }
 
 func autoConvert_v1alpha1_Spec_To_profile_Spec(in *Spec, out *profile.Spec, s conversion.Scope) error {
-	if err := Convert_v1alpha1_Versions_To_profile_Versions(&in.Versions, &out.Versions, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_Images_To_profile_Images(&in.Images, &out.Images, s); err != nil {
-		return err
-	}
+	*out = *(*profile.Spec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -303,12 +276,7 @@ func Convert_v1alpha1_Spec_To_profile_Spec(in *Spec, out *profile.Spec, s conver
 }
 
 func autoConvert_profile_Spec_To_v1alpha1_Spec(in *profile.Spec, out *Spec, s conversion.Scope) error {
-	if err := Convert_profile_Versions_To_v1alpha1_Versions(&in.Versions, &out.Versions, s); err != nil {
-		return err
-	}
-	if err := Convert_profile_Images_To_v1alpha1_Images(&in.Images, &out.Images, s); err != nil {
-		return err
-	}
+	*out = *(*Spec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -318,9 +286,7 @@ func Convert_profile_Spec_To_v1alpha1_Spec(in *profile.Spec, out *Spec, s conver
 }
 
 func autoConvert_v1alpha1_Versions_To_profile_Versions(in *Versions, out *profile.Versions, s conversion.Scope) error {
-	out.Falco = *(*[]profile.FalcoVersion)(unsafe.Pointer(&in.Falco))
-	out.Falcosidekick = *(*[]profile.FalcosidekickVersion)(unsafe.Pointer(&in.Falcosidekick))
-	out.Falcoctl = *(*[]profile.FalcoctlVersion)(unsafe.Pointer(&in.Falcoctl))
+	*out = *(*profile.Versions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -330,9 +296,7 @@ func Convert_v1alpha1_Versions_To_profile_Versions(in *Versions, out *profile.Ve
 }
 
 func autoConvert_profile_Versions_To_v1alpha1_Versions(in *profile.Versions, out *Versions, s conversion.Scope) error {
-	out.Falco = *(*[]FalcoVersion)(unsafe.Pointer(&in.Falco))
-	out.Falcosidekick = *(*[]FalcosidekickVersion)(unsafe.Pointer(&in.Falcosidekick))
-	out.Falcoctl = *(*[]FalcoctlVersion)(unsafe.Pointer(&in.Falcoctl))
+	*out = *(*Versions)(unsafe.Pointer(in))
 	return nil
 }
 

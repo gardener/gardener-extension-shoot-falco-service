@@ -169,8 +169,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *service.CustomRule, s conversion.Scope) error {
-	out.ResourceName = in.ResourceName
-	out.ShootConfigMap = in.ShootConfigMap
+	*out = *(*service.CustomRule)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -180,8 +179,7 @@ func Convert_v1alpha1_CustomRule_To_service_CustomRule(in *CustomRule, out *serv
 }
 
 func autoConvert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, out *CustomRule, s conversion.Scope) error {
-	out.ResourceName = in.ResourceName
-	out.ShootConfigMap = in.ShootConfigMap
+	*out = *(*CustomRule)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -191,9 +189,7 @@ func Convert_service_CustomRule_To_v1alpha1_CustomRule(in *service.CustomRule, o
 }
 
 func autoConvert_v1alpha1_Destination_To_service_Destination(in *Destination, out *service.Destination, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.ResourceSecretName = (*string)(unsafe.Pointer(in.ResourceSecretName))
+	*out = *(*service.Destination)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -203,9 +199,7 @@ func Convert_v1alpha1_Destination_To_service_Destination(in *Destination, out *s
 }
 
 func autoConvert_service_Destination_To_v1alpha1_Destination(in *service.Destination, out *Destination, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.ResourceSecretName = (*string)(unsafe.Pointer(in.ResourceSecretName))
+	*out = *(*Destination)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -215,7 +209,7 @@ func Convert_service_Destination_To_v1alpha1_Destination(in *service.Destination
 }
 
 func autoConvert_v1alpha1_FalcoConfig_To_service_FalcoConfig(in *FalcoConfig, out *service.FalcoConfig, s conversion.Scope) error {
-	out.Resources = (*service.FalcoResources)(unsafe.Pointer(in.Resources))
+	*out = *(*service.FalcoConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -225,7 +219,7 @@ func Convert_v1alpha1_FalcoConfig_To_service_FalcoConfig(in *FalcoConfig, out *s
 }
 
 func autoConvert_service_FalcoConfig_To_v1alpha1_FalcoConfig(in *service.FalcoConfig, out *FalcoConfig, s conversion.Scope) error {
-	out.Resources = (*FalcoResources)(unsafe.Pointer(in.Resources))
+	*out = *(*FalcoConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -235,10 +229,7 @@ func Convert_service_FalcoConfig_To_v1alpha1_FalcoConfig(in *service.FalcoConfig
 }
 
 func autoConvert_v1alpha1_FalcoCtl_To_service_FalcoCtl(in *FalcoCtl, out *service.FalcoCtl, s conversion.Scope) error {
-	out.Indexes = *(*[]service.FalcoCtlIndex)(unsafe.Pointer(&in.Indexes))
-	out.AllowedTypes = *(*[]string)(unsafe.Pointer(&in.AllowedTypes))
-	out.Install = (*service.Install)(unsafe.Pointer(in.Install))
-	out.Follow = (*service.Follow)(unsafe.Pointer(in.Follow))
+	*out = *(*service.FalcoCtl)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -248,10 +239,7 @@ func Convert_v1alpha1_FalcoCtl_To_service_FalcoCtl(in *FalcoCtl, out *service.Fa
 }
 
 func autoConvert_service_FalcoCtl_To_v1alpha1_FalcoCtl(in *service.FalcoCtl, out *FalcoCtl, s conversion.Scope) error {
-	out.Indexes = *(*[]FalcoCtlIndex)(unsafe.Pointer(&in.Indexes))
-	out.AllowedTypes = *(*[]string)(unsafe.Pointer(&in.AllowedTypes))
-	out.Install = (*Install)(unsafe.Pointer(in.Install))
-	out.Follow = (*Follow)(unsafe.Pointer(in.Follow))
+	*out = *(*FalcoCtl)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -261,8 +249,7 @@ func Convert_service_FalcoCtl_To_v1alpha1_FalcoCtl(in *service.FalcoCtl, out *Fa
 }
 
 func autoConvert_v1alpha1_FalcoCtlIndex_To_service_FalcoCtlIndex(in *FalcoCtlIndex, out *service.FalcoCtlIndex, s conversion.Scope) error {
-	out.Name = (*string)(unsafe.Pointer(in.Name))
-	out.Url = (*string)(unsafe.Pointer(in.Url))
+	*out = *(*service.FalcoCtlIndex)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -272,8 +259,7 @@ func Convert_v1alpha1_FalcoCtlIndex_To_service_FalcoCtlIndex(in *FalcoCtlIndex, 
 }
 
 func autoConvert_service_FalcoCtlIndex_To_v1alpha1_FalcoCtlIndex(in *service.FalcoCtlIndex, out *FalcoCtlIndex, s conversion.Scope) error {
-	out.Name = (*string)(unsafe.Pointer(in.Name))
-	out.Url = (*string)(unsafe.Pointer(in.Url))
+	*out = *(*FalcoCtlIndex)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -283,8 +269,7 @@ func Convert_service_FalcoCtlIndex_To_v1alpha1_FalcoCtlIndex(in *service.FalcoCt
 }
 
 func autoConvert_v1alpha1_FalcoResources_To_service_FalcoResources(in *FalcoResources, out *service.FalcoResources, s conversion.Scope) error {
-	out.Limits = (*service.ResourceValues)(unsafe.Pointer(in.Limits))
-	out.Requests = (*service.ResourceValues)(unsafe.Pointer(in.Requests))
+	*out = *(*service.FalcoResources)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -294,8 +279,7 @@ func Convert_v1alpha1_FalcoResources_To_service_FalcoResources(in *FalcoResource
 }
 
 func autoConvert_service_FalcoResources_To_v1alpha1_FalcoResources(in *service.FalcoResources, out *FalcoResources, s conversion.Scope) error {
-	out.Limits = (*ResourceValues)(unsafe.Pointer(in.Limits))
-	out.Requests = (*ResourceValues)(unsafe.Pointer(in.Requests))
+	*out = *(*FalcoResources)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -339,8 +323,7 @@ func Convert_service_FalcoServiceConfig_To_v1alpha1_FalcoServiceConfig(in *servi
 }
 
 func autoConvert_v1alpha1_Follow_To_service_Follow(in *Follow, out *service.Follow, s conversion.Scope) error {
-	out.Refs = *(*[]string)(unsafe.Pointer(&in.Refs))
-	out.Every = (*string)(unsafe.Pointer(in.Every))
+	*out = *(*service.Follow)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -350,8 +333,7 @@ func Convert_v1alpha1_Follow_To_service_Follow(in *Follow, out *service.Follow, 
 }
 
 func autoConvert_service_Follow_To_v1alpha1_Follow(in *service.Follow, out *Follow, s conversion.Scope) error {
-	out.Refs = *(*[]string)(unsafe.Pointer(&in.Refs))
-	out.Every = (*string)(unsafe.Pointer(in.Every))
+	*out = *(*Follow)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -361,10 +343,7 @@ func Convert_service_Follow_To_v1alpha1_Follow(in *service.Follow, out *Follow, 
 }
 
 func autoConvert_v1alpha1_Gardener_To_service_Gardener(in *Gardener, out *service.Gardener, s conversion.Scope) error {
-	out.UseFalcoRules = (*bool)(unsafe.Pointer(in.UseFalcoRules))
-	out.UseFalcoIncubatingRules = (*bool)(unsafe.Pointer(in.UseFalcoIncubatingRules))
-	out.UseFalcoSandboxRules = (*bool)(unsafe.Pointer(in.UseFalcoSandboxRules))
-	out.CustomRules = *(*[]string)(unsafe.Pointer(&in.CustomRules))
+	*out = *(*service.Gardener)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -374,10 +353,7 @@ func Convert_v1alpha1_Gardener_To_service_Gardener(in *Gardener, out *service.Ga
 }
 
 func autoConvert_service_Gardener_To_v1alpha1_Gardener(in *service.Gardener, out *Gardener, s conversion.Scope) error {
-	out.UseFalcoRules = (*bool)(unsafe.Pointer(in.UseFalcoRules))
-	out.UseFalcoIncubatingRules = (*bool)(unsafe.Pointer(in.UseFalcoIncubatingRules))
-	out.UseFalcoSandboxRules = (*bool)(unsafe.Pointer(in.UseFalcoSandboxRules))
-	out.CustomRules = *(*[]string)(unsafe.Pointer(&in.CustomRules))
+	*out = *(*Gardener)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -387,8 +363,7 @@ func Convert_service_Gardener_To_v1alpha1_Gardener(in *service.Gardener, out *Ga
 }
 
 func autoConvert_v1alpha1_Install_To_service_Install(in *Install, out *service.Install, s conversion.Scope) error {
-	out.Refs = *(*[]string)(unsafe.Pointer(&in.Refs))
-	out.ResolveDeps = (*bool)(unsafe.Pointer(in.ResolveDeps))
+	*out = *(*service.Install)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -398,8 +373,7 @@ func Convert_v1alpha1_Install_To_service_Install(in *Install, out *service.Insta
 }
 
 func autoConvert_service_Install_To_v1alpha1_Install(in *service.Install, out *Install, s conversion.Scope) error {
-	out.Refs = *(*[]string)(unsafe.Pointer(&in.Refs))
-	out.ResolveDeps = (*bool)(unsafe.Pointer(in.ResolveDeps))
+	*out = *(*Install)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -409,9 +383,7 @@ func Convert_service_Install_To_v1alpha1_Install(in *service.Install, out *Insta
 }
 
 func autoConvert_v1alpha1_Output_To_service_Output(in *Output, out *service.Output, s conversion.Scope) error {
-	out.LogFalcoEvents = (*bool)(unsafe.Pointer(in.LogFalcoEvents))
-	out.EventCollector = (*string)(unsafe.Pointer(in.EventCollector))
-	out.CustomWebhook = (*service.Webhook)(unsafe.Pointer(in.CustomWebhook))
+	*out = *(*service.Output)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -421,9 +393,7 @@ func Convert_v1alpha1_Output_To_service_Output(in *Output, out *service.Output, 
 }
 
 func autoConvert_service_Output_To_v1alpha1_Output(in *service.Output, out *Output, s conversion.Scope) error {
-	out.LogFalcoEvents = (*bool)(unsafe.Pointer(in.LogFalcoEvents))
-	out.EventCollector = (*string)(unsafe.Pointer(in.EventCollector))
-	out.CustomWebhook = (*Webhook)(unsafe.Pointer(in.CustomWebhook))
+	*out = *(*Output)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -433,8 +403,7 @@ func Convert_service_Output_To_v1alpha1_Output(in *service.Output, out *Output, 
 }
 
 func autoConvert_v1alpha1_ResourceValues_To_service_ResourceValues(in *ResourceValues, out *service.ResourceValues, s conversion.Scope) error {
-	out.Cpu = (*string)(unsafe.Pointer(in.Cpu))
-	out.Memory = (*string)(unsafe.Pointer(in.Memory))
+	*out = *(*service.ResourceValues)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -444,8 +413,7 @@ func Convert_v1alpha1_ResourceValues_To_service_ResourceValues(in *ResourceValue
 }
 
 func autoConvert_service_ResourceValues_To_v1alpha1_ResourceValues(in *service.ResourceValues, out *ResourceValues, s conversion.Scope) error {
-	out.Cpu = (*string)(unsafe.Pointer(in.Cpu))
-	out.Memory = (*string)(unsafe.Pointer(in.Memory))
+	*out = *(*ResourceValues)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -455,8 +423,7 @@ func Convert_service_ResourceValues_To_v1alpha1_ResourceValues(in *service.Resou
 }
 
 func autoConvert_v1alpha1_Rules_To_service_Rules(in *Rules, out *service.Rules, s conversion.Scope) error {
-	out.StandardRules = *(*[]string)(unsafe.Pointer(&in.StandardRules))
-	out.CustomRules = *(*[]service.CustomRule)(unsafe.Pointer(&in.CustomRules))
+	*out = *(*service.Rules)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -466,8 +433,7 @@ func Convert_v1alpha1_Rules_To_service_Rules(in *Rules, out *service.Rules, s co
 }
 
 func autoConvert_service_Rules_To_v1alpha1_Rules(in *service.Rules, out *Rules, s conversion.Scope) error {
-	out.StandardRules = *(*[]string)(unsafe.Pointer(&in.StandardRules))
-	out.CustomRules = *(*[]CustomRule)(unsafe.Pointer(&in.CustomRules))
+	*out = *(*Rules)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -477,12 +443,7 @@ func Convert_service_Rules_To_v1alpha1_Rules(in *service.Rules, out *Rules, s co
 }
 
 func autoConvert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webhook, s conversion.Scope) error {
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.Address = (*string)(unsafe.Pointer(in.Address))
-	out.Method = (*string)(unsafe.Pointer(in.Method))
-	out.CustomHeaders = (*map[string]string)(unsafe.Pointer(in.CustomHeaders))
-	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
-	out.SecretRef = (*string)(unsafe.Pointer(in.SecretRef))
+	*out = *(*service.Webhook)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -492,12 +453,7 @@ func Convert_v1alpha1_Webhook_To_service_Webhook(in *Webhook, out *service.Webho
 }
 
 func autoConvert_service_Webhook_To_v1alpha1_Webhook(in *service.Webhook, out *Webhook, s conversion.Scope) error {
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.Address = (*string)(unsafe.Pointer(in.Address))
-	out.Method = (*string)(unsafe.Pointer(in.Method))
-	out.CustomHeaders = (*map[string]string)(unsafe.Pointer(in.CustomHeaders))
-	out.Checkcerts = (*bool)(unsafe.Pointer(in.Checkcerts))
-	out.SecretRef = (*string)(unsafe.Pointer(in.SecretRef))
+	*out = *(*Webhook)(unsafe.Pointer(in))
 	return nil
 }
 
