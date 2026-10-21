@@ -425,6 +425,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"client_crt":    string(secrets.EncodeCertificate(certs.ClientCert)),
 			"client_key":    string(secrets.EncodePrivateKey(certs.ClientKey)),
 		}
+		reconcileCtx.FalcosidekickEnabled = true
 	}
 
 	destination := c.getDestination(falcoOutputConfigs)
