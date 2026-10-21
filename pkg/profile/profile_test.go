@@ -868,9 +868,8 @@ var _ = Describe("Falco profile manager", func() {
 			Expect(*falcoVersions).To(HaveLen(3))
 			Expect((*falcoVersions)["1.0.0"].Version).To(Equal("1.0.0"))
 			Expect((*falcoVersions)["1.1.0"].Version).To(Equal("1.1.0"))
-			// Version 1.1.0 appears in both profiles - could have either classification
-			// since rebuild() iterates over map without guaranteed order
-			Expect((*falcoVersions)["1.1.0"].Classification).To(Or(Equal("supported"), Equal("deprecated")))
+			// Version 1.1.0 appears in both profiles; "supported" must win over "deprecated"
+			Expect((*falcoVersions)["1.1.0"].Classification).To(Equal("supported"))
 			Expect((*falcoVersions)["1.2.0"].Version).To(Equal("1.2.0"))
 
 			falcosidekickVersions := profileManager.GetFalcosidekickVersions()
@@ -899,6 +898,92 @@ var _ = Describe("Falco profile manager", func() {
 			// Version 2.1.0 should be gone
 			_, exists = (*falcosidekickVersions)["2.1.0"]
 			Expect(exists).To(BeFalse())
+		})
+
+		It("should preserve 'supported' classification when a second profile lists the same version as 'deprecated'", func() {
+			futureExpiry := "2099-01-01T00:00:00Z"
+
+			officialProfile := &v1alpha1.FalcoProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: "falco"},
+				Spec: v1alpha1.Spec{
+					Versions: v1alpha1.Versions{
+						Falco: []v1alpha1.FalcoVersion{
+							{Classification: "supported", ExpirationDate: &futureExpiry, Version: "0.44.1", RulesVersion: "0.44.1"},
+						},
+					},
+					Images: v1alpha1.Images{
+						Falco: []v1alpha1.ImageSpec{{Version: "0.44.1", Repository: "falcosecurity/falco", Tag: "0.44.1"}},
+					},
+				},
+			}
+
+			deprecatingProfile := &v1alpha1.FalcoProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: "falco-other"},
+				Spec: v1alpha1.Spec{
+					Versions: v1alpha1.Versions{
+						Falco: []v1alpha1.FalcoVersion{
+							{Classification: "deprecated", ExpirationDate: &futureExpiry, Version: "0.44.1", RulesVersion: "0.44.1"},
+						},
+					},
+					Images: v1alpha1.Images{
+						Falco: []v1alpha1.ImageSpec{{Version: "0.44.1", Repository: "falcosecurity/falco", Tag: "0.44.1"}},
+					},
+				},
+			}
+
+			profileManager.updateEvent(officialProfile)
+			profileManager.updateEvent(deprecatingProfile)
+
+			falcoVersions := profileManager.GetFalcoVersions()
+			Expect(*falcoVersions).To(HaveLen(1))
+			Expect((*falcoVersions)["0.44.1"].Classification).To(Equal("supported"),
+				"expected 'supported' to survive when a second profile lists the same version as 'deprecated'")
+		})
+
+		It("should preserve 'supported' classification when a second profile lists the same version as 'preview'", func() {
+			// Reproduces the production scenario: profile "falco" has 0.44.1 as "supported",
+			// profile "falco-preview" has 0.44.1 as "preview". The mutator webhook must still
+			// be able to find a supported version; if rebuild() lets the second profile
+			// overwrite the first, chooseHighestVersion(..., "supported") returns an error.
+			futureExpiry := "2099-01-01T00:00:00Z"
+
+			officialProfile := &v1alpha1.FalcoProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: "falco"},
+				Spec: v1alpha1.Spec{
+					Versions: v1alpha1.Versions{
+						Falco: []v1alpha1.FalcoVersion{
+							{Classification: "supported", ExpirationDate: &futureExpiry, Version: "0.44.1", RulesVersion: "0.44.1"},
+						},
+					},
+					Images: v1alpha1.Images{
+						Falco: []v1alpha1.ImageSpec{{Version: "0.44.1", Repository: "falcosecurity/falco", Tag: "0.44.1"}},
+					},
+				},
+			}
+
+			previewProfile := &v1alpha1.FalcoProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: "falco-preview"},
+				Spec: v1alpha1.Spec{
+					Versions: v1alpha1.Versions{
+						Falco: []v1alpha1.FalcoVersion{
+							{Classification: "preview", ExpirationDate: &futureExpiry, Version: "0.44.1", RulesVersion: "0.44.1"},
+						},
+					},
+					Images: v1alpha1.Images{
+						Falco: []v1alpha1.ImageSpec{{Version: "0.44.1", Repository: "falcosecurity/falco", Tag: "0.44.1"}},
+					},
+				},
+			}
+
+			profileManager.updateEvent(officialProfile)
+			profileManager.updateEvent(previewProfile)
+
+			falcoVersions := profileManager.GetFalcoVersions()
+			Expect(*falcoVersions).To(HaveLen(1))
+			// The version must retain "supported" from the official profile regardless of
+			// the order in which rebuild() processes the two profiles.
+			Expect((*falcoVersions)["0.44.1"].Classification).To(Equal("supported"),
+				"expected 'supported' classification from profile 'falco' to survive, but it was overwritten by 'falco-preview'")
 		})
 	})
 })
