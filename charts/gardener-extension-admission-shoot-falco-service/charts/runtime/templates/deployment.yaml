@@ -65,9 +65,6 @@ spec:
         {{- end }}
         - --health-bind-address=:{{ .Values.healthPort }}
         - --leader-election-id={{ include "leaderelectionid" . }}
-        {{- if .Values.otlpLogging }}
-        - --otlp-logging
-        {{- end }}
         - --config-file=/etc/gardener-extension-admission-shoot-falco-service/config/config.yaml
         {{- if or .Values.gardener.virtualCluster.enabled .Values.restrictedUsage }}
         env:

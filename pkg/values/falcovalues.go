@@ -136,41 +136,36 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			falcoStdoutLog = true
 
 		case constants.FalcoEventDestinationLogging:
-			valiHost := utils.ComputeValiHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
-			loki := map[string]interface{}{
-				"hostport":  "https://" + valiHost,
-				"endpoint":  "/vali/api/v1/push",
-				"format":    "json",
-				"checkcert": false,
-				"customheaders": map[string]string{
-					"Authorization": "Bearer SA_TOKEN",
-				},
+			if !reconcileCtx.LoggingBackend.OtelCollectorEnabled && !reconcileCtx.LoggingBackend.ValiEnabled {
+				log.Info("logging destination requested but neither OTel Collector nor Vali detected, skipping")
+				break
 			}
-			outputConfig := falcoOutputConfig{
-				key:   "loki",
-				value: loki,
-			}
-			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
-
-		case constants.FalcoEventDestinationOTLP:
-			otlpHost := utils.ComputeOTLPHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
-			otlp := map[string]any{
-				"logs": map[string]any{
-					"endpoint":  "https://" + otlpHost + "/opentelemetry.proto.collector.logs.v1.LogsService/Export",
-					"protocol":  "grpc",
-					"headers":   "Authorization=Bearer SA_TOKEN",
+			if reconcileCtx.LoggingBackend.ValiEnabled {
+				valiHost := utils.ComputeValiHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
+				loki := map[string]interface{}{
+					"hostport":  "https://" + valiHost,
+					"endpoint":  "/vali/api/v1/push",
+					"format":    "json",
 					"checkcert": false,
-				},
-				// bug in falcosidekick
-				"traces": map[string]string{
-					"checkcert": "false",
-				},
+					"customheaders": map[string]string{
+						"Authorization": "Bearer SA_TOKEN",
+					},
+				}
+				falcoOutputConfigs = append(falcoOutputConfigs, falcoOutputConfig{key: "loki", value: loki})
 			}
-			outputConfig := falcoOutputConfig{
-				key:   "otlp",
-				value: otlp,
+			if reconcileCtx.LoggingBackend.OtelCollectorEnabled {
+				otlpHost := utils.ComputeOTLPHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
+				otlp := map[string]any{
+					"logs": map[string]any{
+						"endpoint":  "https://" + otlpHost + ":443",
+						"protocol":  "grpc",
+						"headers":   "Authorization=Bearer SA_TOKEN",
+						"checkcert": false,
+						"tls":       true,
+					},
+				}
+				falcoOutputConfigs = append(falcoOutputConfigs, falcoOutputConfig{key: "otlp", value: otlp})
 			}
-			falcoOutputConfigs = append(falcoOutputConfigs, outputConfig)
 
 		case constants.FalcoEventDestinationCustom:
 			webhook := map[string]any{}
@@ -427,7 +422,6 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 		}
 	}
 
-	destination := c.getDestination(falcoOutputConfigs)
 	falcoChartValues := map[string]any{
 		"clusterId":         *reconcileCtx.ClusterIdentity,
 		"priorityClassName": priorityClassName,
@@ -489,8 +483,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 			"image": falcoOpsImage.String(),
 		},
 		"gardenerExtensionShootFalcoService": map[string]any{
-			"output": map[string]string{
-				"eventCollector": destination,
+			"output": map[string]any{
+				"valiEnabled": c.hasOutputKey(falcoOutputConfigs, "loki"),
+				"otlpEnabled": c.hasOutputKey(falcoOutputConfigs, "otlp"),
 			},
 		},
 	}
@@ -538,21 +533,13 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 	return falcoChartValues, nil
 }
 
-func (*ConfigBuilder) getDestination(falcoOutputConfigs []falcoOutputConfig) string {
-	for _, outputConfig := range falcoOutputConfigs {
-		switch outputConfig.key {
-		case "loki":
-			return constants.FalcoEventDestinationLogging
-		case "otlp":
-			return constants.FalcoEventDestinationOTLP
+func (*ConfigBuilder) hasOutputKey(falcoOutputConfigs []falcoOutputConfig, key string) bool {
+	for _, c := range falcoOutputConfigs {
+		if c.key == key {
+			return true
 		}
 	}
-
-	if len(falcoOutputConfigs) == 0 {
-		return constants.FalcoEventDestinationStdout
-	}
-
-	return falcoOutputConfigs[0].key
+	return false
 }
 
 func (c *ConfigBuilder) generateSidekickDefaultValues(
