@@ -163,6 +163,7 @@ var _ = Describe("Certificate", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			leafLifetime := time.Hour * 24 * 5
+			before := time.Now()
 			certs, err := secrets.GenerateKeysAndCerts(cas, "kube-system", leafLifetime)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -171,8 +172,8 @@ var _ = Describe("Certificate", func() {
 			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", cas.ClientCaCert.NotAfter))
 
 			// leaf should be close to the requested lifetime (within a second of clock skew)
-			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", time.Now().Add(leafLifetime), time.Second))
-			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", time.Now().Add(leafLifetime), time.Second))
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally("~", before.Add(leafLifetime), time.Second))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally("~", before.Add(leafLifetime), time.Second))
 		})
 
 		It("should cap leaf cert to CA expiry when requested lifetime exceeds CA remaining life", func() {
