@@ -11,7 +11,7 @@ spec:
     - repository: falcosecurity/falco
       tag: 0.44.1
       version: 0.44.1
-    - repository: europe-docker.pkg.dev/gardener-project/releases/3rd/falcosecurity/falco
+    - repository: falcosecurity/falco
       tag: 0.45.1
       version: 0.45.1
     falcosidekick:
