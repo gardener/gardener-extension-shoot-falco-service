@@ -52,19 +52,19 @@ func RenderPerPoolDaemonSets(
 		var poolResources *apisservice.FalcoResources
 		if falcoConfig != nil {
 			if pr, ok := falcoConfig.WorkerPoolResources[worker.Name]; ok {
-				poolResources = pr
+				poolResources = mergeResources(falcoConfig.Resources, pr)
 			} else {
 				poolResources = falcoConfig.Resources
 			}
 		}
 
 		poolValues := maps.Clone(baseValues)
-		poolValues["fullnameOverride"] = "falco-" + worker.Name
+		poolValues["fullnameOverride"] = "falco-wp-" + worker.Name
 		poolValues["nodeSelector"] = map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
 		poolValues["podLabels"] = map[string]string{
-			"app.kubernetes.io/instance": "falco-" + worker.Name,
+			"falco.gardener.cloud/worker-pool": worker.Name,
 		}
 		// daemonSetOnly is an internal rendering-mode flag, not a user-facing chart value
 		// (intentionally absent from values.yaml). The chart is rendered twice per reconcile:
@@ -177,6 +177,45 @@ func buildNodeEnv(machineTypeName string, index map[string]gardenerv1beta1.Machi
 	}
 
 	return env, nil
+}
+
+// mergeResources returns a FalcoResources that combines base and override.
+// Fields set in override take precedence; unset fields fall back to base.
+func mergeResources(base, override *apisservice.FalcoResources) *apisservice.FalcoResources {
+	if base == nil {
+		return override
+	}
+	if override == nil {
+		return base
+	}
+	merged := &apisservice.FalcoResources{}
+	if base.Requests != nil || override.Requests != nil {
+		merged.Requests = mergeResourceList(base.Requests, override.Requests)
+	}
+	if base.Limits != nil || override.Limits != nil {
+		merged.Limits = mergeResourceList(base.Limits, override.Limits)
+	}
+	return merged
+}
+
+func mergeResourceList(base, override *apisservice.ResourceValues) *apisservice.ResourceValues {
+	if base == nil {
+		return override
+	}
+	if override == nil {
+		return base
+	}
+	merged := &apisservice.ResourceValues{}
+	merged.Cpu = firstNonNil(override.Cpu, base.Cpu)
+	merged.Memory = firstNonNil(override.Memory, base.Memory)
+	return merged
+}
+
+func firstNonNil(a, b *string) *string {
+	if a != nil {
+		return a
+	}
+	return b
 }
 
 func applyResourceResult(values map[string]any, result formula.ResourceResult) {

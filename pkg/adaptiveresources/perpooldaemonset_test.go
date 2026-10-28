@@ -98,8 +98,10 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 		shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
 		all := combineManifests(shared, pools)
-		Expect(all).To(ContainSubstring("falco-pool-a"))
-		Expect(all).To(ContainSubstring("falco-pool-b"))
+		Expect(all).To(ContainSubstring("falco-wp-pool-a"))
+		Expect(all).To(ContainSubstring("falco-wp-pool-b"))
+		Expect(all).NotTo(ContainSubstring("falco-pool-a"))
+		Expect(all).NotTo(ContainSubstring("falco-pool-b"))
 		Expect(all).To(ContainSubstring("falco-default"))
 	})
 
@@ -165,7 +167,7 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 		shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, nil)
 		Expect(err).NotTo(HaveOccurred())
 		all := combineManifests(shared, pools)
-		Expect(all).To(ContainSubstring("falco-pool-a"))
+		Expect(all).To(ContainSubstring("falco-wp-pool-a"))
 		Expect(all).To(ContainSubstring("falco-default"))
 	})
 
@@ -210,5 +212,24 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 		all := combineManifests(shared, pools)
 		Expect(all).To(ContainSubstring("250m"))
 		Expect(all).To(ContainSubstring("512Mi"))
+	})
+
+	It("worker pool named 'default' produces falco-wp-default, not falco-default", func() {
+		defaultWorkers := []gardenerv1beta1.Worker{
+			{Name: "default", Machine: gardenerv1beta1.Machine{Type: "m5.large"}},
+		}
+		shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), defaultWorkers, cloudProfile, falcoConfig)
+		Expect(err).NotTo(HaveOccurred())
+		all := combineManifests(shared, pools)
+		// Per-pool DaemonSet must use the wp- prefix to avoid colliding with falco-default.
+		Expect(all).To(ContainSubstring("falco-wp-default"))
+		// The shared fallback DaemonSet for unlabeled nodes must still be falco-default.
+		Expect(string(shared)).To(ContainSubstring("falco-default"))
+		// Confirm no bare "falco-default" was emitted from the per-pool render path.
+		poolAll := ""
+		for _, pm := range pools {
+			poolAll += string(pm.Manifest)
+		}
+		Expect(poolAll).NotTo(ContainSubstring(`name: falco-default`))
 	})
 })

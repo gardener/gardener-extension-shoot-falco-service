@@ -679,7 +679,6 @@ def _setup_adaptive_pools(garden_api_client, project_namespace, shoot_name,
 def _teardown_adaptive_pools(garden_api_client, project_namespace, shoot_name,
                              cloud_profile_name, small_type, medium_type, large_type):
     """Remove worker pools, wait for reconcile, then remove machine types we added."""
-    ensure_extension_not_deployed(garden_api_client, None, project_namespace, shoot_name)
     for pool_name in [_POOL_SMALL, _POOL_MEDIUM, _POOL_LARGE]:
         remove_worker_pool_from_shoot(
             garden_api_client, project_namespace, shoot_name, pool_name)
@@ -726,8 +725,8 @@ def test_adaptive_resources(
     6. Full teardown removes all per-pool DaemonSets.
     """
     provider_type = get_shoot_provider_type(garden_api_client, project_namespace, shoot_name)
-    if provider_type != "aws":
-        pytest.skip(f"Adaptive resources test only runs on AWS shoots (provider={provider_type})")
+    if provider_type not in ("aws", "local"):
+        pytest.skip(f"Adaptive resources test only runs on AWS or local shoots (provider={provider_type})")
 
     cloud_profile = adaptive_cloud_profile or get_shoot_cloud_profile_name(
         garden_api_client, project_namespace, shoot_name)
@@ -779,9 +778,9 @@ def test_adaptive_resources(
         # 1. Per-pool DaemonSets exist; monolithic 'falco' is absent
         # ------------------------------------------------------------------
         expected_ds = [
-            f"falco-{_POOL_SMALL}",
-            f"falco-{_POOL_MEDIUM}",
-            f"falco-{_POOL_LARGE}",
+            f"falco-wp-{_POOL_SMALL}",
+            f"falco-wp-{_POOL_MEDIUM}",
+            f"falco-wp-{_POOL_LARGE}",
             "falco-default",
         ]
         wait_for_daemonsets(shoot_api_client, expected_ds, timeout_seconds=300)
@@ -812,7 +811,7 @@ def test_adaptive_resources(
         # 3. Per-pool DaemonSets carry the correct nodeSelector
         # ------------------------------------------------------------------
         for pool_name in [_POOL_SMALL, _POOL_MEDIUM, _POOL_LARGE]:
-            ds_name = f"falco-{pool_name}"
+            ds_name = f"falco-wp-{pool_name}"
             ns = get_daemonset_node_selector(shoot_api_client, ds_name)
             assert ns.get("worker.gardener.cloud/pool") == pool_name, (
                 f"{ds_name}: expected nodeSelector worker.gardener.cloud/pool={pool_name}, got {ns}"
@@ -831,7 +830,7 @@ def test_adaptive_resources(
             _POOL_LARGE:  {"cpu": "800m", "memory": "256Mi"},  # 32 GiB tier
         }
         for pool_name, want in expected_resources.items():
-            ds_name = f"falco-{pool_name}"
+            ds_name = f"falco-wp-{pool_name}"
             resources = get_daemonset_resources(shoot_api_client, ds_name)
             logger.info(f"{ds_name} resources: {resources}")
             requests = resources.get("requests", {})
@@ -859,7 +858,7 @@ def test_adaptive_resources(
             garden_api_client, shoot_api_client, project_namespace, shoot_name)
         wait_for_daemonsets_absent(
             shoot_api_client,
-            expected_ds + ["falco"],
+            [f"falco-wp-{p}" for p in [_POOL_SMALL, _POOL_MEDIUM, _POOL_LARGE]] + ["falco-default", "falco"],
             timeout_seconds=180,
         )
         logger.info("All adaptive DaemonSets removed after teardown")
@@ -900,8 +899,8 @@ def test_adaptive_resources_per_pool_override(
     4. SystemComponentsHealthy=True after reconcile.
     """
     provider_type = get_shoot_provider_type(garden_api_client, project_namespace, shoot_name)
-    if provider_type != "aws":
-        pytest.skip(f"Adaptive resources test only runs on AWS shoots (provider={provider_type})")
+    if provider_type not in ("aws", "local"):
+        pytest.skip(f"Adaptive resources test only runs on AWS or local shoots (provider={provider_type})")
 
     cloud_profile = adaptive_cloud_profile or get_shoot_cloud_profile_name(
         garden_api_client, project_namespace, shoot_name)
@@ -959,9 +958,9 @@ def test_adaptive_resources_per_pool_override(
         wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
 
         expected_ds = [
-            f"falco-{_POOL_SMALL}",
-            f"falco-{_POOL_MEDIUM}",
-            f"falco-{_POOL_LARGE}",
+            f"falco-wp-{_POOL_SMALL}",
+            f"falco-wp-{_POOL_MEDIUM}",
+            f"falco-wp-{_POOL_LARGE}",
             "falco-default",
         ]
         wait_for_daemonsets(shoot_api_client, expected_ds, timeout_seconds=300)
@@ -970,7 +969,7 @@ def test_adaptive_resources_per_pool_override(
         # 1. small and medium use the global default
         # ------------------------------------------------------------------
         for pool_name in [_POOL_SMALL, _POOL_MEDIUM]:
-            ds_name = f"falco-{pool_name}"
+            ds_name = f"falco-wp-{pool_name}"
             resources = get_daemonset_resources(shoot_api_client, ds_name)
             logger.info(f"{ds_name} resources: {resources}")
             requests = resources.get("requests", {})
@@ -985,7 +984,7 @@ def test_adaptive_resources_per_pool_override(
         # ------------------------------------------------------------------
         # 2. large uses the per-pool override for cpu; memory falls back to global
         # ------------------------------------------------------------------
-        large_ds = f"falco-{_POOL_LARGE}"
+        large_ds = f"falco-wp-{_POOL_LARGE}"
         resources = get_daemonset_resources(shoot_api_client, large_ds)
         logger.info(f"{large_ds} resources: {resources}")
         requests = resources.get("requests", {})
@@ -1028,3 +1027,107 @@ def test_adaptive_resources_per_pool_override(
             cloud_profile,
             adaptive_machine_small, adaptive_machine_medium, adaptive_machine_large,
         )
+
+
+def test_adaptive_resources_pool_named_default(
+    garden_api_client,
+    shoot_api_client,
+    project_namespace,
+    shoot_name,
+    adaptive_cloud_profile,
+    adaptive_machine_small,
+):
+    """Verify that a worker pool named 'default' does not collide with falco-default.
+
+    The per-pool DaemonSet must be named falco-wp-default, while the shared
+    fallback DaemonSet falco-default (DoesNotExist affinity) must still exist
+    and be distinct.
+    """
+    provider_type = get_shoot_provider_type(garden_api_client, project_namespace, shoot_name)
+    if provider_type not in ("aws", "local"):
+        pytest.skip(f"Adaptive resources test only runs on AWS or local shoots (provider={provider_type})")
+
+    cloud_profile = adaptive_cloud_profile or get_shoot_cloud_profile_name(
+        garden_api_client, project_namespace, shoot_name)
+    assert cloud_profile, "Could not determine cloud profile name"
+
+    ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+
+    global _added_machine_types
+    _added_machine_types = set()
+    cap = _PLACEHOLDER_CAPACITY["small"]
+    entry = {
+        "name":         adaptive_machine_small,
+        "cpu":          cap["cpu"],
+        "gpu":          "0",
+        "memory":       cap["memory"],
+        "architecture": "amd64",
+        "usable":       True,
+    }
+    if add_machine_type_to_cloudprofile(garden_api_client, cloud_profile, entry):
+        _added_machine_types.add(adaptive_machine_small)
+
+    shoot = get_shoot(garden_api_client, project_namespace, shoot_name)
+    existing_workers = shoot["spec"]["provider"].get("workers", [])
+    template = existing_workers[0] if existing_workers else None
+    add_worker_pool_to_shoot(
+        garden_api_client, project_namespace, shoot_name,
+        _make_worker_pool("default", adaptive_machine_small, template))
+
+    try:
+        extension_config = {
+            "type": "shoot-falco-service",
+            "providerConfig": {
+                "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
+                "kind": "FalcoServiceConfig",
+                "rules": {"standard": ["falco-rules"]},
+                "destinations": [{"name": "stdout"}],
+                "falcoConfig": {
+                    "resources": {
+                        "requests": {"cpu": _CPU_FORMULA, "memory": _MEM_FORMULA}
+                    }
+                },
+            },
+        }
+        error = add_falco_to_shoot(
+            garden_api_client, project_namespace, shoot_name,
+            extension_config=extension_config)
+        assert error is None, f"add_falco_to_shoot failed: {error}"
+
+        wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+
+        wait_for_daemonsets(shoot_api_client, ["falco-wp-default", "falco-default"], timeout_seconds=300)
+
+        # Per-pool DaemonSet has nodeSelector targeting pool "default".
+        wp_selector = get_daemonset_node_selector(shoot_api_client, "falco-wp-default")
+        assert wp_selector.get("worker.gardener.cloud/pool") == "default", (
+            f"falco-wp-default: expected nodeSelector pool=default, got {wp_selector}"
+        )
+
+        # Shared fallback DaemonSet has DoesNotExist affinity — distinct from the per-pool one.
+        affinity = get_daemonset_affinity(shoot_api_client, "falco-default")
+        assert affinity is not None, "falco-default has no affinity"
+        terms = (
+            affinity.node_affinity
+            .required_during_scheduling_ignored_during_execution
+            .node_selector_terms
+        )
+        does_not_exist = any(
+            e.key == "worker.gardener.cloud/pool" and e.operator == "DoesNotExist"
+            for e in terms[0].match_expressions
+        )
+        assert does_not_exist, "falco-default does not have DoesNotExist affinity"
+        logger.info("falco-wp-default and falco-default are distinct; no collision with pool named 'default'")
+
+        ensure_extension_not_deployed(garden_api_client, shoot_api_client, project_namespace, shoot_name)
+        wait_for_daemonsets_absent(
+            shoot_api_client, ["falco-wp-default", "falco-default", "falco"],
+            timeout_seconds=180)
+        logger.info("All DaemonSets removed after teardown")
+
+    finally:
+        remove_worker_pool_from_shoot(garden_api_client, project_namespace, shoot_name, "default")
+        wait_for_shoot_reconciled_and_healthy(garden_api_client, project_namespace, shoot_name)
+        for mt_name in _added_machine_types:
+            remove_machine_type_from_cloudprofile(garden_api_client, cloud_profile, mt_name)
+
