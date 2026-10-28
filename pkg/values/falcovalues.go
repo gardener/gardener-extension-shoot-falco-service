@@ -137,8 +137,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 
 		case constants.FalcoEventDestinationLogging:
 			if !reconcileCtx.LoggingBackend.OtelCollectorEnabled && !reconcileCtx.LoggingBackend.ValiEnabled {
-				log.Info("logging destination requested but neither OTel Collector nor Vali detected, skipping")
-				break
+				return nil, fmt.Errorf("logging destination requested but neither OTel Collector nor Vali detected")
 			}
 			if reconcileCtx.LoggingBackend.ValiEnabled {
 				valiHost := utils.ComputeValiHost(reconcileCtx.ShootTechnicalId, reconcileCtx.SeedIngressDomain)
