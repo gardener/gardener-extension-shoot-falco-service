@@ -64,6 +64,21 @@ func (in *FalcoConfig) DeepCopyInto(out *FalcoConfig) {
 		*out = new(FalcoResources)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.WorkerPoolResources != nil {
+		in, out := &in.WorkerPoolResources, &out.WorkerPoolResources
+		*out = make(map[string]*FalcoResources, len(*in))
+		for key, val := range *in {
+			var outVal *FalcoResources
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(FalcoResources)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
+		}
+	}
 	return
 }
 

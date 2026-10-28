@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- if .Values.falcoSandboxRules }}
 apiVersion: v1
 kind: ConfigMap
@@ -7,4 +8,5 @@ metadata:
 data:
   falco-sandbox_rules.yaml: |-
 {{ .Values.falcoSandboxRules | indent 4 }}
+{{- end }}
 {{- end }}

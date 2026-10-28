@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- with $dot := . }}
 {{- range $service := $dot.Values.services }}
 ---
@@ -14,5 +15,6 @@ spec:
   {{- end}}
   selector:
     {{- include "falco.selectorLabels" $dot | nindent 4 }}
+{{- end }}
 {{- end }}
 {{- end }}

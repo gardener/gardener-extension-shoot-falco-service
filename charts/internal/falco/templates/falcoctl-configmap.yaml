@@ -1,3 +1,4 @@
+{{- if not .Values.daemonSetOnly }}
 {{- if or .Values.falcoctl.artifact.install.enabled .Values.falcoctl.artifact.follow.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -9,4 +10,5 @@ metadata:
 data:
   falcoctl.yaml: |-
     {{- toYaml .Values.falcoctl.config | nindent 4 }}
+{{- end }}
 {{- end }}
