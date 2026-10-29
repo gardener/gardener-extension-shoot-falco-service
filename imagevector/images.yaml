@@ -43,7 +43,7 @@ images:
       availability_requirement: 'low'
 - name: falco
   sourceRepository: github.com/falcosecurity/falco
-  repository: europe-docker.pkg.dev/gardener-project/releases/3rd/falcosecurity/falco
+  repository: falcosecurity/falco
   tag: 0.45.1
   version: 0.45.1
   labels:
