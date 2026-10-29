@@ -27,4 +27,5 @@ type ReconcileContext struct {
 	Shoot                   *gardenerv1beta1.Shoot
 	Seed                    *gardenerv1beta1.Seed
 	CloudProfile            *gardenerv1beta1.CloudProfile
+	LoggingBackend          LoggingBackend
 }
