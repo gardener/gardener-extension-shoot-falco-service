@@ -2,8 +2,8 @@ images:
 - name: falcosidekick
   sourceRepository: github.com/falcosecurity/falcosidekick
   repository: falcosecurity/falcosidekick
-  tag: 2.35.0
-  version: 2.35.0
+  tag: 2.35.1
+  version: 2.35.1
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
