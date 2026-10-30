@@ -13,6 +13,11 @@ from kubernetes.client.exceptions import ApiException
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+falco_pod_label_selector = "app.kubernetes.io/name=falco"
+falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
+all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
+minimum_usable_falco_version = Version.parse("0.39.2")
+
 
 def api_request(api_client, method, resource_path, body=None, header_params=None, query_params=None):
     """Make a raw REST request through the kubernetes ApiClient.
@@ -46,11 +51,6 @@ def api_request(api_client, method, resource_path, body=None, header_params=None
     )
     data = json.loads(resp.data)
     return data, resp.status, resp.getheaders()
-
-falco_pod_label_selector = "app.kubernetes.io/name=falco"
-falcosidekick_pod_label_selector = "app.kubernetes.io/name=falcosidekick"
-all_falco_pod_label_selector = "app.kubernetes.io/name in (falco,falcosidekick)"
-minimum_usable_falco_version = Version.parse("0.39.2")
 
 
 def retry_api_call(func, *args, **kwargs):
