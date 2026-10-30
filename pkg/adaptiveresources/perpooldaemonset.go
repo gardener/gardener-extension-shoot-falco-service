@@ -63,8 +63,12 @@ func RenderPerPoolDaemonSets(
 		poolValues["nodeSelector"] = map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
-		poolValues["podLabels"] = map[string]string{
-			"falco.gardener.cloud/worker-pool": worker.Name,
+		if existing, ok := poolValues["podLabels"].(map[string]string); ok {
+			existing["falco.gardener.cloud/worker-pool"] = worker.Name
+		} else {
+			poolValues["podLabels"] = map[string]string{
+				"falco.gardener.cloud/worker-pool": worker.Name,
+			}
 		}
 		// daemonSetOnly is an internal rendering-mode flag, not a user-facing chart value
 		// (intentionally absent from values.yaml). The chart is rendered twice per reconcile:
