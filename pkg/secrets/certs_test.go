@@ -173,9 +173,10 @@ var _ = Describe("Certificate", func() {
 			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", cas.ClientCaCert.NotAfter))
 
 			// leaf expiry must fall within [before+lifetime, after+lifetime] — no single-point clock skew
-			Expect(certs.ServerCert.NotAfter).To(BeTemporally(">=", before.Add(leafLifetime)))
+			// truncate to seconds because x509 NotAfter has second-granularity
+			Expect(certs.ServerCert.NotAfter).To(BeTemporally(">=", before.Truncate(time.Second).Add(leafLifetime)))
 			Expect(certs.ServerCert.NotAfter).To(BeTemporally("<=", after.Add(leafLifetime)))
-			Expect(certs.ClientCert.NotAfter).To(BeTemporally(">=", before.Add(leafLifetime)))
+			Expect(certs.ClientCert.NotAfter).To(BeTemporally(">=", before.Truncate(time.Second).Add(leafLifetime)))
 			Expect(certs.ClientCert.NotAfter).To(BeTemporally("<=", after.Add(leafLifetime)))
 		})
 
