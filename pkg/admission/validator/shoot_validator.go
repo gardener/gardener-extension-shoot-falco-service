@@ -133,7 +133,9 @@ func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot, oldShoot *
 	oldFalcoConf, oldFalcoConfErr := s.extractFalcoConfig(oldShoot)
 
 	if s.restrictedUsage {
-		if oldFalcoConfErr != nil || oldFalcoConf == nil { // only verify elegibility if we can not read old shoot falco config or falco was not enabled before
+		oldExt := s.findExtension(oldShoot)
+		oldEffectivelyEnabled := oldExt != nil && (oldExt.Disabled == nil || !*oldExt.Disabled) && oldFalcoConfErr == nil && oldFalcoConf != nil
+		if !oldEffectivelyEnabled {
 			if ok, err := s.verifyNamespaceEligibility(ctx, shoot.Namespace); err != nil {
 				return fmt.Errorf("failed to check namespace eligibility: %w", err)
 			} else if !ok {
@@ -393,6 +395,16 @@ func (s *shoot) verifyEventDestinationsCommon(falcoConf *service.FalcoServiceCon
 		}
 	}
 
+	idxOpenSearch := slices.IndexFunc(falcoConf.Destinations, func(dest service.Destination) bool {
+		return dest.Name == constants.FalcoEventDestinationOpenSearch && servicehelper.IsDestinationEnabled(dest)
+	})
+
+	if idxOpenSearch != -1 {
+		if err := verifyOpenSearchDestination(falcoConf.Destinations[idxOpenSearch], resources); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -411,6 +423,25 @@ func verifyCustomDestination(customDest service.Destination, resources []core.Na
 
 	if !found {
 		return fmt.Errorf("custom event destination config %s not found in resources", *customDest.ResourceSecretName)
+	}
+	return nil
+}
+
+func verifyOpenSearchDestination(openSearchDest service.Destination, resources []core.NamedResourceReference) error {
+	if openSearchDest.ResourceSecretName == nil {
+		return fmt.Errorf("opensearch event destination is set but no secret config is defined")
+	}
+
+	found := false
+	for _, s := range resources {
+		if s.ResourceRef.Kind == "Secret" && s.Name == *openSearchDest.ResourceSecretName {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("opensearch event destination config %s not found in resources", *openSearchDest.ResourceSecretName)
 	}
 	return nil
 }
@@ -435,7 +466,7 @@ func verifySplunkDestination(splunkDest service.Destination, resources []core.Na
 }
 
 func verifyFalcoVersion(falcoConf *service.FalcoServiceConfig, oldFalcoConf *service.FalcoServiceConfig) error {
-	if oldFalcoConf != nil && *oldFalcoConf.FalcoVersion == *falcoConf.FalcoVersion { // no version change
+	if oldFalcoConf != nil && oldFalcoConf.FalcoVersion != nil && falcoConf.FalcoVersion != nil && *oldFalcoConf.FalcoVersion == *falcoConf.FalcoVersion { // no version change
 		return nil
 	}
 

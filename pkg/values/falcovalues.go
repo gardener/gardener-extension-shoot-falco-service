@@ -207,6 +207,9 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 
 		case constants.FalcoEventDestinationOpenSearch:
 			opensearch := map[string]any{}
+			if dest.ResourceSecretName == nil {
+				return nil, fmt.Errorf("opensearch event destination is set but no secret config is defined")
+			}
 			secret, err := c.loadCustomWebhookSecret(ctx, log, reconcileCtx, *dest.ResourceSecretName)
 			if err != nil {
 				return nil, err
@@ -239,7 +242,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 				}
 				opensearch["checkcert"] = checkcertBool
 			} else {
-				opensearch["checkcert"] = false
+				opensearch["checkcert"] = true
 			}
 			if minimumpriority, ok := secret.Data["minimumpriority"]; ok {
 				opensearch["minimumpriority"] = string(minimumpriority)
