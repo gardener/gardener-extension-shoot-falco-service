@@ -14,6 +14,9 @@ spec:
     - repository: falcosecurity/falco
       tag: 0.45.1
       version: 0.45.1
+    - repository: falcosecurity/falco
+      tag: 0.45.2
+      version: 0.45.2
     falcosidekick:
     - repository: falcosecurity/falcosidekick
       tag: 2.35.1
@@ -25,11 +28,15 @@ spec:
       rulesVersion: 0.42.1
       version: 0.42.1
     - classification: deprecated
+      expirationDate: '2026-12-31T23:59:59Z'
       rulesVersion: 0.44.0
       version: 0.44.1
-    - classification: supported
+    - classification: deprecated
       rulesVersion: 0.44.0
       version: 0.45.1
+    - classification: supported
+      rulesVersion: 0.44.0
+      version: 0.45.2
     falcosidekick:
     - classification: supported
       version: 2.35.1
