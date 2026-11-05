@@ -93,6 +93,13 @@ var (
 						Kind:       "Secret",
 					},
 				},
+				{
+					Name: "test-secret",
+					ResourceRef: autoscalingv1.CrossVersionObjectReference{
+						APIVersion: "v1",
+						Kind:       "Secret",
+					},
+				},
 			},
 		},
 	}
