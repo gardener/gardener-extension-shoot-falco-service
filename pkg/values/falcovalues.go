@@ -28,6 +28,7 @@ import (
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/falco"
 	"github.com/gardener/gardener-extension-shoot-falco-service/imagevector"
+	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
 	confighelper "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config/helper"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -529,6 +530,7 @@ func (c *ConfigBuilder) BuildFalcoValues(ctx context.Context, log logr.Logger, r
 		return nil, err
 	}
 	c.configureFalcoResources(falcoChartValues, falcoServiceConfig)
+	c.configureFalcoEngineConfig(falcoChartValues, falcoServiceConfig)
 
 	return falcoChartValues, nil
 }
@@ -1054,6 +1056,18 @@ func (c *ConfigBuilder) configureFalcoResources(falcoChartValues map[string]any,
 		}
 		falcoChartValues["resources"] = resources
 	}
+}
+
+// configureFalcoEngineConfig applies global engine tuning parameters (cpus_for_each_buffer,
+// buf_size_preset) from the FalcoServiceConfig into the chart values map.
+// The chart renders these via {{- toYaml .Values.falco }}, so we write into
+// values["falco"]["engine"]["modern_ebpf"] to let Go-provided values take precedence over
+// the values.yaml defaults.
+func (c *ConfigBuilder) configureFalcoEngineConfig(falcoChartValues map[string]any, falcoServiceConfig *apisservice.FalcoServiceConfig) {
+	if falcoServiceConfig.FalcoConfig == nil || falcoServiceConfig.FalcoConfig.EngineConfig == nil {
+		return
+	}
+	adaptiveresources.ApplyEngineConfig(falcoChartValues, falcoServiceConfig.FalcoConfig.EngineConfig)
 }
 
 func decompressRulesFile(datagz []byte) (string, error) {
