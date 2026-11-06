@@ -58,18 +58,31 @@ func RenderPerPoolDaemonSets(
 			}
 		}
 
+		var poolEngineConfig *apisservice.FalcoEngineConfig
+		if falcoConfig != nil {
+			if pe, ok := falcoConfig.WorkerPoolEngineConfig[worker.Name]; ok {
+				poolEngineConfig = MergeEngineConfig(falcoConfig.EngineConfig, pe)
+			} else {
+				poolEngineConfig = falcoConfig.EngineConfig
+			}
+		}
+
 		poolValues := maps.Clone(baseValues)
 		poolValues["fullnameOverride"] = "falco-wp-" + worker.Name
 		poolValues["nodeSelector"] = map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
-		if existing, ok := poolValues["podLabels"].(map[string]string); ok {
-			existing["falco.gardener.cloud/worker-pool"] = worker.Name
-		} else {
-			poolValues["podLabels"] = map[string]string{
-				"falco.gardener.cloud/worker-pool": worker.Name,
+		// Always build a fresh podLabels map so we never mutate the shared map that
+		// baseValues["podLabels"] points to (maps.Clone is shallow).
+		poolPodLabels := map[string]string{
+			"falco.gardener.cloud/worker-pool": worker.Name,
+		}
+		if existing, ok := baseValues["podLabels"].(map[string]string); ok {
+			for k, v := range existing {
+				poolPodLabels[k] = v
 			}
 		}
+		poolValues["podLabels"] = poolPodLabels
 		// daemonSetOnly is an internal rendering-mode flag, not a user-facing chart value
 		// (intentionally absent from values.yaml). The chart is rendered twice per reconcile:
 		//   - per-pool render (daemonSetOnly=true): DaemonSet + falco.yaml ConfigMap only.
@@ -106,6 +119,10 @@ func RenderPerPoolDaemonSets(
 			applyResourceResult(poolValues, resourceResult)
 		}
 
+		if poolEngineConfig != nil {
+			ApplyEngineConfig(poolValues, poolEngineConfig)
+		}
+
 		manifest, renderErr := renderChart(renderer, poolValues)
 		if renderErr != nil {
 			return nil, nil, fmt.Errorf("rendering chart for pool %q: %w", worker.Name, renderErr)
@@ -125,6 +142,12 @@ func RenderPerPoolDaemonSets(
 	// to evaluate against, so it uses chart defaults.
 	delete(defaultValues, "resources")
 	defaultValues["affinity"] = buildDoesNotExistAffinity()
+
+	// Apply global engine config to falco-default. The per-pool loop above only
+	// writes into per-pool poolValues copies; defaultValues must be patched separately.
+	if falcoConfig != nil && falcoConfig.EngineConfig != nil {
+		ApplyEngineConfig(defaultValues, falcoConfig.EngineConfig)
+	}
 
 	defaultManifest, renderErr := renderChart(renderer, defaultValues)
 	if renderErr != nil {
@@ -249,6 +272,96 @@ func applyResourceResult(values map[string]any, result formula.ResourceResult) {
 		}
 		values["resources"] = resources
 	}
+}
+
+// MergeEngineConfig returns a FalcoEngineConfig that combines base and override.
+// Fields set in override take precedence; unset fields fall back to base.
+// The returned struct owns its own int copies — no pointer aliases into the inputs.
+func MergeEngineConfig(base, override *apisservice.FalcoEngineConfig) *apisservice.FalcoEngineConfig {
+	if base == nil {
+		return override.DeepCopy()
+	}
+	if override == nil {
+		return base.DeepCopy()
+	}
+	merged := &apisservice.FalcoEngineConfig{}
+	merged.CpusForEachBuffer = copyIntPtr(firstNonNilInt(override.CpusForEachBuffer, base.CpusForEachBuffer))
+	merged.BufSizePreset = copyIntPtr(firstNonNilInt(override.BufSizePreset, base.BufSizePreset))
+	return merged
+}
+
+func copyIntPtr(p *int) *int {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
+}
+
+func firstNonNilInt(a, b *int) *int {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
+// ApplyEngineConfig writes Falco engine tuning parameters into the chart values map.
+// It sets values["falco"]["engine"]["modern_ebpf"] fields so that the chart's
+// {{- toYaml .Values.falco }} passthrough picks them up verbatim.
+//
+// All nested maps are replaced with fresh copies so that the caller's source map
+// (typically baseValues) is never mutated — maps.Clone is shallow and the nested
+// falco/engine/modern_ebpf maps would otherwise be shared between the per-pool
+// values and baseValues, causing later renders to inherit earlier pool's overrides.
+func ApplyEngineConfig(values map[string]any, cfg *apisservice.FalcoEngineConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.CpusForEachBuffer == nil && cfg.BufSizePreset == nil {
+		return
+	}
+
+	// Build a fresh modern_ebpf map, seeding it from any existing values so
+	// pre-existing keys (e.g. drop_failed_exit set by caller) are preserved.
+	existingModernEbpf := map[string]any{}
+	if falcoMap, ok := values["falco"].(map[string]any); ok {
+		if engineMap, ok := falcoMap["engine"].(map[string]any); ok {
+			if m, ok := engineMap["modern_ebpf"].(map[string]any); ok {
+				for k, v := range m {
+					existingModernEbpf[k] = v
+				}
+			}
+		}
+	}
+
+	modernEbpfMap := maps.Clone(existingModernEbpf)
+	if cfg.CpusForEachBuffer != nil {
+		modernEbpfMap["cpus_for_each_buffer"] = *cfg.CpusForEachBuffer
+	}
+	if cfg.BufSizePreset != nil {
+		modernEbpfMap["buf_size_preset"] = *cfg.BufSizePreset
+	}
+
+	// Rebuild engine and falco maps as fresh copies to avoid mutating nested maps
+	// that are shared with baseValues through shallow cloning.
+	engineMap := map[string]any{}
+	if falcoMap, ok := values["falco"].(map[string]any); ok {
+		if existingEngine, ok := falcoMap["engine"].(map[string]any); ok {
+			for k, v := range existingEngine {
+				engineMap[k] = v
+			}
+		}
+	}
+	engineMap["modern_ebpf"] = modernEbpfMap
+
+	falcoMap := map[string]any{}
+	if existing, ok := values["falco"].(map[string]any); ok {
+		for k, v := range existing {
+			falcoMap[k] = v
+		}
+	}
+	falcoMap["engine"] = engineMap
+	values["falco"] = falcoMap
 }
 
 // buildDoesNotExistAffinity returns an affinity that selects nodes lacking the workerPoolLabel.

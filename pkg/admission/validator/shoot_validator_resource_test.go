@@ -354,6 +354,183 @@ func TestVerifyFalcoConfigResourcesWorkerPoolOverrides(t *testing.T) {
 	}
 }
 
+func intPtr(i int) *int { return &i }
+
+func TestValidateFalcoEngineConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         *service.FalcoEngineConfig
+		prefix      string
+		expectError bool
+		errContains string
+	}{
+		{
+			name:        "valid cpusForEachBuffer and bufSizePreset",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(4), BufSizePreset: intPtr(6)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "minimum valid values",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(1), BufSizePreset: intPtr(1)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "maximum valid values",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(64), BufSizePreset: intPtr(10)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "nil fields are accepted (chart defaults apply)",
+			cfg:         &service.FalcoEngineConfig{},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "cpusForEachBuffer zero is invalid",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(0)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "cpusForEachBuffer",
+		},
+		{
+			name:        "cpusForEachBuffer 65 exceeds maximum",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(65)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "cpusForEachBuffer",
+		},
+		{
+			name:        "bufSizePreset zero is invalid",
+			cfg:         &service.FalcoEngineConfig{BufSizePreset: intPtr(0)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "bufSizePreset",
+		},
+		{
+			name:        "bufSizePreset 11 exceeds maximum",
+			cfg:         &service.FalcoEngineConfig{BufSizePreset: intPtr(11)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "bufSizePreset",
+		},
+		{
+			name:        "both fields invalid produces both errors",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(0), BufSizePreset: intPtr(0)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFalcoEngineConfig(tt.cfg, tt.prefix)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+			if tt.expectError && tt.errContains != "" && err != nil {
+				if !contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error to contain %q, got: %v", tt.errContains, err)
+				}
+			}
+		})
+	}
+}
+
+func TestVerifyFalcoConfigEngineConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *service.FalcoServiceConfig
+		expectError bool
+		errContains string
+	}{
+		{
+			name: "valid global engine config",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					EngineConfig: &service.FalcoEngineConfig{
+						CpusForEachBuffer: intPtr(4),
+						BufSizePreset:     intPtr(6),
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid per-pool engine config override",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					EngineConfig: &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(2)},
+					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
+						"high-throughput": {CpusForEachBuffer: intPtr(8), BufSizePreset: intPtr(8)},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid global engine config rejected",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					EngineConfig: &service.FalcoEngineConfig{BufSizePreset: intPtr(11)},
+				},
+			},
+			expectError: true,
+			errContains: "bufSizePreset",
+		},
+		{
+			name: "invalid per-pool engine config rejected",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
+						"pool-x": {CpusForEachBuffer: intPtr(0)},
+					},
+				},
+			},
+			expectError: true,
+			errContains: "workerPoolEngineConfig[pool-x]",
+		},
+		{
+			name: "nil per-pool engine entry is skipped",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
+						"pool-a": nil,
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "nil FalcoConfig is accepted",
+			config:      &service.FalcoServiceConfig{FalcoConfig: nil},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := verifyFalcoConfigResources(tt.config)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+			if tt.expectError && tt.errContains != "" && err != nil {
+				if !contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error to contain %q, got: %v", tt.errContains, err)
+				}
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		func() bool {
