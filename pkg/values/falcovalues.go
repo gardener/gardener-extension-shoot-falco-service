@@ -639,8 +639,6 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 					"enabled": true,
 					"sockets": []string{
 						"/run/containerd/containerd.sock",
-						"/run/crio/crio.sock",
-						"/run/k3s/containerd/containerd.sock",
 					},
 				},
 				"containerd": map[string]interface{}{

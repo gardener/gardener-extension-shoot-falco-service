@@ -314,29 +314,26 @@ collectors:
     # See https://github.com/falcosecurity/plugins/blob/main/plugins/container/README.md#configuration
     engines:
       docker:
-        enabled: true
+        enabled: false
         sockets: ["/var/run/docker.sock"]
       podman:
-        enabled: true
+        enabled: false
         sockets: ["/run/podman/podman.sock"]
       containerd:
-        enabled: true
+        enabled: false
         sockets: ["/run/containerd/containerd.sock"]
       cri:
         enabled: true
         sockets:
           [
             "/run/containerd/containerd.sock",
-            "/run/crio/crio.sock",
-            "/run/k3s/containerd/containerd.sock",
-            "/run/host-containerd/containerd.sock",
           ]
       lxc:
-        enabled: true
+        enabled: false
       libvirt_lxc:
-        enabled: true
+        enabled: false
       bpm:
-        enabled: true
+        enabled: false
 
   # TODO remove this collector in the future releases.
   # -- kubernetes holds the configuration for the kubernetes collector. Starting from version 0.37.0 of Falco, the legacy
@@ -641,47 +638,35 @@ falco:
   # -- Customize subsettings for each enabled plugin. These settings will only be
   # applied when the corresponding plugin is enabled using the `load_plugins`
   # option.
+  # NOTE: For Falco >= 0.41.2 deployed by this extension, the Go code in
+  # falcovalues.go always overrides this entire section at runtime.
   plugins:
     - name: container
       # path to the plugin .so file
       library_path: libcontainer.so
       init_config:
-        label_max_len: 100 # (optional, default: 100; container labels larger than this won't be reported)
-        with_size: false # (optional, default: false; whether to enable container size inspection, which is inherently slow)
-        hooks: ['create', 'start'] # (optional, default: 'create'. Some fields might not be available in create hook, but we are guaranteed that it gets triggered before first process gets started)
+        label_max_len: 100
+        with_size: false
+        hooks: ['create', 'start']
         engines:
           docker:
-            enabled: true
+            enabled: false
             sockets: ['/var/run/docker.sock']
           podman:
-            enabled: true
-            sockets: ['/run/podman/podman.sock', '/run/user/1000/podman/podman.sock']
+            enabled: false
+            sockets: ['/run/podman/podman.sock']
           containerd:
-            enabled: true
+            enabled: false
             sockets: ['/run/containerd/containerd.sock']
           cri:
             enabled: true
-            sockets: ['/run/crio/crio.sock']
+            sockets: ['/run/containerd/containerd.sock']
           lxc:
             enabled: false
           libvirt_lxc:
             enabled: false
           bpm:
             enabled: false
-    - name: k8saudit
-      library_path: libk8saudit.so
-      init_config:
-      #   maxEventSize: 262144
-      #   webhookMaxBatchSize: 12582912
-      #   sslCertificate: /etc/falco/falco.pem
-      open_params: "http://:9765/k8s-audit"
-    - name: cloudtrail
-      library_path: libcloudtrail.so
-      # see docs for init_config and open_params:
-      # https://github.com/falcosecurity/plugins/blob/master/plugins/cloudtrail/README.md
-    - name: json
-      library_path: libjson.so
-      init_config: ""
 
   ######################
   # Falco config files #
