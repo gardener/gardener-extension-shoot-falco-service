@@ -7,6 +7,8 @@ package validator
 import (
 	"testing"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 )
 
@@ -354,8 +356,6 @@ func TestVerifyFalcoConfigResourcesWorkerPoolOverrides(t *testing.T) {
 	}
 }
 
-func intPtr(i int) *int { return &i }
-
 func TestValidateFalcoEngineConfig(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -366,19 +366,19 @@ func TestValidateFalcoEngineConfig(t *testing.T) {
 	}{
 		{
 			name:        "valid cpusForEachBuffer and bufSizePreset",
-			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(4), BufSizePreset: intPtr(6)},
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(4), BufSizePreset: ptr.To(6)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: false,
 		},
 		{
 			name:        "minimum valid values",
-			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(1), BufSizePreset: intPtr(1)},
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(1), BufSizePreset: ptr.To(1)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: false,
 		},
 		{
 			name:        "maximum valid values",
-			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(64), BufSizePreset: intPtr(10)},
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(64), BufSizePreset: ptr.To(10)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: false,
 		},
@@ -390,35 +390,35 @@ func TestValidateFalcoEngineConfig(t *testing.T) {
 		},
 		{
 			name:        "cpusForEachBuffer zero is invalid",
-			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(0)},
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(0)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: true,
 			errContains: "cpusForEachBuffer",
 		},
 		{
 			name:        "cpusForEachBuffer 65 exceeds maximum",
-			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(65)},
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(65)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: true,
 			errContains: "cpusForEachBuffer",
 		},
 		{
 			name:        "bufSizePreset zero is invalid",
-			cfg:         &service.FalcoEngineConfig{BufSizePreset: intPtr(0)},
+			cfg:         &service.FalcoEngineConfig{BufSizePreset: ptr.To(0)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: true,
 			errContains: "bufSizePreset",
 		},
 		{
 			name:        "bufSizePreset 11 exceeds maximum",
-			cfg:         &service.FalcoEngineConfig{BufSizePreset: intPtr(11)},
+			cfg:         &service.FalcoEngineConfig{BufSizePreset: ptr.To(11)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: true,
 			errContains: "bufSizePreset",
 		},
 		{
 			name:        "both fields invalid produces both errors",
-			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(0), BufSizePreset: intPtr(0)},
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(0), BufSizePreset: ptr.To(0)},
 			prefix:      "falcoConfig.engineConfig",
 			expectError: true,
 		},
@@ -454,8 +454,8 @@ func TestVerifyFalcoConfigEngineConfig(t *testing.T) {
 			config: &service.FalcoServiceConfig{
 				FalcoConfig: &service.FalcoConfig{
 					EngineConfig: &service.FalcoEngineConfig{
-						CpusForEachBuffer: intPtr(4),
-						BufSizePreset:     intPtr(6),
+						CpusForEachBuffer: ptr.To(4),
+						BufSizePreset:     ptr.To(6),
 					},
 				},
 			},
@@ -465,9 +465,9 @@ func TestVerifyFalcoConfigEngineConfig(t *testing.T) {
 			name: "valid per-pool engine config override",
 			config: &service.FalcoServiceConfig{
 				FalcoConfig: &service.FalcoConfig{
-					EngineConfig: &service.FalcoEngineConfig{CpusForEachBuffer: intPtr(2)},
+					EngineConfig: &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(2)},
 					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
-						"high-throughput": {CpusForEachBuffer: intPtr(8), BufSizePreset: intPtr(8)},
+						"high-throughput": {CpusForEachBuffer: ptr.To(8), BufSizePreset: ptr.To(8)},
 					},
 				},
 			},
@@ -477,7 +477,7 @@ func TestVerifyFalcoConfigEngineConfig(t *testing.T) {
 			name: "invalid global engine config rejected",
 			config: &service.FalcoServiceConfig{
 				FalcoConfig: &service.FalcoConfig{
-					EngineConfig: &service.FalcoEngineConfig{BufSizePreset: intPtr(11)},
+					EngineConfig: &service.FalcoEngineConfig{BufSizePreset: ptr.To(11)},
 				},
 			},
 			expectError: true,
@@ -488,7 +488,7 @@ func TestVerifyFalcoConfigEngineConfig(t *testing.T) {
 			config: &service.FalcoServiceConfig{
 				FalcoConfig: &service.FalcoConfig{
 					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
-						"pool-x": {CpusForEachBuffer: intPtr(0)},
+						"pool-x": {CpusForEachBuffer: ptr.To(0)},
 					},
 				},
 			},

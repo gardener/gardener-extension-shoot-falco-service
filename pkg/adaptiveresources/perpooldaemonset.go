@@ -14,6 +14,7 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/chartrenderer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources/formula"
@@ -294,8 +295,7 @@ func copyIntPtr(p *int) *int {
 	if p == nil {
 		return nil
 	}
-	v := *p
-	return &v
+	return ptr.To(*p)
 }
 
 func firstNonNilInt(a, b *int) *int {

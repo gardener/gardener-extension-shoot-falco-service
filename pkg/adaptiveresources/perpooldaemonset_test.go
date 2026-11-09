@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/adaptiveresources"
 	apisservice "github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
@@ -236,34 +237,32 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 })
 
 var _ = Describe("engine config helpers", func() {
-	intPtr := func(i int) *int { return &i }
-
 	Describe("mergeEngineConfig", func() {
 		It("returns nil when both are nil", func() {
 			Expect(adaptiveresources.MergeEngineConfig(nil, nil)).To(BeNil())
 		})
 
 		It("returns base when override is nil", func() {
-			base := &apisservice.FalcoEngineConfig{BufSizePreset: intPtr(6)}
+			base := &apisservice.FalcoEngineConfig{BufSizePreset: ptr.To(6)}
 			Expect(adaptiveresources.MergeEngineConfig(base, nil)).To(Equal(base))
 		})
 
 		It("returns override when base is nil", func() {
-			override := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(4)}
+			override := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(4)}
 			Expect(adaptiveresources.MergeEngineConfig(nil, override)).To(Equal(override))
 		})
 
 		It("override fields take precedence over base", func() {
-			base := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(2), BufSizePreset: intPtr(4)}
-			override := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(8)}
+			base := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(2), BufSizePreset: ptr.To(4)}
+			override := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(8)}
 			merged := adaptiveresources.MergeEngineConfig(base, override)
 			Expect(*merged.CpusForEachBuffer).To(Equal(8))
 			Expect(*merged.BufSizePreset).To(Equal(4)) // falls back to base
 		})
 
 		It("unset override fields fall back to base", func() {
-			base := &apisservice.FalcoEngineConfig{BufSizePreset: intPtr(7)}
-			override := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(3)}
+			base := &apisservice.FalcoEngineConfig{BufSizePreset: ptr.To(7)}
+			override := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(3)}
 			merged := adaptiveresources.MergeEngineConfig(base, override)
 			Expect(*merged.CpusForEachBuffer).To(Equal(3))
 			Expect(*merged.BufSizePreset).To(Equal(7))
@@ -273,7 +272,7 @@ var _ = Describe("engine config helpers", func() {
 	Describe("ApplyEngineConfig", func() {
 		It("sets cpus_for_each_buffer in falco.engine.modern_ebpf", func() {
 			values := map[string]any{"falco": map[string]any{}}
-			cfg := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(8)}
+			cfg := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(8)}
 			adaptiveresources.ApplyEngineConfig(values, cfg)
 			falcoMap := values["falco"].(map[string]any)
 			engineMap := falcoMap["engine"].(map[string]any)
@@ -283,7 +282,7 @@ var _ = Describe("engine config helpers", func() {
 
 		It("sets buf_size_preset in falco.engine.modern_ebpf", func() {
 			values := map[string]any{"falco": map[string]any{}}
-			cfg := &apisservice.FalcoEngineConfig{BufSizePreset: intPtr(6)}
+			cfg := &apisservice.FalcoEngineConfig{BufSizePreset: ptr.To(6)}
 			adaptiveresources.ApplyEngineConfig(values, cfg)
 			falcoMap := values["falco"].(map[string]any)
 			engineMap := falcoMap["engine"].(map[string]any)
@@ -293,7 +292,7 @@ var _ = Describe("engine config helpers", func() {
 
 		It("creates falco map if absent", func() {
 			values := map[string]any{}
-			cfg := &apisservice.FalcoEngineConfig{BufSizePreset: intPtr(3)}
+			cfg := &apisservice.FalcoEngineConfig{BufSizePreset: ptr.To(3)}
 			adaptiveresources.ApplyEngineConfig(values, cfg)
 			Expect(values).To(HaveKey("falco"))
 		})
@@ -316,7 +315,7 @@ var _ = Describe("engine config helpers", func() {
 					"json_output": true,
 				},
 			}
-			cfg := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(4)}
+			cfg := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(4)}
 			adaptiveresources.ApplyEngineConfig(values, cfg)
 			falcoMap := values["falco"].(map[string]any)
 			Expect(falcoMap["json_output"]).To(Equal(true))
@@ -333,7 +332,7 @@ var _ = Describe("engine config helpers", func() {
 				},
 			}
 			clone := maps.Clone(original)
-			cfg := &apisservice.FalcoEngineConfig{CpusForEachBuffer: intPtr(8)}
+			cfg := &apisservice.FalcoEngineConfig{CpusForEachBuffer: ptr.To(8)}
 			adaptiveresources.ApplyEngineConfig(clone, cfg)
 
 			// original's falco map must be untouched
@@ -358,8 +357,8 @@ var _ = Describe("engine config helpers", func() {
 		It("global engine config appears in all pool manifests", func() {
 			fc := &apisservice.FalcoConfig{
 				EngineConfig: &apisservice.FalcoEngineConfig{
-					CpusForEachBuffer: intPtr(8),
-					BufSizePreset:     intPtr(7),
+					CpusForEachBuffer: ptr.To(8),
+					BufSizePreset:     ptr.To(7),
 				},
 			}
 			shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, fc)
@@ -377,11 +376,11 @@ var _ = Describe("engine config helpers", func() {
 			cloudProfile2 := makeCloudProfile(machineType("m5.large", 2, 8))
 			fc := &apisservice.FalcoConfig{
 				EngineConfig: &apisservice.FalcoEngineConfig{
-					CpusForEachBuffer: intPtr(2),
-					BufSizePreset:     intPtr(4),
+					CpusForEachBuffer: ptr.To(2),
+					BufSizePreset:     ptr.To(4),
 				},
 				WorkerPoolEngineConfig: map[string]*apisservice.FalcoEngineConfig{
-					"pool-a": {CpusForEachBuffer: intPtr(16)},
+					"pool-a": {CpusForEachBuffer: ptr.To(16)},
 				},
 			}
 			_, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers2, cloudProfile2, fc)
@@ -427,12 +426,12 @@ var _ = Describe("engine config helpers", func() {
 			cloudProfile2 := makeCloudProfile(machineType("m5.large", 2, 8))
 			fc := &apisservice.FalcoConfig{
 				EngineConfig: &apisservice.FalcoEngineConfig{
-					CpusForEachBuffer: intPtr(4),
-					BufSizePreset:     intPtr(6),
+					CpusForEachBuffer: ptr.To(4),
+					BufSizePreset:     ptr.To(6),
 				},
 				WorkerPoolEngineConfig: map[string]*apisservice.FalcoEngineConfig{
 					// pool-b overrides cpusForEachBuffer to 16; falco-default must still see 4
-					"pool-b": {CpusForEachBuffer: intPtr(16)},
+					"pool-b": {CpusForEachBuffer: ptr.To(16)},
 				},
 			}
 			shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers2, cloudProfile2, fc)

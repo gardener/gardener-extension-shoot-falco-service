@@ -1430,7 +1430,7 @@ falco:
   # fchdir ...
   base_syscalls:
     custom_set: []
-    repair: false
+    repair: true
 
   #################################################
   # Falco cloud orchestration systems integration #
