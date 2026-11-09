@@ -7,6 +7,8 @@ package validator
 import (
 	"testing"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/service"
 )
 
@@ -332,6 +334,181 @@ func TestVerifyFalcoConfigResourcesWorkerPoolOverrides(t *testing.T) {
 		{
 			name:        "nil FalcoServiceConfig is accepted",
 			config:      nil,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := verifyFalcoConfigResources(tt.config)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+			if tt.expectError && tt.errContains != "" && err != nil {
+				if !contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error to contain %q, got: %v", tt.errContains, err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateFalcoEngineConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         *service.FalcoEngineConfig
+		prefix      string
+		expectError bool
+		errContains string
+	}{
+		{
+			name:        "valid cpusForEachBuffer and bufSizePreset",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(4), BufSizePreset: ptr.To(6)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "minimum valid values",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(1), BufSizePreset: ptr.To(1)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "maximum valid values",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(64), BufSizePreset: ptr.To(10)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "nil fields are accepted (chart defaults apply)",
+			cfg:         &service.FalcoEngineConfig{},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: false,
+		},
+		{
+			name:        "cpusForEachBuffer zero is invalid",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(0)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "cpusForEachBuffer",
+		},
+		{
+			name:        "cpusForEachBuffer 65 exceeds maximum",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(65)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "cpusForEachBuffer",
+		},
+		{
+			name:        "bufSizePreset zero is invalid",
+			cfg:         &service.FalcoEngineConfig{BufSizePreset: ptr.To(0)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "bufSizePreset",
+		},
+		{
+			name:        "bufSizePreset 11 exceeds maximum",
+			cfg:         &service.FalcoEngineConfig{BufSizePreset: ptr.To(11)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+			errContains: "bufSizePreset",
+		},
+		{
+			name:        "both fields invalid produces both errors",
+			cfg:         &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(0), BufSizePreset: ptr.To(0)},
+			prefix:      "falcoConfig.engineConfig",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFalcoEngineConfig(tt.cfg, tt.prefix)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+			if tt.expectError && tt.errContains != "" && err != nil {
+				if !contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error to contain %q, got: %v", tt.errContains, err)
+				}
+			}
+		})
+	}
+}
+
+func TestVerifyFalcoConfigEngineConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *service.FalcoServiceConfig
+		expectError bool
+		errContains string
+	}{
+		{
+			name: "valid global engine config",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					EngineConfig: &service.FalcoEngineConfig{
+						CpusForEachBuffer: ptr.To(4),
+						BufSizePreset:     ptr.To(6),
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid per-pool engine config override",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					EngineConfig: &service.FalcoEngineConfig{CpusForEachBuffer: ptr.To(2)},
+					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
+						"high-throughput": {CpusForEachBuffer: ptr.To(8), BufSizePreset: ptr.To(8)},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid global engine config rejected",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					EngineConfig: &service.FalcoEngineConfig{BufSizePreset: ptr.To(11)},
+				},
+			},
+			expectError: true,
+			errContains: "bufSizePreset",
+		},
+		{
+			name: "invalid per-pool engine config rejected",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
+						"pool-x": {CpusForEachBuffer: ptr.To(0)},
+					},
+				},
+			},
+			expectError: true,
+			errContains: "workerPoolEngineConfig[pool-x]",
+		},
+		{
+			name: "nil per-pool engine entry is skipped",
+			config: &service.FalcoServiceConfig{
+				FalcoConfig: &service.FalcoConfig{
+					WorkerPoolEngineConfig: map[string]*service.FalcoEngineConfig{
+						"pool-a": nil,
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "nil FalcoConfig is accepted",
+			config:      &service.FalcoServiceConfig{FalcoConfig: nil},
 			expectError: false,
 		},
 	}

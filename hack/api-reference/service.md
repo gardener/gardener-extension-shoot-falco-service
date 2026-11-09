@@ -162,6 +162,30 @@ object (keys:string, values:<a href="#falcoresources">FalcoResources</a>)
 <p>WorkerPoolResources allows per-worker-pool resource overrides, keyed by<br />pool name. A pool listed here inherits Resources for any field it does<br />not set. Pools not listed use Resources directly. If Resources is also<br />nil, system defaults apply.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>engineConfig</code></br>
+<em>
+<a href="#falcoengineconfig">FalcoEngineConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EngineConfig holds global Falco engine tuning parameters. If nil, the<br />chart defaults apply (cpus_for_each_buffer: 2, buf_size_preset: 4).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>workerPoolEngineConfig</code></br>
+<em>
+object (keys:string, values:<a href="#falcoengineconfig">FalcoEngineConfig</a>)
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WorkerPoolEngineConfig allows per-worker-pool engine config overrides,<br />keyed by pool name. A pool listed here inherits EngineConfig for any<br />field it does not set. Pools not listed use EngineConfig directly. If<br />EngineConfig is also nil, chart defaults apply.</p>
+</td>
+</tr>
 
 </tbody>
 </table>
@@ -274,6 +298,57 @@ string
 </td>
 <td>
 <p></p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="falcoengineconfig">FalcoEngineConfig
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#falcoconfig">FalcoConfig</a>)
+</p>
+
+<p>
+FalcoEngineConfig holds Falco kernel-driver ring-buffer tuning parameters.
+Both fields map to the modern_ebpf section of falco.yaml.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>cpusForEachBuffer</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CpusForEachBuffer controls how many CPUs share one syscall ring buffer.<br />Lower values mean more buffers (more memory, less contention).<br />Valid range: 1–64. If nil, the chart default (2) applies.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>bufSizePreset</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BufSizePreset selects the ring-buffer size preset (1 = smallest … 10 = largest).<br />Larger presets reduce event drops under high syscall rates at the cost of memory.<br />Valid range: 1–10. If nil, the chart default (4) applies.</p>
 </td>
 </tr>
 

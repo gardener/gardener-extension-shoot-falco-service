@@ -28,24 +28,30 @@ REPO_ROOT=/mnt/d040949/home/ccloud/go/src/github.com/gardener/gardener-extension
 
 ## What this test does
 
-1. **Deploy the extension** with the new `AdaptiveResources` code (`make extension-up`)
+1. **Deploy the extension** with the latest code (`make extension-up`)
 2. **Create a shoot** named `local` in `garden-local` (if not already present)
 3. **Patch the cloud profile** to add `local-large` machine type (4 CPU, 32Gi)
 4. **Add a second worker pool** `local-large` (min=0, max=0 — no actual nodes needed) to the shoot
-5. **Deploy Falco with `adaptiveResources`** formulas:
-   - `cpuRequest: "NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)"`
-   - `memoryRequest: "NodeMemoryGi * 16.0"`
+5. **Deploy Falco with `resources` + `workerPoolResources`** (per-pool DaemonSet path):
+   - Global: `cpuRequest: "NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)"`, `memoryRequest: "NodeMemoryGi * 16.0"`
 6. **Wait for shoot reconcile** to complete
 7. **Verify in the shoot cluster** (`kube-system`):
-   - `falco-local` DaemonSet exists (1 CPU pool → 200m cpuRequest)
-   - `falco-local-large` DaemonSet exists (4 CPU pool → 800m cpuRequest)
+   - `falco-wp-local` DaemonSet exists (1 CPU pool → 200m cpuRequest)
+   - `falco-wp-local-large` DaemonSet exists (4 CPU pool → 800m cpuRequest)
    - `falco-default` DaemonSet exists (DoesNotExist affinity)
    - Old single `falco` DaemonSet is ABSENT
 8. **Verify resource values** on each per-pool DaemonSet
-9. **Remove the second worker pool** `local-large` from the shoot + trigger reconcile
-10. **Verify** `falco-local-large` DaemonSet is gone; `falco-local` and `falco-default` remain
-11. **Tear down Falco** entirely; verify all adaptive DaemonSets are gone
-12. **Cleanup**: remove `local-large` machine type from cloud profile; remove worker pool
+9. **Deploy Falco with `engineConfig` + `workerPoolEngineConfig`** — add engine params to the existing config:
+   - Global: `cpusForEachBuffer: 4`, `bufSizePreset: 6`
+   - `local-large` pool override: `cpusForEachBuffer: 8`
+10. **Wait for shoot reconcile** to complete
+11. **Verify engine parameters** in each pool's `falco.yaml` ConfigMap:
+    - `falco-wp-local` ConfigMap: `cpus_for_each_buffer: 4`, `buf_size_preset: 6`
+    - `falco-wp-local-large` ConfigMap: `cpus_for_each_buffer: 8`, `buf_size_preset: 6`
+12. **Remove the second worker pool** `local-large` from the shoot + trigger reconcile
+13. **Verify** `falco-wp-local-large` DaemonSet is gone; `falco-wp-local` and `falco-default` remain
+14. **Tear down Falco** entirely; verify all adaptive DaemonSets are gone
+15. **Cleanup**: remove `local-large` machine type from cloud profile; remove worker pool
 
 ## CRITICAL: Start with a clean environment
 
@@ -230,61 +236,16 @@ kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS get shoot $SHOOT_NAME -w
 
 Wait for `Succeeded`.
 
-### Step 6 — Deploy Falco with AdaptiveResources
+### Step 6 — Deploy Falco with per-pool resources
 
 Use `falco-version: 0.44.1` (or latest supported/preview from Step 0).
 
 Formula logic:
-- `local` pool: 1 CPU → `NodeCPU < 2` → **200m** cpuRequest, `1 CPU * 16 = 16` → **16Mi** memoryRequest... wait, `NodeMemoryGi=8` for local so `8*16=128` → **128Mi**.
-- `local-large` pool: 4 CPU → `NodeCPU >= 4` → **800m** cpuRequest, `NodeMemoryGi=32` → `32*16=512` → **512Mi**.
+- `local` pool: 1 CPU → `NodeCPU < 2` → **200m** cpuRequest; `NodeMemoryGi=8` → `8×16=128` → **128Mi** memoryRequest
+- `local-large` pool: 4 CPU → `NodeCPU >= 4` → **800m** cpuRequest; `NodeMemoryGi=32` → `32×16=512` → **512Mi** memoryRequest
 
 ```bash
 FALCO_VERSION=0.44.1  # or 0.42.1
-
-kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS patch shoot $SHOOT_NAME --type=json -p "$(cat <<'ENDPATCH'
-[
-  {
-    "op": "add",
-    "path": "/spec/extensions",
-    "value": [
-      {
-        "type": "shoot-falco-service",
-        "providerConfig": {
-          "apiVersion": "falco.extensions.gardener.cloud/v1alpha1",
-          "kind": "FalcoServiceConfig",
-          "falcoVersion": "FALCO_VER",
-          "rules": {"standard": ["falco-rules"]},
-          "destinations": [{"name": "stdout"}],
-          "falcoConfig": {
-            "adaptiveResources": {
-              "formulas": {
-                "cpuRequest": "NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)",
-                "memoryRequest": "NodeMemoryGi * 16.0"
-              }
-            }
-          }
-        }
-      }
-    ]
-  }
-]
-ENDPATCH
-)" 2>/dev/null || true
-```
-
-**Note**: If the shoot already has extensions (from a previous test run), use `"op":"replace"` instead of `"op":"add"`. Check first:
-
-```bash
-kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS get shoot $SHOOT_NAME \
-  -o jsonpath='{.spec.extensions[*].type}'
-```
-
-If empty, use `add`. If `shoot-falco-service` is present, use `replace` with index 0.
-
-Actually, the safest approach is to use a merge patch:
-
-```bash
-FALCO_VERSION=0.44.1
 
 kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS patch shoot $SHOOT_NAME --type=merge -p "{
   \"spec\": {
@@ -298,10 +259,10 @@ kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS patch shoot $SHOOT_NAME 
           \"rules\": {\"standard\": [\"falco-rules\"]},
           \"destinations\": [{\"name\": \"stdout\"}],
           \"falcoConfig\": {
-            \"adaptiveResources\": {
-              \"formulas\": {
-                \"cpuRequest\": \"NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)\",
-                \"memoryRequest\": \"NodeMemoryGi * 16.0\"
+            \"resources\": {
+              \"requests\": {
+                \"cpu\": \"NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)\",
+                \"memory\": \"NodeMemoryGi * 16.0\"
               }
             }
           }
@@ -334,9 +295,9 @@ kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonsets | grep falco
 
 Expected output:
 ```
-falco-default      0         0         0       ...   (no matching nodes, DoesNotExist affinity)
-falco-local        1         1         1       ...   (running on the 1 local node)
-falco-local-large  0         0         0       ...   (pool has 0 nodes)
+falco-default        0         0         0       ...   (no matching nodes, DoesNotExist affinity)
+falco-wp-local       1         1         1       ...   (running on the 1 local node)
+falco-wp-local-large 0         0         0       ...   (pool has 0 nodes)
 ```
 
 **Verify `falco` DaemonSet is ABSENT:**
@@ -349,16 +310,16 @@ kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco 2>&1
 ### Step 8 — Verify resource values
 
 ```bash
-# falco-local should have 200m cpu request (1 CPU pool)
-kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-local \
+# falco-wp-local should have 200m cpu request (1 CPU pool)
+kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-wp-local \
   -o jsonpath='{.spec.template.spec.containers[?(@.name=="falco")].resources}'
 ```
 
 Expected: `{"requests":{"cpu":"200m","memory":"128Mi"}}`
 
 ```bash
-# falco-local-large should have 800m cpu request (4 CPU pool)
-kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-local-large \
+# falco-wp-local-large should have 800m cpu request (4 CPU pool)
+kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-wp-local-large \
   -o jsonpath='{.spec.template.spec.containers[?(@.name=="falco")].resources}'
 ```
 
@@ -373,14 +334,103 @@ kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-default \
 Expected: contains `"operator": "DoesNotExist"` on the `worker.gardener.cloud/pool` key.
 
 ```bash
-# falco-local should have nodeSelector for pool 'local'
-kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-local \
+# falco-wp-local should have nodeSelector for pool 'local'
+kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonset falco-wp-local \
   -o jsonpath='{.spec.template.spec.nodeSelector}'
 ```
 
 Expected: `{"worker.gardener.cloud/pool":"local"}`
 
-### Step 9 — Remove the second worker pool and verify DaemonSet removal
+### Step 9 — Add engineConfig and workerPoolEngineConfig, verify engine parameters
+
+Patch the shoot to add global engine config and a per-pool override for `local-large`:
+- Global: `cpusForEachBuffer: 4`, `bufSizePreset: 6`
+- `local-large` pool override: `cpusForEachBuffer: 8` (bufSizePreset falls back to global value 6)
+
+```bash
+kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS patch shoot $SHOOT_NAME --type=merge -p "{
+  \"spec\": {
+    \"extensions\": [
+      {
+        \"type\": \"shoot-falco-service\",
+        \"providerConfig\": {
+          \"apiVersion\": \"falco.extensions.gardener.cloud/v1alpha1\",
+          \"kind\": \"FalcoServiceConfig\",
+          \"falcoVersion\": \"$FALCO_VERSION\",
+          \"rules\": {\"standard\": [\"falco-rules\"]},
+          \"destinations\": [{\"name\": \"stdout\"}],
+          \"falcoConfig\": {
+            \"resources\": {
+              \"requests\": {
+                \"cpu\": \"NodeCPU < 2 ? 200.0 : (NodeCPU < 4 ? 400.0 : 800.0)\",
+                \"memory\": \"NodeMemoryGi * 16.0\"
+              }
+            },
+            \"engineConfig\": {
+              \"cpusForEachBuffer\": 4,
+              \"bufSizePreset\": 6
+            },
+            \"workerPoolEngineConfig\": {
+              \"local-large\": {
+                \"cpusForEachBuffer\": 8
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}"
+```
+
+Trigger reconcile:
+
+```bash
+kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS \
+  annotate shoot $SHOOT_NAME "gardener.cloud/operation=reconcile" --overwrite
+kubectl --kubeconfig=$KUBECONFIG_VIRTUAL -n $PROJECT_NS get shoot $SHOOT_NAME -w
+```
+
+Wait for `Succeeded`, then verify engine parameters in each pool's `falco.yaml` ConfigMap.
+
+The ConfigMap for each pool is named after the DaemonSet (e.g. `falco-wp-local`). The `engine.modern_ebpf` section is embedded in the `falco.yaml` key:
+
+```bash
+# falco-wp-local: global values apply → cpus_for_each_buffer: 4, buf_size_preset: 6
+kubectl --kubeconfig=$SHOOT_KC -n kube-system get configmap falco-wp-local \
+  -o jsonpath='{.data.falco\.yaml}' | grep -A5 "modern_ebpf"
+```
+
+Expected output contains:
+```yaml
+modern_ebpf:
+  buf_size_preset: 6
+  cpus_for_each_buffer: 4
+```
+
+```bash
+# falco-wp-local-large: per-pool override → cpus_for_each_buffer: 8, buf_size_preset: 6 (from global)
+kubectl --kubeconfig=$SHOOT_KC -n kube-system get configmap falco-wp-local-large \
+  -o jsonpath='{.data.falco\.yaml}' | grep -A5 "modern_ebpf"
+```
+
+Expected output contains:
+```yaml
+modern_ebpf:
+  buf_size_preset: 6
+  cpus_for_each_buffer: 8
+```
+
+Verify the `falco-default` ConfigMap uses the global engine config too:
+
+```bash
+kubectl --kubeconfig=$SHOOT_KC -n kube-system get configmap falco-default \
+  -o jsonpath='{.data.falco\.yaml}' | grep -A5 "modern_ebpf"
+```
+
+Expected: `cpus_for_each_buffer: 4`, `buf_size_preset: 6`
+
+### Step 10 — Remove the second worker pool and verify DaemonSet removal
 
 Find the index of `local-large` in the workers array:
 
@@ -411,9 +461,9 @@ After reconcile, verify in the shoot cluster:
 kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonsets | grep falco
 ```
 
-Expected: `falco-local-large` is GONE. `falco-local` and `falco-default` remain.
+Expected: `falco-wp-local-large` is GONE. `falco-wp-local` and `falco-default` remain.
 
-### Step 10 — Tear down Falco entirely
+### Step 11 — Tear down Falco entirely
 
 Remove the extension from the shoot:
 
@@ -439,7 +489,7 @@ kubectl --kubeconfig=$SHOOT_KC -n kube-system get daemonsets | grep falco
 # Expected: no output
 ```
 
-### Step 11 — Cleanup: remove `local-large` machine type from cloud profile
+### Step 12 — Cleanup: remove `local-large` machine type from cloud profile
 
 ```bash
 # Find the index of local-large in machineTypes
@@ -467,8 +517,9 @@ kubectl --kubeconfig=$KUBECONFIG_VIRTUAL get cloudprofile local \
 
 - **Extension not healthy after `make extension-up`**: Check `kubectl --kubeconfig=$KUBECONFIG_SEED get pods -n extension-shoot-falco-service-garden-local-* 2>/dev/null || kubectl --kubeconfig=$KUBECONFIG_SEED get pods -A | grep falco`
 - **Shoot stuck in reconcile**: Check `kubectl --kubeconfig=$KUBECONFIG_VIRTUAL describe shoot -n $PROJECT_NS $SHOOT_NAME` for error conditions. Check `kubectl --kubeconfig=$KUBECONFIG_SEED logs -l app=gardenlet -n garden --tail=100 | grep -i falco`
-- **ManagedResource not applying**: Check `kubectl --kubeconfig=$KUBECONFIG_SEED get managedresources -A | grep falco`. The adaptive one is named `extension-shoot-falco-service-adaptive`.
-- **Validator rejecting config**: Run the patch and check error. Make sure both `resources` and `adaptiveResources` are NOT set simultaneously.
+- **ManagedResource not applying**: Check `kubectl --kubeconfig=$KUBECONFIG_SEED get managedresources -A | grep falco`. The per-pool resources are in `extension-shoot-falco-service-adaptive`.
+- **Validator rejecting config**: Run the patch and check the error message. For engine config: `cpusForEachBuffer` must be 1–64, `bufSizePreset` must be 1–10.
+- **Engine params not appearing in ConfigMap**: Confirm the shoot reconciled successfully, then grep the ConfigMap: `kubectl --kubeconfig=$SHOOT_KC -n kube-system get configmap falco-wp-local -o jsonpath='{.data.falco\.yaml}' | grep -A10 modern_ebpf`
 - **Wrong resource values**: The formula uses `NodeCPU` (float) and `NodeMemoryGi` (float). For `local` pool: CPU=1, MemoryGi=8. For `local-large`: CPU=4, MemoryGi=32.
 
 ## Expected final state

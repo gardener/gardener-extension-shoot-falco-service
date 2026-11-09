@@ -164,6 +164,34 @@ type FalcoConfig struct {
 	// nil, system defaults apply.
 	// +optional
 	WorkerPoolResources map[string]*FalcoResources
+
+	// EngineConfig holds global Falco engine tuning parameters. If nil, the
+	// chart defaults apply (cpus_for_each_buffer: 2, buf_size_preset: 4).
+	// +optional
+	EngineConfig *FalcoEngineConfig
+
+	// WorkerPoolEngineConfig allows per-worker-pool engine config overrides,
+	// keyed by pool name. A pool listed here inherits EngineConfig for any
+	// field it does not set. Pools not listed use EngineConfig directly. If
+	// EngineConfig is also nil, chart defaults apply.
+	// +optional
+	WorkerPoolEngineConfig map[string]*FalcoEngineConfig
+}
+
+// FalcoEngineConfig holds Falco kernel-driver ring-buffer tuning parameters.
+// Both fields map to the modern_ebpf section of falco.yaml.
+type FalcoEngineConfig struct {
+	// CpusForEachBuffer controls how many CPUs share one syscall ring buffer.
+	// Lower values mean more buffers (more memory, less contention).
+	// Valid range: 1–64. If nil, the chart default (2) applies.
+	// +optional
+	CpusForEachBuffer *int
+
+	// BufSizePreset selects the ring-buffer size preset (1 = smallest … 10 = largest).
+	// Larger presets reduce event drops under high syscall rates at the cost of memory.
+	// Valid range: 1–10. If nil, the chart default (4) applies.
+	// +optional
+	BufSizePreset *int
 }
 
 // FalcoResources mirrors the existing structure exactly so that existing shoot

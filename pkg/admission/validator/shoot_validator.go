@@ -503,6 +503,22 @@ func verifyFalcoConfigResources(falcoConf *service.FalcoServiceConfig) error {
 		}
 	}
 
+	if fc.EngineConfig != nil {
+		if err := validateFalcoEngineConfig(fc.EngineConfig, "falcoConfig.engineConfig"); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	for poolName, poolEngine := range fc.WorkerPoolEngineConfig {
+		if poolEngine == nil {
+			continue
+		}
+		prefix := fmt.Sprintf("falcoConfig.workerPoolEngineConfig[%s]", poolName)
+		if err := validateFalcoEngineConfig(poolEngine, prefix); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
 	if len(allErrs) > 0 {
 		return errors.Join(allErrs...)
 	}
@@ -576,6 +592,30 @@ func validateFalcoResources(resources *service.FalcoResources, prefix string) er
 		return errors.Join(allErrs...)
 	}
 
+	return nil
+}
+
+// validateFalcoEngineConfig validates a FalcoEngineConfig under the given field path prefix.
+func validateFalcoEngineConfig(cfg *service.FalcoEngineConfig, prefix string) error {
+	var allErrs []error
+
+	if cfg.CpusForEachBuffer != nil {
+		v := *cfg.CpusForEachBuffer
+		if v < 1 || v > 64 {
+			allErrs = append(allErrs, fmt.Errorf("%s.cpusForEachBuffer: must be between 1 and 64, got %d", prefix, v))
+		}
+	}
+
+	if cfg.BufSizePreset != nil {
+		v := *cfg.BufSizePreset
+		if v < 1 || v > 10 {
+			allErrs = append(allErrs, fmt.Errorf("%s.bufSizePreset: must be between 1 and 10, got %d", prefix, v))
+		}
+	}
+
+	if len(allErrs) > 0 {
+		return errors.Join(allErrs...)
+	}
 	return nil
 }
 
