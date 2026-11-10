@@ -155,13 +155,35 @@ func (p *FalcoProfileManager) StartWatch() {
 
 func (p *FalcoProfileManager) watch() error {
 	p.logger.Info("Starting watches for FalcoProfile custom resources")
-	watcher, err := p.client.Resource(schema.GroupVersionResource{
+	resource := p.client.Resource(schema.GroupVersionResource{
 		Group:    v1alpha1.GroupName,
 		Version:  v1alpha1.GroupVersion,
 		Resource: "falcoprofiles",
-	}).Watch(context.Background(), metav1.ListOptions{})
+	})
+
+	list, err := resource.List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list FalcoProfiles: %w", err)
+	}
+
+	p.mutex.Lock()
+	clear(p.falcoProfiles)
+	for i := range list.Items {
+		fp, err := decodeEvent(&list.Items[i])
+		if err != nil {
+			p.logger.Error(err, "error decoding FalcoProfile during initial list")
+			continue
+		}
+		p.falcoProfiles[fp.Name] = fp
+	}
+	p.rebuild()
+	p.mutex.Unlock()
+
+	watcher, err := resource.Watch(context.Background(), metav1.ListOptions{
+		ResourceVersion: list.GetResourceVersion(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start FalcoProfile watch: %w", err)
 	}
 	for event := range watcher.ResultChan() {
 		p.logger.V(6).Info("received FalcoProfile event", "event", event)
@@ -180,6 +202,9 @@ func (p *FalcoProfileManager) watch() error {
 			} else {
 				p.deleteEvent(fe.Name)
 			}
+		case watch.Error:
+			p.logger.Error(fmt.Errorf("watch error event: %v", event.Object), "FalcoProfile watch returned error, restarting")
+			return nil
 		}
 	}
 	return nil

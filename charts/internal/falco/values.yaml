@@ -1541,8 +1541,8 @@ falcosidekick:
 
   # -- Sidekick pod securityContext
   podSecurityContext:
-  runAsUser: 1234
-  fsGroup: 1234
+    runAsUser: 1234
+    fsGroup: 1234
 
   # -- Sidekick container securityContext
   securityContext:
@@ -1560,8 +1560,8 @@ falcosidekick:
 
   # -- podSecurityPolicy
   podSecurityPolicy:
-  # -- Whether to create a podSecurityPolicy
-  create: false
+    # -- Whether to create a podSecurityPolicy
+    create: false
 
   # -- Name of the priority class to be used by the Sidekickpods, priority class needs to be created beforehand
   priorityClassName: gardener-shoot-system-900

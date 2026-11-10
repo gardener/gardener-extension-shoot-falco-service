@@ -98,6 +98,9 @@ func (r *Reconciler) reconcile(ctx context.Context, shoot *gardencorev1beta1.Sho
 	}
 
 	currentVersion := falcoConf.FalcoVersion
+	if currentVersion == nil {
+		return fmt.Errorf("falcoVersion is nil in Falco configuration for shoot %s", shoot.Name)
+	}
 	availableVersions := profile.FalcoProfileManagerInstance.GetFalcoVersions()
 
 	forceUpdate := isVersionExpired(*currentVersion, *availableVersions)
