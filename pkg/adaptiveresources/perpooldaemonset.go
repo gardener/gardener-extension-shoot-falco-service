@@ -70,15 +70,15 @@ func RenderPerPoolDaemonSets(
 
 		poolValues := maps.Clone(baseValues)
 		poolValues["fullnameOverride"] = "falco-wp-" + worker.Name
-		merged := map[string]string{
+		nodeSelector := map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
 		if userSelector, ok := baseValues["nodeSelector"].(map[string]string); ok {
 			for k, v := range userSelector {
-				merged[k] = v
+				nodeSelector[k] = v
 			}
 		}
-		poolValues["nodeSelector"] = merged
+		poolValues["nodeSelector"] = nodeSelector
 		// Always build a fresh podLabels map so we never mutate the shared map that
 		// baseValues["podLabels"] points to (maps.Clone is shallow).
 		poolPodLabels := map[string]string{
