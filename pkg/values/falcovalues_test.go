@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	yaml "sigs.k8s.io/yaml"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-shoot-falco-service/charts"
 	"github.com/gardener/gardener-extension-shoot-falco-service/pkg/apis/config"
@@ -708,7 +708,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(scr[0]["name"]).To(Equal("my-shoot-configmap"))
 
 		// render chart and check if the values are set correctly
-		renderer, err := util.NewChartRendererForShoot("1.32.2")
+		renderer, err := util.NewChartRendererForShoot("1.37.0")
 		Expect(err).To(BeNil())
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 		Expect(err).To(BeNil())
@@ -945,7 +945,7 @@ var _ = Describe("Test value generation for helm chart without central storage",
 		Expect(tolerations[1].Effect).To(Equal(corev1.TaintEffectNoSchedule))
 
 		// render chart and check if the values are set correctly
-		renderer, err := util.NewChartRendererForShoot("1.32.2")
+		renderer, err := util.NewChartRendererForShoot("1.37.0")
 		Expect(err).To(BeNil())
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 		Expect(err).To(BeNil())
@@ -1525,7 +1525,7 @@ var _ = Describe("BuildFalcoValues", func() {
 		Expect(values).NotTo(BeNil())
 
 		// Render chart and check if the values are set correctly
-		renderer, err := util.NewChartRendererForShoot("1.32.2")
+		renderer, err := util.NewChartRendererForShoot("1.37.0")
 		Expect(err).To(BeNil())
 		release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 		Expect(err).To(BeNil())
@@ -1597,7 +1597,7 @@ var _ = Describe("BuildFalcoValues", func() {
 			Expect(requests["memory"]).To(Equal("128Mi"))
 
 			// Render chart and verify resources are set in DaemonSet
-			renderer, err := util.NewChartRendererForShoot("1.32.2")
+			renderer, err := util.NewChartRendererForShoot("1.37.0")
 			Expect(err).To(BeNil())
 			release, err := renderer.RenderEmbeddedFS(charts.InternalChart, filepath.Join(charts.InternalChartsPath, constants.FalcoChartname), constants.FalcoChartname, metav1.NamespaceSystem, values)
 			Expect(err).To(BeNil())
