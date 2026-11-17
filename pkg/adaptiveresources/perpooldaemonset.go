@@ -70,9 +70,15 @@ func RenderPerPoolDaemonSets(
 
 		poolValues := maps.Clone(baseValues)
 		poolValues["fullnameOverride"] = "falco-wp-" + worker.Name
-		poolValues["nodeSelector"] = map[string]string{
+		nodeSelector := map[string]string{
 			v1beta1constants.LabelWorkerPool: worker.Name,
 		}
+		if userSelector, ok := baseValues["nodeSelector"].(map[string]string); ok {
+			for k, v := range userSelector {
+				nodeSelector[k] = v
+			}
+		}
+		poolValues["nodeSelector"] = nodeSelector
 		// Always build a fresh podLabels map so we never mutate the shared map that
 		// baseValues["podLabels"] points to (maps.Clone is shallow).
 		poolPodLabels := map[string]string{
@@ -138,7 +144,8 @@ func RenderPerPoolDaemonSets(
 	// daemonSetOnly is absent so every template renders.
 	defaultValues := maps.Clone(baseValues)
 	defaultValues["fullnameOverride"] = "falco-default"
-	delete(defaultValues, "nodeSelector")
+	// falco-default uses DoesNotExist affinity to stay off worker-pool nodes; the user's
+	// nodeSelector (if any) is kept so opt-in/opt-out labels are also honored here.
 	// Remove any resource values from baseValues — falco-default has no machine type
 	// to evaluate against, so it uses chart defaults.
 	delete(defaultValues, "resources")
