@@ -144,6 +144,61 @@ var _ = Describe("RenderPerPoolDaemonSets", func() {
 		Expect(combineManifests(shared, pools)).To(ContainSubstring("pool-a"))
 	})
 
+	It("user nodeSelector is merged with pool label in per-pool DaemonSet", func() {
+		baseValues := minimalBaseValues()
+		baseValues["nodeSelector"] = map[string]string{"example.com/allowed": "1"}
+		_, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, baseValues, workers, cloudProfile, falcoConfig)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pools).To(HaveLen(2))
+		for _, pm := range pools {
+			manifest := string(pm.Manifest)
+			Expect(manifest).To(ContainSubstring("worker.gardener.cloud/pool: " + pm.PoolName))
+			Expect(manifest).To(ContainSubstring(`example.com/allowed: "1"`))
+		}
+	})
+
+	It("user nodeSelector is honored in falco-default", func() {
+		baseValues := minimalBaseValues()
+		baseValues["nodeSelector"] = map[string]string{"example.com/allowed": "1"}
+		shared, _, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, baseValues, workers, cloudProfile, falcoConfig)
+		Expect(err).NotTo(HaveOccurred())
+		sharedStr := string(shared)
+		Expect(sharedStr).To(ContainSubstring(`example.com/allowed: "1"`))
+		Expect(sharedStr).To(ContainSubstring("DoesNotExist"))
+	})
+
+	It("user nodeSelector with multiple keys all appear in per-pool DaemonSet and falco-default", func() {
+		baseValues := minimalBaseValues()
+		baseValues["nodeSelector"] = map[string]string{
+			"example.com/allowed": "1",
+			"example.com/tier":    "production",
+		}
+		shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, baseValues, workers, cloudProfile, falcoConfig)
+		Expect(err).NotTo(HaveOccurred())
+		all := combineManifests(shared, pools)
+		Expect(all).To(ContainSubstring(`example.com/allowed: "1"`))
+		Expect(all).To(ContainSubstring(`example.com/tier: production`))
+	})
+
+	It("pool label is still present when user nodeSelector is absent", func() {
+		_, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
+		Expect(err).NotTo(HaveOccurred())
+		for _, pm := range pools {
+			Expect(string(pm.Manifest)).To(ContainSubstring("worker.gardener.cloud/pool: " + pm.PoolName))
+		}
+	})
+
+	It("baseValues nodeSelector is not mutated by per-pool nodeSelector merge", func() {
+		baseValues := minimalBaseValues()
+		userSelector := map[string]string{"example.com/allowed": "1"}
+		baseValues["nodeSelector"] = userSelector
+		_, _, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, baseValues, workers, cloudProfile, falcoConfig)
+		Expect(err).NotTo(HaveOccurred())
+		// The user's original selector must not gain the pool label key.
+		Expect(userSelector).To(Equal(map[string]string{"example.com/allowed": "1"}))
+		Expect(userSelector).NotTo(HaveKey("worker.gardener.cloud/pool"))
+	})
+
 	It("manifest contains DoesNotExist affinity for the default DaemonSet", func() {
 		shared, pools, err := adaptiveresources.RenderPerPoolDaemonSets(testRenderer, minimalBaseValues(), workers, cloudProfile, falcoConfig)
 		Expect(err).NotTo(HaveOccurred())
