@@ -2063,5 +2063,37 @@ var _ = Describe("BuildFalcoValues", func() {
 			Expect(customfields).NotTo(HaveKey("cluster_purpose"))
 			Expect(customfields).To(HaveKey("cluster_id"))
 		})
+
+		It("container plugin init_config has hooks [create start] and label_max_len for Falco >= 0.41.2", func(ctx SpecContext) {
+			reconcileCtx := baseReconcileCtx(shootExtension)
+			values, err := configBuilder.BuildFalcoValues(ctx, logger, reconcileCtx)
+			Expect(err).NotTo(HaveOccurred())
+
+			falcoMap := values["falco"].(map[string]any)
+			plugins, ok := falcoMap["plugins"].([]interface{})
+			Expect(ok).To(BeTrue(), "falco.plugins should be a []interface{}")
+
+			var containerPlugin map[string]interface{}
+			for _, p := range plugins {
+				pm := p.(map[string]interface{})
+				if pm["name"] == "container" {
+					containerPlugin = pm
+					break
+				}
+			}
+			Expect(containerPlugin).NotTo(BeNil(), "container plugin not found in falco.plugins")
+
+			initConfig := containerPlugin["init_config"].(map[string]interface{})
+			Expect(initConfig).To(HaveKeyWithValue("label_max_len", 100))
+			Expect(initConfig).To(HaveKeyWithValue("with_size", false))
+
+			hooks, ok := initConfig["hooks"].([]string)
+			Expect(ok).To(BeTrue(), "hooks should be []string")
+			Expect(hooks).To(ConsistOf("create", "start"))
+
+			engines := initConfig["engines"].(map[string]interface{})
+			criEngine := engines["cri"].(map[string]interface{})
+			Expect(criEngine["enabled"]).To(BeTrue())
+		})
 	})
 })
