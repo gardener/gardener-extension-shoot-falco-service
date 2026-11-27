@@ -635,6 +635,13 @@ func (c *ConfigBuilder) enableContainerPlugin(falcoChartValues map[string]interf
 		"name":         "container",
 		"library_path": "libcontainer.so",
 		"init_config": map[string]interface{}{
+			"label_max_len": 100,
+			"with_size":     false,
+			// "start" gives Falco a second chance to populate the metadata cache for
+			// containers where the "create" event was missed (startup race). Without it,
+			// events from containers that started before or during Falco startup arrive
+			// with k8s.pod.name=None and container.*=None.
+			"hooks": []string{"create", "start"},
 			"engines": map[string]interface{}{
 				"docker": map[string]interface{}{
 					"enabled": false,
